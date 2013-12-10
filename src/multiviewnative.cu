@@ -2,7 +2,9 @@
 // ------- C++ ----------
 #include <iostream>
 #include <cmath>
+#include <vector>
 #include <algorithm>
+#include <functional>
 
 // ------- CUDA ----------
 #include "cuda.h"
@@ -22,8 +24,6 @@ static const int dimsImage = 3;
 #else
 static const int dimsImage = DIMSIMAGE;
 #endif
-
-typedef float imageType;//the kind sof images we are working with (you will need to recompile to work with other types)
 
 __global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* kernelCUDA,
 								       imageType* kernelPaddedCUDA,
@@ -207,7 +207,7 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
 }
 
   
-void compute_quotient(imageType* _input,imageType* _output,size_t _size,size_t _offset, int _device){
+void compute_quotient(imageType* _input,imageType* _output,size_t _size, int _device){
 
   imageType* d_input = 0;
   imageType* d_output = 0;
@@ -241,7 +241,6 @@ void compute_final_values(imageType* _image,
 			  imageType* _integral,
 			  imageType* _weight,
 			  size_t _size,
-			  size_t _offset, 
 			  float _minValue,
 			  double _lambda, 
 			  int _device){
@@ -260,7 +259,6 @@ void compute_final_values(imageType* _image,
   HANDLE_ERROR(cudaMemcpy(d_integral , _integral , sizeInByte, cudaMemcpyHostToDevice));
   HANDLE_ERROR(cudaMemcpy(d_weight , _weight , sizeInByte, cudaMemcpyHostToDevice));
   HANDLE_ERROR(cudaMemcpy(d_image , _image , sizeInByte, cudaMemcpyHostToDevice));
-
   
   size_t items_per_block = 128;
   size_t items_per_grid = _size/items_per_block;
@@ -282,4 +280,184 @@ void compute_final_values(imageType* _image,
   HANDLE_ERROR(cudaFree(d_weight));
   HANDLE_ERROR(cudaFree(d_image));
   
+}
+
+void iterate_fft_plain(imageType* _input,
+		       imageType* _kernel,
+		       imageType* _output,
+		       int* _input_dims,
+		       int* _kernel_dims, 
+		       int _device){
+  
+  size_t inputSize = std::accumulate(&_input_dims[0],&_input_dims[0]+dimsImage,1,std::multiply);
+  size_t kernelSize = std::accumulate(&_kernel_dims[0],&_kernel_dims[0]+dimsImage,1,std::multiply);
+  
+  size_t inputInByte = inputSize*sizeof(imageType);
+  size_t kernelInByte = kernelSize*sizeof(imageType);
+
+  imageType* input = 0;
+  imageType* kernel1 = 0;
+  imageType* weights = 0;
+  imageType* kernel2 = 0;
+  checkCudaErrors( cudaMallocHost( (void**)&(kernel2),kernelInByte , cudaHostAllocDefault ) );
+  checkCudaErrors( cudaMallocHost( (void**)&(weights),inputInByte , cudaHostAllocDefault ) );
+  checkCudaErrors( cudaMallocHost( (void**)&(kernel1), kernelInByte, cudaHostAllocDefault ) );
+  checkCudaErrors( cudaMallocHost( (void**)&(input),inputInByte , cudaHostAllocDefault ) );
+
+  std::fill(&kernel2[0],&kernel2[0]+kernelSize ,.1f);
+  std::fill(&weights[0],&weights[0]+imageSize  ,1.f);
+  std::copy(&_kernel[0], &_kernel[0] + kernelSize,&kernel1[0]);
+  std::copy(&_input[0], &_input[0] + inputSize,&input[0]);
+
+  //////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Entering Loop here
+  //
+  imageType* d_image_ = 0;
+  imageType* d_initial_ = 0;
+  imageType* d_kernel_ = 0;
+  imageType* d_weights_ = 0;
+
+  size_t imSizeFFT = imageSize + 2*input_dims[0]*input_dims[1]; //size of the R2C transform in cuFFTComplex
+  size_t imSizeFFTInByte = imSizeFFT*sizeof(imageType);
+  int gpu_device = selectDeviceWithHighestComputeCapability();
+
+  checkCudaErrors( cudaMalloc( (void**)&(d_image_), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
+  checkCudaErrors( cudaMalloc( (void**)&(d_initial_), inputInByte ) );
+  checkCudaErrors( cudaMalloc( (void**)&(d_weights_), inputInByte ) );
+  checkCudaErrors( cudaMalloc( (void**)&(d_kernel_), kernelInByte ) );
+  cudaStream_t initial_stream, weights_stream;
+  checkCudaErrors( cudaStreamCreate(&initial_stream));
+  checkCudaErrors( cudaStreamCreate(&weights_stream));
+  checkCudaErrors( cudaMemcpyAsync( d_weights_, weights, inputInByte , cudaMemcpyHostToDevice, weights_stream ) );
+  checkCudaErrors( cudaMemcpyAsync( d_initial_, input, inputInByte , cudaMemcpyHostToDevice ,initial_stream) );
+  
+  checkCudaErrors( cudaMemcpy( d_kernel_, kernel1, kernelInByte , cudaMemcpyHostToDevice ) );
+  checkCudaErrors( cudaMemcpy( d_image_, input, inputInByte , cudaMemcpyHostToDevice ) );
+
+  //convolve(input) with kernel1 -> psiBlurred
+  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
+				      d_kernel_,kernel_dims,
+				      gpu_device);
+
+  //computeQuotient(psiBlurred,input)
+  size_t items_per_block = 128;
+  size_t items_per_grid = imageSize/items_per_block;
+     
+  dim3 threads(items_per_block);
+  dim3 blocks(items_per_grid); 
+  fit_2Dblocks_to_threads_for_device(threads,blocks,gpu_device);
+
+  device_divide<<<blocks,threads,0,initial_stream>>>(d_initial_,d_image_,imageSize);
+  //convolve(psiBlurred) with kernel2 -> integral
+  checkCudaErrors( cudaMemcpy( d_kernel_, kernel2, kernelInByte , cudaMemcpyHostToDevice ) );
+  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
+				      d_kernel_,kernel_dims,
+				      gpu_device);
+  //computeFinalValues(input,integral,weights)
+  device_finalValues_plain<<<blocks,threads,0,weights_stream>>>(d_initial_,d_image_,d_weights_,.0001f,imageSize);
+  
+  
+  checkCudaErrors(cudaMemcpyAsync(input , d_initial_ , inputInByte , cudaMemcpyDeviceToHost, weights_stream));
+  checkCudaErrors(cudaStreamSynchronize(weights_stream));
+  
+  checkCudaErrors( cudaFree( d_image_));
+  checkCudaErrors( cudaFree( d_initial_));
+  checkCudaErrors( cudaFree( d_kernel_));
+  checkCudaErrors( cudaFree( d_weights_));
+  
+  checkCudaErrors( cudaFreeHost( kernel2));
+  checkCudaErrors( cudaFreeHost( weights));
+  checkCudaErrors( cudaFreeHost( kernel1));
+  checkCudaErrors( cudaFreeHost( input  ));
+  checkCudaErrors( cudaStreamDestroy(initial_stream));
+  checkCudaErrors( cudaStreamDestroy(weights_stream));
+	 
+}
+
+void iterate_fft_tikhonov(imageType* _input,
+					imageType* _kernel,
+					imageType* _output,
+					int* _input_dims,
+					int* _kernel_dims,
+					size_t _size, 
+					float _minValue, 
+					double _lambda, 
+					int _device){
+  
+  size_t inputSize = std::accumulate(&_input_dims[0],&_input_dims[0]+dimsImage,1,std::multiply);
+  size_t kernelSize = std::accumulate(&_kernel_dims[0],&_kernel_dims[0]+dimsImage,1,std::multiply);
+  
+  size_t inputInByte = inputSize*sizeof(imageType);
+  size_t kernelInByte = kernelSize*sizeof(imageType);
+
+  imageType* input = createArrayPtr(*image_);
+  imageType* kernel1 = createArrayPtr(*kernel_);
+  std::vector<imageType>* kernel2_ = new std::vector<imageType>(kernelSize);
+  std::vector<imageType>* weights_ = new std::vector<imageType>(imageSize);
+  std::fill(kernel2_->begin(),kernel2_->end(),.1f);
+  std::fill(weights_->begin(),weights_->end(),1.f);
+  imageType* weights = createArrayPtr(*weights_);
+  imageType* kernel2 = createArrayPtr(*kernel2_);
+  
+  //////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // Entering Loop here
+  //
+  imageType* d_image_ = 0;
+  imageType* d_initial_ = 0;
+  imageType* d_kernel_ = 0;
+  imageType* d_weights_ = 0;
+
+  size_t imSizeFFT = imageSize + 2*input_dims[0]*input_dims[1]; //size of the R2C transform in cuFFTComplex
+  size_t imSizeFFTInByte = imSizeFFT*sizeof(imageType);
+  int gpu_device = selectDeviceWithHighestComputeCapability();
+
+  checkCudaErrors( cudaMalloc( (void**)&(d_image_), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
+  checkCudaErrors( cudaMalloc( (void**)&(d_initial_), inputInByte ) );
+  checkCudaErrors( cudaMalloc( (void**)&(d_weights_), inputInByte ) );
+  checkCudaErrors( cudaMalloc( (void**)&(d_kernel_), kernelInByte ) );
+  checkCudaErrors( cudaMemcpy( d_weights_, weights, inputInByte , cudaMemcpyHostToDevice ) );
+
+  
+
+  checkCudaErrors( cudaMemcpy( d_kernel_, kernel1, kernelInByte , cudaMemcpyHostToDevice ) );
+  checkCudaErrors( cudaMemcpy( d_image_, input, inputInByte , cudaMemcpyHostToDevice ) );
+  checkCudaErrors( cudaMemcpy( d_initial_, d_image_, inputInByte , cudaMemcpyDeviceToDevice ) );
+
+  
+  //convolve(input) with kernel1 -> psiBlurred
+  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
+				      d_kernel_,kernel_dims,
+				      gpu_device);
+
+  //computeQuotient(psiBlurred,input)
+  size_t items_per_block = 128;
+  size_t items_per_grid = imageSize/items_per_block;
+     
+  dim3 threads(items_per_block);
+  dim3 blocks(items_per_grid); 
+  fit_2Dblocks_to_threads_for_device(threads,blocks,gpu_device);
+  device_divide<<<blocks,threads>>>(d_initial_,d_image_,imageSize);
+
+  //convolve(psiBlurred) with kernel2 -> integral
+  checkCudaErrors( cudaMemcpy( d_kernel_, kernel2, kernelInByte , cudaMemcpyHostToDevice ) );
+  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
+				      d_kernel_,kernel_dims,
+				      gpu_device);
+  //computeFinalValues(input,integral,weights)
+  device_finalValues_tikhonov<<<blocks,threads>>>(d_initial_,d_image_,d_weights_,.0001f,.2f,imageSize);
+ 
+  
+  checkCudaErrors(cudaMemcpy(input , d_initial_ , inputInByte , cudaMemcpyDeviceToHost));
+ 
+  checkCudaErrors( cudaFree( d_image_));
+  checkCudaErrors( cudaFree( d_initial_));
+  checkCudaErrors( cudaFree( d_kernel_));
+  checkCudaErrors( cudaFree( d_weights_));
+
+  delete kernel2_;
+  delete weights_;
+
+
 }
