@@ -1,166 +1,31 @@
-#define __CONVOLUTION_3D_FFT_MINE_CU__
-
-#include "book.h"
-#include "cuda.h"
-#include "cufft.h"
+#define __MULTIVIEWNATIVE_CU__
+// ------- C++ ----------
 #include <iostream>
 #include <cmath>
 #include <algorithm>
 
-//#include "convolution3Dfft_mine.h"
-#include "convolution3Dfft_mine.h"
-#include "compute_kernels_gpu.cuh"
+// ------- CUDA ----------
+#include "cuda.h"
+#include "cufft.h"
 
-template <typename T>
-T largestDivisor(const T& _to_divide, const T& _divided_by){
-  return (_to_divide + _divided_by -1)/(_divided_by);
-};
+// ------- Project ----------
+#include "multiviewnative.h"
+#include "cuda_helpers.h"
+#include "cuda_kernels.cuh"
 
-
-
-size_t getMaxNThreadsOfDevice(short _devId){
-  cudaDeviceProp prop;
-  HANDLE_ERROR( cudaGetDeviceProperties(&prop, _devId));
-  return prop.maxThreadsPerBlock;
-}
-
-size_t getMaxNBlocksOfDevice(short _devId,short _dim){
-  cudaDeviceProp prop;
-  HANDLE_ERROR( cudaGetDeviceProperties(&prop, _devId));
-  return prop.maxGridSize[_dim];
-}
-
-void fit_2Dblocks_to_threads_for_device(dim3& _blocks, dim3& _threads, const int& _device){
-  
-const size_t max_blocks =  getMaxNBlocksOfDevice(_device,0);
-// const size_t size = _blocks.x*_blocks.y*_threads.x*_threads.y;
-
-  if(_blocks.x > max_blocks){
-    _blocks.y = (_blocks.x+max_blocks-1)/max_blocks;
-    _blocks.x = max_blocks;
-  }
-  
-  
-}
-
-//the definition of the following symbol is correct fo sm_20, sm_30 and above
+#ifndef LB_MAX_THREADS
 #define LB_MAX_THREADS 1024 
+#endif
 
-// #ifndef __CONVOLUTION_3D_FFT_H__
-// static const int MAX_THREADS_CUDA = 1024; //adjust it for your GPU. This is correct for a 2.0 architecture
-// static const int MAX_BLOCKS_CUDA = 65535;
-static const int dimsImage = 3;//so thing can be set at co0mpile time
+#ifndef DIMSIMAGE
+static const int dimsImage = 3;
+#else
+static const int dimsImage = DIMSIMAGE;
+#endif
 
-int getCUDAcomputeCapabilityMajorVersion(int devCUDA)
-{
-	int major = 0, minor = 0;
-	cuDeviceComputeCapability 	( 	&major, &minor,devCUDA);
+typedef float imageType;//the kind sof images we are working with (you will need to recompile to work with other types)
 
-	return major;
-}
-
-int getCUDAcomputeCapabilityMinorVersion(int devCUDA)
-{
-	int major = 0, minor = 0;
-	cuDeviceComputeCapability 	( 	&major, &minor,devCUDA);
-
-	return minor;
-}
-
-int getNumDevicesCUDA()
-{
-	int count = 0;
-	HANDLE_ERROR(cudaGetDeviceCount ( &count ));
-	return count;
-}
-
-void getNameDeviceCUDA(int devCUDA, char* name)
-{	
-	cudaDeviceProp prop;
-	HANDLE_ERROR( cudaGetDeviceProperties(&prop, devCUDA));
-
-	memcpy(name,prop.name,sizeof(char)*256);
-}
-
-long long int getMemDeviceCUDA(int devCUDA)
-{
-	cudaDeviceProp prop;
-	HANDLE_ERROR( cudaGetDeviceProperties(&prop, devCUDA));
-	return ((long long int)prop.totalGlobalMem);
-}
-
-
-
-void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int devCUDA)
-{
-  my_convolution3DfftCUDAInPlace(im,imDim,kernel,kernelDim,devCUDA);
-  return;
-}
-// #endif
-
-//http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#launch-bounds
-// __global__ void __launch_bounds__(MAX_THREADS_CUDA) modulateAndNormalize_kernel(cufftComplex *d_Dst, 
-// 										 cufftComplex *d_Src, 
-// 										 unsigned int dataSize,
-// 			
-__device__ float scale_subtracted(const float& _ax, const float& _bx, 
-				  const float& _ay, const float& _by, 
-				  const float& _c){
-  float result = __fmaf_rn(_ax,_bx,
-			   __fmul_rn(-1.,
-				     __fmul_rn(_ay,_by)
-				     )
-			   );
-  return __fmul_rn(_c,result);
-}
-
-__device__ float scale_added(const float& _ax, const float& _bx, 
-			     const float& _ay, const float& _by,
-			     const float& _c){
-  float result = __fmaf_rn(_ax,_bx,__fmul_rn(_ay,_by));
-  return __fmul_rn(_c,result);
-}
-
-
-__global__ void  my_modulateAndNormalize_kernel(cufftComplex *d_Dst, 
-					     cufftComplex *d_Src, 
-					     unsigned int dataSize,
-					     float c)
-{
-  unsigned int globalIdx  = blockDim.x * blockIdx.x + threadIdx.x;
-  unsigned int kernelSize = blockDim.x * gridDim.x;
-  
-  cufftComplex result, a, b;
-  
-  
-  while(globalIdx < dataSize)    {		
-
-    a = d_Src[globalIdx];
-    b = d_Dst[globalIdx];
-    // result.x = c * (a.x * b.x - a.y * b.y);
-    // result.y = c * (a.x * b.x + a.y * b.y);
-
-    result.x = scale_subtracted(a.x,b.x,a.y,b.y,c);
-    result.y = scale_added(a.x,b.x,a.y,b.y,c);
-
-    d_Dst[globalIdx] = result;
-  
-    
-    globalIdx += kernelSize;
-  }
-};
-
-
-//WARNING: for cuFFT the fastest running index is z direction!!! so pos = z + imDim[2] * (y + imDim[1] * x)
-// __global__ void __launch_bounds__(MAX_THREADS_CUDA) fftShiftKernel(imageType* kernelCUDA,
-// 								   imageType* kernelPaddedCUDA,
-// 								   int kernelDim_0,
-// 								   int kernelDim_1,
-// 								   int kernelDim_2,
-// 								   int imDim_0,
-// 								   int imDim_1,
-// 								   int imDim_2)
-__global__ void  __launch_bounds__(LB_MAX_THREADS) my_fftShiftKernel(imageType* kernelCUDA,
+__global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* kernelCUDA,
 								       imageType* kernelPaddedCUDA,
 								       unsigned int kernelDim_0,
 								       unsigned int kernelDim_1,
@@ -207,7 +72,7 @@ __global__ void  __launch_bounds__(LB_MAX_THREADS) my_fftShiftKernel(imageType* 
 //=====================================================================
 //WARNING: for cuFFT the fastest running index is z direction!!! so pos = z + imDim[2] * (y + imDim[1] * x)
 //NOTE: to avoid transferring a large padded kernel, since memcpy is a limiting factor 
-void my_convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int devCUDA)
+void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int devCUDA)
 {
 	imageType* imCUDA = NULL;
 	imageType* kernelCUDA = NULL;
@@ -240,7 +105,7 @@ void my_convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,i
 
 	///////////////////////////////////////////////////////////////////////
 	// DO THE WORK
-	my_convolution3DfftCUDAInPlace_core(imCUDA, imDim,
+	convolution3DfftCUDAInPlace_core(imCUDA, imDim,
 					    kernelCUDA,kernelDim,
 					    // &fftPlanFwd, &fftPlanInv,
 					    devCUDA);
@@ -265,7 +130,7 @@ void my_convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,i
 //=====================================================================
 //WARNING: for cuFFT the fastest running index is z direction!!! so pos = z + imDim[2] * (y + imDim[1] * x)
 //NOTE: to avoid transferring a large padded kernel, since memcpy is a limiting factor 
-void my_convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
+void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
 					 imageType* _d_kernelCUDA,int* kernelDim,
 					
 					 int devCUDA)
@@ -299,7 +164,7 @@ void my_convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   size_t numBlocksFromImage = (kernelSize+numThreads-1)/(numThreads);
   int numBlocks=std::min(max_blocks_in_x,numBlocksFromImage);
 
-  my_fftShiftKernel<<<numBlocks,numThreads>>>(_d_kernelCUDA,kernelPaddedCUDA,kernelDim[0],kernelDim[1],kernelDim[2],imDim[0],imDim[1],imDim[2]);HANDLE_ERROR_KERNEL;
+  fftShiftKernel<<<numBlocks,numThreads>>>(_d_kernelCUDA,kernelPaddedCUDA,kernelDim[0],kernelDim[1],kernelDim[2],imDim[0],imDim[1],imDim[2]);HANDLE_ERROR_KERNEL;
 
 	
   //make sure GPU finishes 
@@ -320,7 +185,7 @@ void my_convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   numBlocks=std::min(max_blocks_in_x,numBlocksFromImage);
 
   
-  my_modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_d_imCUDA, 
+  modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_d_imCUDA, 
 							   (cufftComplex *)kernelPaddedCUDA, 
 							   halfImSizeFFT,
 							   1.0f/(float)(imSize));HANDLE_ERROR_KERNEL;//last parameter is the size of the FFT
@@ -339,127 +204,6 @@ void my_convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   //release memory
   ( cufftDestroy(fftPlanFwd) );HANDLE_ERROR_KERNEL;
   ( cufftDestroy(fftPlanInv) );HANDLE_ERROR_KERNEL;
-}
-
-int selectDeviceWithHighestComputeCapability(){
-
-  int numDevices=0;
-  HANDLE_ERROR(cudaGetDeviceCount ( &numDevices ));
-  int computeCapability = 0;
-  int meta = 0;
-  int value = -1;
-  int major = 0; int minor=0;
-
-  for(short devIdx = 0;devIdx < numDevices;++devIdx){
-    cuDeviceComputeCapability 	( 	&major, &minor,devIdx);
-    meta = 10*major + minor;
-    if(meta>computeCapability){
-      computeCapability = meta;
-      value = devIdx;
-    }
-  }
-
-  return value;
-}
-
-
-void compute_spatial_convolution(imageType* _image,imageType* _output,int* _image_dims,
-				 imageType* _kernel,int* _kernel_dims,
-				 int _device){
-
-  HANDLE_ERROR(cudaSetDevice(_device));
-
-  const size_t width = _image_dims[0];
-  const size_t height = _image_dims[1];
-  const size_t depth = _image_dims[2];
-
-  const size_t width_to_parse = width - _kernel_dims[0] + 1;
-  const size_t height_to_parse = height - _kernel_dims[1] + 1;
-  const size_t depth_to_parse = depth - _kernel_dims[2] + 1;
-
-  dim3 threads(8,4,4);//
-  dim3 blocks(largestDivisor(width_to_parse,size_t(threads.x)),
-	      largestDivisor(height_to_parse,size_t(threads.y)),
-	      largestDivisor(depth_to_parse,size_t(threads.z))
-	      ); 
-  uint3 imageDims = {_image_dims[0],_image_dims[1],_image_dims[2]};
-  uint3 kernelDims = {_kernel_dims[0],_kernel_dims[1],_kernel_dims[2]};
-
-  float* kernelBegin = &_kernel[0];
-  float* kernelEnd = kernelBegin + (_kernel_dims[0]*_kernel_dims[1]*_kernel_dims[2]);
-  float* kernelReversed = new float[kernelDims.x*kernelDims.y*kernelDims.z];
-  std::reverse_copy(kernelBegin,kernelEnd,&kernelReversed[0]);
-  
-  cudaExtent image_extent = make_cudaExtent(width * sizeof(float),
-				      height, depth);
-
-  cudaExtent kernel_extent = make_cudaExtent(_kernel_dims[0] * sizeof(float),
-					     _kernel_dims[1],_kernel_dims[2] );
-
-  cudaPitchedPtr d_image_ ;
-  cudaPitchedPtr d_kernel_ ;
-  cudaPitchedPtr d_output_ ;
-
-  cudaPitchedPtr h_image_  = make_cudaPitchedPtr((void *)_image, 
-						 width*sizeof(float), width, height);
-  cudaPitchedPtr h_kernel_ = make_cudaPitchedPtr((void *)_kernel, 
-						 _kernel_dims[0] * sizeof(float),
-						 _kernel_dims[0] , 
-						 _kernel_dims[1]);
-  cudaPitchedPtr h_output_ = make_cudaPitchedPtr((void *)_output, width*sizeof(float), width, height);
-
-  HANDLE_ERROR(cudaMalloc3D(&d_image_, image_extent));
-  cudaMemcpy3DParms inputParams = { 0 };
-  inputParams.srcPtr   = h_image_;
-  inputParams.dstPtr = d_image_;
-  inputParams.extent   = image_extent;
-  inputParams.kind     = cudaMemcpyHostToDevice;
-  HANDLE_ERROR(cudaMemcpy3D(&inputParams));
-
-  cudaMemcpy3DParms outputParams = { 0 };
-  HANDLE_ERROR(cudaMalloc3D(&d_output_, image_extent));
-  outputParams.srcPtr   = d_image_;
-  outputParams.dstPtr = d_output_;
-  outputParams.extent   = image_extent;
-  outputParams.kind     = cudaMemcpyDeviceToDevice;
-  HANDLE_ERROR(cudaMemcpy3D(&outputParams));
-
-  HANDLE_ERROR(cudaMalloc3D(&d_kernel_, kernel_extent));
-  cudaMemcpy3DParms kernelParams = { 0 };
-  kernelParams.srcPtr   = h_kernel_;
-  kernelParams.dstPtr = d_kernel_;
-  kernelParams.extent   = kernel_extent;
-  kernelParams.kind     = cudaMemcpyHostToDevice;
-  HANDLE_ERROR(cudaMemcpy3D(&kernelParams));
-
-  kernel3D_naive<<<blocks,threads>>>(d_image_,
-				     d_kernel_,
-				     d_output_,
-				     imageDims,
-				     kernelDims);
-
-
-  outputParams.srcPtr   = d_output_;
-  outputParams.dstPtr = h_output_;
-  outputParams.extent   = image_extent;
-  outputParams.kind     = cudaMemcpyDeviceToHost;
-  HANDLE_ERROR(cudaMemcpy3D(&outputParams));
-
-delete [] kernelReversed;
-  HANDLE_ERROR(cudaFree(d_image_.ptr));
-  HANDLE_ERROR(cudaFree(d_kernel_.ptr));
-  HANDLE_ERROR(cudaFree(d_output_.ptr));
-
-}
-
-void compute_spatial_convolution_inplace(imageType* _image,int* _image_dims,
-				 imageType* _kernel,int* _kernel_dims,
-				 int _device){
-
-  compute_spatial_convolution(_image, _image, _image_dims,
-			      _kernel, _kernel_dims,
-			      _device);
-
 }
 
   

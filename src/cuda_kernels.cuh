@@ -168,70 +168,52 @@ __global__ void device_finalValues_tikhonov(TransferT * __restrict__ _image,
   
 }
 
-__global__ void kernel3D_naive(cudaPitchedPtr _image , // const DimT* __restrict__ _image_dims,
-			       cudaPitchedPtr _kernel, // const DimT* __restrict__ _kernel_dims,
-			       cudaPitchedPtr _output,
-			       uint3 _image_dims,
-			       uint3 _kernel_dims){
-
-  const unsigned int image_size = _image_dims.x*_image_dims.y*_image_dims.z;
-  const unsigned int kernel_size = _kernel_dims.x*_kernel_dims.y*_kernel_dims.z;
-
-  const unsigned int global_x = blockIdx.x*blockDim.x + threadIdx.x;
-  const unsigned int global_y = blockIdx.y*blockDim.y + threadIdx.y;
-  const unsigned int global_z = blockIdx.z*blockDim.z + threadIdx.z;
-
-  const int pixel_x = (int)global_x + (int)_kernel_dims.x/2;
-  const int pixel_y = (int)global_y + (int)_kernel_dims.y/2;
-  const int pixel_z = (int)global_z + (int)_kernel_dims.z/2;
-  
-  const unsigned int pixel_index = pixel_z*(_image_dims.x*_image_dims.y) + pixel_y*(_image_dims.x) + pixel_x;
-  unsigned int image_index;
-  unsigned int kernel_index;
-  float value = 0.f;
-  float image_pixel = 0.f;
-  float kernel_pixel = 0.f;
-  
-  char* input_devPtr = (char*)_image.ptr;
-  char* output_devPtr = (char*)_output.ptr;
-  char* kernel_devPtr = (char*)_kernel.ptr;
-
-  char* input_slice  = 0;
-  char* kernel_slice = 0;
-
-  float* input_row  = 0;
-  float* kernel_row = 0;
-
-
-  for(int offset_z = -(_kernel_dims.z/2);offset_z<=(_kernel_dims.z/2);++offset_z){
-    input_slice  = input_devPtr + (pixel_z+offset_z)*(_image_dims.x*_image_dims.y);    
-    kernel_slice = kernel_devPtr + (offset_z + _kernel_dims.z/2)*(_kernel_dims.x*_kernel_dims.y);    
-
-    for(int offset_y = -(_kernel_dims.y/2);offset_y<=(_kernel_dims.y/2);++offset_y){
-      input_row  = (float*)(input_slice + (pixel_y + offset_y)*(_image_dims.x));
-      kernel_row = (float*)(kernel_slice + (offset_y + _kernel_dims.y/2)*(_kernel_dims.x));      
-
-      for(int offset_x = -(_kernel_dims.x/2);offset_x<=(_kernel_dims.x/2);++offset_x){
-	image_index = (pixel_z+offset_z)*(_image_dims.x*_image_dims.y) + (pixel_y + offset_y)*(_image_dims.x) + pixel_x + offset_x;
-	kernel_index = (offset_z + _kernel_dims.z/2)*(_kernel_dims.x*_kernel_dims.y) + (offset_y + _kernel_dims.y/2)*(_kernel_dims.x) + (offset_x + _kernel_dims.x/2);
-
-	if(image_index < image_size)
-	  image_pixel = input_row[pixel_x + offset_x];
-	
-	if(kernel_index < kernel_size)
-	  kernel_pixel = kernel_row[offset_x + _kernel_dims.x/2];
-
-	value += image_pixel*kernel_pixel;
-      }
-    }
-  }
-
-  if(pixel_index<image_size){
-    char* output_slice = output_devPtr + pixel_z*(_image_dims.x*_image_dims.y);
-    float* output_row = (float*)(output_slice + pixel_y*(_image_dims.x));
-    output_row[0] = value;
-  }
+__device__ float scale_subtracted(const float& _ax, const float& _bx, 
+				  const float& _ay, const float& _by, 
+				  const float& _c){
+  float result = __fmaf_rn(_ax,_bx,
+			   __fmul_rn(-1.,
+				     __fmul_rn(_ay,_by)
+				     )
+			   );
+  return __fmul_rn(_c,result);
 }
+
+__device__ float scale_added(const float& _ax, const float& _bx, 
+			     const float& _ay, const float& _by,
+			     const float& _c){
+  float result = __fmaf_rn(_ax,_bx,__fmul_rn(_ay,_by));
+  return __fmul_rn(_c,result);
+}
+
+
+__global__ void  modulateAndNormalize_kernel(cufftComplex *d_Dst, 
+					     cufftComplex *d_Src, 
+					     unsigned int dataSize,
+					     float c)
+{
+  unsigned int globalIdx  = blockDim.x * blockIdx.x + threadIdx.x;
+  unsigned int kernelSize = blockDim.x * gridDim.x;
+  
+  cufftComplex result, a, b;
+  
+  
+  while(globalIdx < dataSize)    {		
+
+    a = d_Src[globalIdx];
+    b = d_Dst[globalIdx];
+    // result.x = c * (a.x * b.x - a.y * b.y);
+    // result.y = c * (a.x * b.x + a.y * b.y);
+
+    result.x = scale_subtracted(a.x,b.x,a.y,b.y,c);
+    result.y = scale_added(a.x,b.x,a.y,b.y,c);
+
+    d_Dst[globalIdx] = result;
+  
+    
+    globalIdx += kernelSize;
+  }
+};
 
 
 #endif /* _COMPUTE_KERNELS_CUH_ */
