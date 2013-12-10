@@ -1,0 +1,40 @@
+Low Pass Filter using cuFFT
+---------------------------
+This package aims at providing an easy-to-use API to cuFFT (the CUDA library for fast fourier transform). It is written in C++ and offers C-style API of plain methods to call from any client binary or library. 
+
+Operating Systems:
+* OSX 10.8 or higher (experimental)
+* Fedora Linux 19 or higher
+* CentOS Linux 6.3 or higher
+
+Install:
+To compile the shared library libLowPassFilter.so, invoke 
+$ mkdir build
+$ cd build
+#if a specific installation destination is to be used
+$ cmake -DCMAKE_INSTALL_PREFIX=/path/to/lib .. 
+#else (will install library in system default library paths, administrator rights required)
+$ cmake .. 
+$ make
+$ make install
+
+Dependencies:
+* For the shared library libLowPassFilter.so, cuda 5 or higher (the nvcc compiler, libcudart and libcufft) must be available. Since the FindCUDA.cmake sources are needed, only cmake versions later than 2.8 are supported (that actually ship this file).
+
+* For the binary ReadTifAndLPF, libtiff and libboost_program_options are required. The cmake build should automatically find boost. If not (assuming that your boost installation is located in a non-standard location), launch cmake with:
+$ cmake -DBOOST_ROOT=/path/to/boost ..
+#and/or 
+$ cmake -DBOOST_INCLUDE_DIR=/path/to/boost/include -DBOOST_LIBRARY_DIR=/path/to/boost/lib <other options> ..
+
+License:
+none-yet
+
+Contact:
+For questions, bug reports, improvement suggestions or else, get in touch with steinbac@mpi-cbg.de!
+
+Known Issues:
+On OSX, CUDA is (at the time of writing) INCOMPATIBLE with the installed llvm based compilers used by default (e.g. /usr/bin/c++). To resolve this, the installation procedure uses an llvm based gcc version for compiling and testing. 
+
+Example Usage:
+In order to demonstrate the reader, the repository contains a directory called resources. Choose any tif in resources and test the LPF:
+/path/to/bin/ReadTifAndLPF  -i -o ./output.tif -s ./spectrum_after_filter_notcentered.tif /path/to/repo/resources/no_doing_anything/inputForFFT.tif
