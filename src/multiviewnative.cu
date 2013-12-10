@@ -229,6 +229,8 @@ void compute_quotient(imageType* _input,imageType* _output,size_t _size, int _de
   dim3 blocks(items_per_grid); 
 
   fit_2Dblocks_to_threads_for_device(threads,blocks,_device);
+
+  //performs d_input_[:]=d_output_[:]/d_input_[:]
   device_divide<<<blocks,threads>>>(d_input, d_output, (unsigned int)_size);
   
   HANDLE_ERROR(cudaMemcpy(_output , d_output , sizeInByte, cudaMemcpyDeviceToHost));
@@ -329,6 +331,8 @@ void iterate_fft_plain(imageType* _input,
   cudaStream_t initial_stream, weights_stream;
   checkCudaErrors( cudaStreamCreate(&initial_stream));
   checkCudaErrors( cudaStreamCreate(&weights_stream));
+
+  //TODO: should the weights be updated from device_divide (unclear in the java application)?
   checkCudaErrors( cudaMemcpyAsync( d_weights_, weights, inputInByte , cudaMemcpyHostToDevice, weights_stream ) );
   checkCudaErrors( cudaMemcpyAsync( d_initial_, input, inputInByte , cudaMemcpyHostToDevice ,initial_stream) );
   
@@ -348,7 +352,10 @@ void iterate_fft_plain(imageType* _input,
   dim3 blocks(items_per_grid); 
   fit_2Dblocks_to_threads_for_device(threads,blocks,gpu_device);
 
+  //performs d_initial_[:]=d_image_[:]/d_initial_[:]
+  //TODO: should the weights be updated?
   device_divide<<<blocks,threads,0,initial_stream>>>(d_initial_,d_image_,imageSize);
+
   //convolve(psiBlurred) with kernel2 -> integral
   checkCudaErrors( cudaMemcpy( d_kernel_, kernel2, kernelInByte , cudaMemcpyHostToDevice ) );
   my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
@@ -438,6 +445,9 @@ void iterate_fft_tikhonov(imageType* _input,
   dim3 threads(items_per_block);
   dim3 blocks(items_per_grid); 
   fit_2Dblocks_to_threads_for_device(threads,blocks,gpu_device);
+
+  //performs d_initial_[:]=d_image_[:]/d_initial_[:]
+  //TODO: should the weights be updated?
   device_divide<<<blocks,threads>>>(d_initial_,d_image_,imageSize);
 
   //convolve(psiBlurred) with kernel2 -> integral
