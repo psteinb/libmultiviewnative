@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 #include <functional>
 
 // ------- CUDA ----------
@@ -12,7 +13,7 @@
 
 // ------- Project ----------
 #include "multiviewnative.h"
-#include "cuda_helpers.h"
+#include "cuda_helpers.cuh"
 #include "cuda_kernels.cuh"
 
 #ifndef LB_MAX_THREADS
@@ -291,8 +292,8 @@ void iterate_fft_plain(imageType* _input,
 		       int* _kernel_dims, 
 		       int _device){
   
-  size_t inputSize = std::accumulate(&_input_dims[0],&_input_dims[0]+dimsImage,1,std::multiply);
-  size_t kernelSize = std::accumulate(&_kernel_dims[0],&_kernel_dims[0]+dimsImage,1,std::multiply);
+  size_t inputSize = std::accumulate(&_input_dims[0],&_input_dims[0]+dimsImage,1,multiplies<int>());
+  size_t kernelSize = std::accumulate(&_kernel_dims[0],&_kernel_dims[0]+dimsImage,1,multiplies<int>());
   
   size_t inputInByte = inputSize*sizeof(imageType);
   size_t kernelInByte = kernelSize*sizeof(imageType);
@@ -301,13 +302,13 @@ void iterate_fft_plain(imageType* _input,
   imageType* kernel1 = 0;
   imageType* weights = 0;
   imageType* kernel2 = 0;
-  checkCudaErrors( cudaMallocHost( (void**)&(kernel2),kernelInByte , cudaHostAllocDefault ) );
-  checkCudaErrors( cudaMallocHost( (void**)&(weights),inputInByte , cudaHostAllocDefault ) );
-  checkCudaErrors( cudaMallocHost( (void**)&(kernel1), kernelInByte, cudaHostAllocDefault ) );
-  checkCudaErrors( cudaMallocHost( (void**)&(input),inputInByte , cudaHostAllocDefault ) );
+  HANDLE_ERROR( cudaMallocHost( (void**)&(kernel2),kernelInByte , cudaHostAllocDefault ) );
+  HANDLE_ERROR( cudaMallocHost( (void**)&(weights),inputInByte , cudaHostAllocDefault ) );
+  HANDLE_ERROR( cudaMallocHost( (void**)&(kernel1), kernelInByte, cudaHostAllocDefault ) );
+  HANDLE_ERROR( cudaMallocHost( (void**)&(input),inputInByte , cudaHostAllocDefault ) );
 
   std::fill(&kernel2[0],&kernel2[0]+kernelSize ,.1f);
-  std::fill(&weights[0],&weights[0]+imageSize  ,1.f);
+  std::fill(&weights[0],&weights[0]+inputSize  ,1.f);
   std::copy(&_kernel[0], &_kernel[0] + kernelSize,&kernel1[0]);
   std::copy(&_input[0], &_input[0] + inputSize,&input[0]);
 
@@ -320,33 +321,33 @@ void iterate_fft_plain(imageType* _input,
   imageType* d_kernel_ = 0;
   imageType* d_weights_ = 0;
 
-  size_t imSizeFFT = imageSize + 2*input_dims[0]*input_dims[1]; //size of the R2C transform in cuFFTComplex
+  size_t imSizeFFT = inputSize + 2*_input_dims[0]*_input_dims[1]; //size of the R2C transform in cuFFTComplex
   size_t imSizeFFTInByte = imSizeFFT*sizeof(imageType);
   int gpu_device = selectDeviceWithHighestComputeCapability();
 
-  checkCudaErrors( cudaMalloc( (void**)&(d_image_), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
-  checkCudaErrors( cudaMalloc( (void**)&(d_initial_), inputInByte ) );
-  checkCudaErrors( cudaMalloc( (void**)&(d_weights_), inputInByte ) );
-  checkCudaErrors( cudaMalloc( (void**)&(d_kernel_), kernelInByte ) );
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_image_), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_initial_), inputInByte ) );
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_weights_), inputInByte ) );
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_kernel_), kernelInByte ) );
   cudaStream_t initial_stream, weights_stream;
-  checkCudaErrors( cudaStreamCreate(&initial_stream));
-  checkCudaErrors( cudaStreamCreate(&weights_stream));
+  HANDLE_ERROR( cudaStreamCreate(&initial_stream));
+  HANDLE_ERROR( cudaStreamCreate(&weights_stream));
 
   //TODO: should the weights be updated from device_divide (unclear in the java application)?
-  checkCudaErrors( cudaMemcpyAsync( d_weights_, weights, inputInByte , cudaMemcpyHostToDevice, weights_stream ) );
-  checkCudaErrors( cudaMemcpyAsync( d_initial_, input, inputInByte , cudaMemcpyHostToDevice ,initial_stream) );
+  HANDLE_ERROR( cudaMemcpyAsync( d_weights_, weights, inputInByte , cudaMemcpyHostToDevice, weights_stream ) );
+  HANDLE_ERROR( cudaMemcpyAsync( d_initial_, input, inputInByte , cudaMemcpyHostToDevice ,initial_stream) );
   
-  checkCudaErrors( cudaMemcpy( d_kernel_, kernel1, kernelInByte , cudaMemcpyHostToDevice ) );
-  checkCudaErrors( cudaMemcpy( d_image_, input, inputInByte , cudaMemcpyHostToDevice ) );
+  HANDLE_ERROR( cudaMemcpy( d_kernel_, kernel1, kernelInByte , cudaMemcpyHostToDevice ) );
+  HANDLE_ERROR( cudaMemcpy( d_image_, input, inputInByte , cudaMemcpyHostToDevice ) );
 
   //convolve(input) with kernel1 -> psiBlurred
-  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
-				      d_kernel_,kernel_dims,
-				      gpu_device);
+  convolution3DfftCUDAInPlace_core(d_image_, _input_dims,
+				   d_kernel_,_kernel_dims,
+				   gpu_device);
 
   //computeQuotient(psiBlurred,input)
   size_t items_per_block = 128;
-  size_t items_per_grid = imageSize/items_per_block;
+  size_t items_per_grid = inputSize/items_per_block;
      
   dim3 threads(items_per_block);
   dim3 blocks(items_per_grid); 
@@ -354,31 +355,31 @@ void iterate_fft_plain(imageType* _input,
 
   //performs d_initial_[:]=d_image_[:]/d_initial_[:]
   //TODO: should the weights be updated?
-  device_divide<<<blocks,threads,0,initial_stream>>>(d_initial_,d_image_,imageSize);
+  device_divide<<<blocks,threads,0,initial_stream>>>(d_initial_,d_image_,inputSize);
 
   //convolve(psiBlurred) with kernel2 -> integral
-  checkCudaErrors( cudaMemcpy( d_kernel_, kernel2, kernelInByte , cudaMemcpyHostToDevice ) );
-  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
-				      d_kernel_,kernel_dims,
+  HANDLE_ERROR( cudaMemcpy( d_kernel_, kernel2, kernelInByte , cudaMemcpyHostToDevice ) );
+  convolution3DfftCUDAInPlace_core(d_image_, _input_dims,
+				      d_kernel_,_kernel_dims,
 				      gpu_device);
   //computeFinalValues(input,integral,weights)
-  device_finalValues_plain<<<blocks,threads,0,weights_stream>>>(d_initial_,d_image_,d_weights_,.0001f,imageSize);
+  device_finalValues_plain<<<blocks,threads,0,weights_stream>>>(d_initial_,d_image_,d_weights_,.0001f,inputSize);
   
   
-  checkCudaErrors(cudaMemcpyAsync(input , d_initial_ , inputInByte , cudaMemcpyDeviceToHost, weights_stream));
-  checkCudaErrors(cudaStreamSynchronize(weights_stream));
+  HANDLE_ERROR(cudaMemcpyAsync(_output , d_initial_ , inputInByte , cudaMemcpyDeviceToHost, weights_stream));
+  HANDLE_ERROR(cudaStreamSynchronize(weights_stream));
   
-  checkCudaErrors( cudaFree( d_image_));
-  checkCudaErrors( cudaFree( d_initial_));
-  checkCudaErrors( cudaFree( d_kernel_));
-  checkCudaErrors( cudaFree( d_weights_));
+  HANDLE_ERROR( cudaFree( d_image_));
+  HANDLE_ERROR( cudaFree( d_initial_));
+  HANDLE_ERROR( cudaFree( d_kernel_));
+  HANDLE_ERROR( cudaFree( d_weights_));
   
-  checkCudaErrors( cudaFreeHost( kernel2));
-  checkCudaErrors( cudaFreeHost( weights));
-  checkCudaErrors( cudaFreeHost( kernel1));
-  checkCudaErrors( cudaFreeHost( input  ));
-  checkCudaErrors( cudaStreamDestroy(initial_stream));
-  checkCudaErrors( cudaStreamDestroy(weights_stream));
+  HANDLE_ERROR( cudaFreeHost( kernel2));
+  HANDLE_ERROR( cudaFreeHost( weights));
+  HANDLE_ERROR( cudaFreeHost( kernel1));
+  HANDLE_ERROR( cudaFreeHost( input  ));
+  HANDLE_ERROR( cudaStreamDestroy(initial_stream));
+  HANDLE_ERROR( cudaStreamDestroy(weights_stream));
 	 
 }
 
@@ -392,21 +393,17 @@ void iterate_fft_tikhonov(imageType* _input,
 					double _lambda, 
 					int _device){
   
-  size_t inputSize = std::accumulate(&_input_dims[0],&_input_dims[0]+dimsImage,1,std::multiply);
-  size_t kernelSize = std::accumulate(&_kernel_dims[0],&_kernel_dims[0]+dimsImage,1,std::multiply);
+  size_t inputSize = std::accumulate(&_input_dims[0],&_input_dims[0]+dimsImage,1,multiplies<int>());
+  size_t kernelSize = std::accumulate(&_kernel_dims[0],&_kernel_dims[0]+dimsImage,1,multiplies<int>());
   
   size_t inputInByte = inputSize*sizeof(imageType);
   size_t kernelInByte = kernelSize*sizeof(imageType);
 
-  imageType* input = createArrayPtr(*image_);
-  imageType* kernel1 = createArrayPtr(*kernel_);
   std::vector<imageType>* kernel2_ = new std::vector<imageType>(kernelSize);
-  std::vector<imageType>* weights_ = new std::vector<imageType>(imageSize);
+  std::vector<imageType>* weights_ = new std::vector<imageType>(inputSize);
   std::fill(kernel2_->begin(),kernel2_->end(),.1f);
   std::fill(weights_->begin(),weights_->end(),1.f);
-  imageType* weights = createArrayPtr(*weights_);
-  imageType* kernel2 = createArrayPtr(*kernel2_);
-  
+    
   //////////////////////////////////////////////////////////////////////////////////////////
   //
   // Entering Loop here
@@ -416,31 +413,31 @@ void iterate_fft_tikhonov(imageType* _input,
   imageType* d_kernel_ = 0;
   imageType* d_weights_ = 0;
 
-  size_t imSizeFFT = imageSize + 2*input_dims[0]*input_dims[1]; //size of the R2C transform in cuFFTComplex
+  size_t imSizeFFT = inputSize + 2*_input_dims[0]*_input_dims[1]; //size of the R2C transform in cuFFTComplex
   size_t imSizeFFTInByte = imSizeFFT*sizeof(imageType);
   int gpu_device = selectDeviceWithHighestComputeCapability();
 
-  checkCudaErrors( cudaMalloc( (void**)&(d_image_), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
-  checkCudaErrors( cudaMalloc( (void**)&(d_initial_), inputInByte ) );
-  checkCudaErrors( cudaMalloc( (void**)&(d_weights_), inputInByte ) );
-  checkCudaErrors( cudaMalloc( (void**)&(d_kernel_), kernelInByte ) );
-  checkCudaErrors( cudaMemcpy( d_weights_, weights, inputInByte , cudaMemcpyHostToDevice ) );
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_image_), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_initial_), inputInByte ) );
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_weights_), inputInByte ) );
+  HANDLE_ERROR( cudaMalloc( (void**)&(d_kernel_), kernelInByte ) );
+  HANDLE_ERROR( cudaMemcpy( d_weights_, &weights_[0], inputInByte , cudaMemcpyHostToDevice ) );
 
   
 
-  checkCudaErrors( cudaMemcpy( d_kernel_, kernel1, kernelInByte , cudaMemcpyHostToDevice ) );
-  checkCudaErrors( cudaMemcpy( d_image_, input, inputInByte , cudaMemcpyHostToDevice ) );
-  checkCudaErrors( cudaMemcpy( d_initial_, d_image_, inputInByte , cudaMemcpyDeviceToDevice ) );
+  HANDLE_ERROR( cudaMemcpy( d_kernel_, _kernel, kernelInByte , cudaMemcpyHostToDevice ) );
+  HANDLE_ERROR( cudaMemcpy( d_image_, _input, inputInByte , cudaMemcpyHostToDevice ) );
+  HANDLE_ERROR( cudaMemcpy( d_initial_, d_image_, inputInByte , cudaMemcpyDeviceToDevice ) );
 
   
   //convolve(input) with kernel1 -> psiBlurred
-  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
-				      d_kernel_,kernel_dims,
+  convolution3DfftCUDAInPlace_core(d_image_, _input_dims,
+				      d_kernel_,_kernel_dims,
 				      gpu_device);
 
   //computeQuotient(psiBlurred,input)
   size_t items_per_block = 128;
-  size_t items_per_grid = imageSize/items_per_block;
+  size_t items_per_grid = inputSize/items_per_block;
      
   dim3 threads(items_per_block);
   dim3 blocks(items_per_grid); 
@@ -448,23 +445,23 @@ void iterate_fft_tikhonov(imageType* _input,
 
   //performs d_initial_[:]=d_image_[:]/d_initial_[:]
   //TODO: should the weights be updated?
-  device_divide<<<blocks,threads>>>(d_initial_,d_image_,imageSize);
+  device_divide<<<blocks,threads>>>(d_initial_,d_image_,inputSize);
 
   //convolve(psiBlurred) with kernel2 -> integral
-  checkCudaErrors( cudaMemcpy( d_kernel_, kernel2, kernelInByte , cudaMemcpyHostToDevice ) );
-  my_convolution3DfftCUDAInPlace_core(d_image_, input_dims,
-				      d_kernel_,kernel_dims,
+  HANDLE_ERROR( cudaMemcpy( d_kernel_, &kernel2_[0], kernelInByte , cudaMemcpyHostToDevice ) );
+  convolution3DfftCUDAInPlace_core(d_image_, _input_dims,
+				      d_kernel_,_kernel_dims,
 				      gpu_device);
   //computeFinalValues(input,integral,weights)
-  device_finalValues_tikhonov<<<blocks,threads>>>(d_initial_,d_image_,d_weights_,.0001f,.2f,imageSize);
+  device_finalValues_tikhonov<<<blocks,threads>>>(d_initial_,d_image_,d_weights_,.0001f,.2f,inputSize);
  
   
-  checkCudaErrors(cudaMemcpy(input , d_initial_ , inputInByte , cudaMemcpyDeviceToHost));
+  HANDLE_ERROR(cudaMemcpy(_output , d_initial_ , inputInByte , cudaMemcpyDeviceToHost));
  
-  checkCudaErrors( cudaFree( d_image_));
-  checkCudaErrors( cudaFree( d_initial_));
-  checkCudaErrors( cudaFree( d_kernel_));
-  checkCudaErrors( cudaFree( d_weights_));
+  HANDLE_ERROR( cudaFree( d_image_));
+  HANDLE_ERROR( cudaFree( d_initial_));
+  HANDLE_ERROR( cudaFree( d_kernel_));
+  HANDLE_ERROR( cudaFree( d_weights_));
 
   delete kernel2_;
   delete weights_;
