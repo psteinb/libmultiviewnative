@@ -1,6 +1,6 @@
 # - Config file for the FooBar package
 # It defines the following variables
-#  MULTIVIEWNATIVE_INCLUDE_DIRS - include directories for Lowpassfilter
+#  MULTIVIEWNATIVE_INCLUDE_DIRS - include directories for Multiviewnative
 #  MULTIVIEWNATIVE_LIBRARIES    - libraries to link against
 #  MULTIVIEWNATIVE_EXECUTABLE   - the bar executable
 
@@ -9,7 +9,26 @@ get_filename_component(MULTIVIEWNATIVE_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PA
 set(MULTIVIEWNATIVE_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
 
 # Our library dependencies (contains definitions for IMPORTED targets)
-include("${MULTIVIEWNATIVE_CMAKE_DIR}/lowpassfilter-targets.cmake")
+include("${MULTIVIEWNATIVE_CMAKE_DIR}/multiview-targets.cmake")
 
-# These are IMPORTED targets created by lowpassfilter-targets.cmake
-set(MULTIVIEWNATIVE_LIBRARIES ${PROJECT_NAME})
+# These are IMPORTED targets created by multiviewnative-targets.cmake
+IF(UNIX)
+  IF(APPLE)
+    get_filename_component(MULTIVIEWNATIVE_INCLUDE_DIRS "${MULTIVIEWNATIVE_CMAKE_DIR}/../../include" ABSOLUTE)
+    get_filename_component(MULTIVIEWNATIVE_LIB_DIRS "${MULTIVIEWNATIVE_CMAKE_DIR}/../../lib" ABSOLUTE)
+    get_filename_component(MULTIVIEWNATIVE_BIN_DIRS "${MULTIVIEWNATIVE_CMAKE_DIR}/../../bin" ABSOLUTE)
+    ELSE(APPLE)
+    get_filename_component(MULTIVIEWNATIVE_INCLUDE_DIRS "${MULTIVIEWNATIVE_CMAKE_DIR}/../../../include" ABSOLUTE)
+    get_filename_component(MULTIVIEWNATIVE_LIB_DIRS "${MULTIVIEWNATIVE_CMAKE_DIR}/../../../lib" ABSOLUTE)
+    get_filename_component(MULTIVIEWNATIVE_BIN_DIRS "${MULTIVIEWNATIVE_CMAKE_DIR}/../../../bin" ABSOLUTE)
+  ENDIF(APPLE)
+ENDIF(UNIX)
+
+# These are IMPORTED targets created by multiviewnative-targets.cmake
+set(MULTIVIEWNATIVE_LIBRARIES "${MULTIVIEWNATIVE_LIB_DIRS}/libMultiviewNative.so")
+
+set(MULTIVIEWNATIVE_VERSION  "@MULTIVIEWNATIVE_VERSION@")
+set(MULTIVIEWNATIVE_VERSION_MAJOR  "@MULTIVIEWNATIVE_VERSION_MAJOR@")
+set(MULTIVIEWNATIVE_VERSION_MINOR  "@MULTIVIEWNATIVE_VERSION_MINOR@")
+set(MULTIVIEWNATIVE_VERSION_PATCH  "@MULTIVIEWNATIVE_VERSION_PATCH@")
+set(MULTIVIEWNATIVE_BUILD_TYPE  "@CMAKE_BUILD_TYPE@")
