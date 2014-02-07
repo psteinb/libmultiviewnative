@@ -8,6 +8,7 @@ LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 
 add_executable(Independent test_Independent.cpp)
 target_link_libraries(Independent ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+MESSAGE("LINKING TO INDEPENDENT .. ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}")
 
 # build and link
 # CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu SHARED)
