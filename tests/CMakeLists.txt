@@ -7,7 +7,7 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 
 add_executable(Independent test_Independent.cpp)
-target_link_libraries(Independent ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+target_link_libraries(Independent system filesystem unit_test_framework)
 MESSAGE("LINKING TO INDEPENDENT .. ${Boost_FILESYSTEM_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}")
 
 # build and link
