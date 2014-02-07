@@ -137,6 +137,11 @@ ENDIF(INCLUDE_CUDA)
 # add subdirectories
 ADD_SUBDIRECTORY(src)
 
+#play around with tests
+ADD_SUBDIRECTORY(tests)
+enable_testing()
+include("CTestLists.txt")
+
 # Export the package for use from the build-tree
 # (this registers the build-tree with a global CMake-registry)
 #              v = binary    v = library
@@ -169,7 +174,6 @@ install(EXPORT multiviewnative-targets
   DESTINATION "${INSTALL_SHARE_DIR}" COMPONENT dev)
 
 
-#play around with tests
-include("CTestLists.txt")
+
 
 
