@@ -6,9 +6,16 @@ FIND_PACKAGE (Boost COMPONENTS system filesystem unit_test_framework REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 
+
+SET(CMAKE_BUILD_TYPE Debug)
+
+add_executable(fixture_access test_fixture_access.cpp)
+target_link_libraries(fixture_access boost_system boost_filesystem boost_unit_test_framework)
+
 add_executable(Independent test_Independent.cpp)
 target_link_libraries(Independent boost_system boost_filesystem boost_unit_test_framework)
-MESSAGE("LINKING TO INDEPENDENT .. ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY} ${BOOST_UNIT_TEST_FRAMEWORK_LIBRARY}")
+
+
 
 # build and link
 # CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu SHARED)
