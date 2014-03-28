@@ -5,4 +5,4 @@
 #  TESTS
 #  Independent_suite)
 
-add_test(NAME Independent COMMAND Independent)
+add_test(NAME multi_array_fixture COMMAND multi_array_fixture)

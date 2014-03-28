@@ -9,11 +9,9 @@ LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 
 SET(CMAKE_BUILD_TYPE Debug)
 
-add_executable(fixture_access test_fixture_access.cpp)
-target_link_libraries(fixture_access boost_system boost_filesystem boost_unit_test_framework)
+add_executable(multi_array_fixture test_multi_array_fixture.cpp)
+target_link_libraries(multi_array_fixture boost_system boost_filesystem boost_unit_test_framework)
 
-add_executable(Independent test_Independent.cpp)
-target_link_libraries(Independent boost_system boost_filesystem boost_unit_test_framework)
 
 
 
