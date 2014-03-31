@@ -7,7 +7,25 @@
 
 
 BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture )
-   
+
+BOOST_AUTO_TEST_CASE( convolve_by_identity )
+{
+  
+  float* image = new float[image_size_];
+
+  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
+
+  convolution3DfftCUDAInPlace(image, &image_dims_[0], 
+			      horizont_kernel_.data(),&kernel_dims_[0],
+			      0);
+
+  float * reference = padded_image_folded_by_horizontal_.data();
+  BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
+ 
+  delete [] image;
+}
+
+
 BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 {
   
@@ -16,7 +34,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
   std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
 
   convolution3DfftCUDAInPlace(image, &image_dims_[0], 
-			      horizont_kernel_.data(),&identity_kernel_dims_[0],
+			      horizont_kernel_.data(),&kernel_dims_[0],
 			      0);
 
   float * reference = padded_image_folded_by_horizontal_.data();

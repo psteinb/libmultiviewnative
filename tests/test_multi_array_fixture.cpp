@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE( identity_kernely )
 {
   
   BOOST_CHECK_NE(identity_kernel_[1][1][1],0.f);
-  float sum = std::accumulate(identity_kernel_.data(),identity_kernel_.data()+identity_kernel_size_,0.);
+  float sum = std::accumulate(identity_kernel_.data(),identity_kernel_.data()+kernel_size_,0.);
   BOOST_CHECK_EQUAL(sum,1.f);
   
 }
