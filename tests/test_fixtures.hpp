@@ -227,6 +227,11 @@ public:
     print_3d_structure(kernel_ptr, kernel_dims_.data());
 
   };
+
+  
+  static const unsigned image_axis_size = ImageDimSize;
+  static const unsigned kernel_axis_size = KernelDimSize;
+
 };
 
 typedef convolutionFixture3D<> default_3D_fixture;
