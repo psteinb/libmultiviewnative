@@ -84,9 +84,9 @@ public:
     std::fill(padded_image_.origin(),  padded_image_.origin()  +  image_size_,  0.f   );
 
     unsigned image_index=0;
-    for(int z_index = halfKernel;z_index<(image_dims_[2]-halfKernel);++z_index){
-      for(int y_index = halfKernel;y_index<(image_dims_[1]-halfKernel);++y_index){
-	for(int x_index = halfKernel;x_index<(image_dims_[0]-halfKernel);++x_index){
+    for(int z_index = halfKernel;z_index<int(image_dims_[2]-halfKernel);++z_index){
+      for(int y_index = halfKernel;y_index<int(image_dims_[1]-halfKernel);++y_index){
+	for(int x_index = halfKernel;x_index<int(image_dims_[0]-halfKernel);++x_index){
 	  image_index=x_index;
 	  image_index += y_index*image_dims_[0];
 	  image_index += z_index*image_dims_[0]*image_dims_[1] ;
@@ -110,9 +110,9 @@ public:
     float kernel_value  = 0.f;
     float image_value   = 0.f;
 
-    for(int z_index = halfKernel;z_index<(image_dims_[2]-halfKernel);++z_index){
-      for(int y_index = halfKernel;y_index<(image_dims_[1]-halfKernel);++y_index){
-	for(int x_index = halfKernel;x_index<(image_dims_[0]-halfKernel);++x_index){
+    for(int z_index = halfKernel;z_index<int(image_dims_[2]-halfKernel);++z_index){
+      for(int y_index = halfKernel;y_index<int(image_dims_[1]-halfKernel);++y_index){
+	for(int x_index = halfKernel;x_index<int(image_dims_[0]-halfKernel);++x_index){
 	  	  
 	  padded_image_folded_by_horizontal_[x_index][y_index][z_index] = 0.f;
 	  padded_image_folded_by_vertical_[x_index][y_index][z_index] = 0.f;

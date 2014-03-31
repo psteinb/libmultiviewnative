@@ -100,31 +100,22 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 	HANDLE_ERROR( cudaMalloc( (void**)&(imCUDA), imSizeFFTInByte ) );//a little bit larger to allow in-place FFT
 	HANDLE_ERROR( cudaMalloc( (void**)&(kernelCUDA), kernelSizeInByte ) );
 
-	//printf("Copying memory (kernel and image) to GPU\n");
 	HANDLE_ERROR( cudaMemcpy( kernelCUDA, kernel, kernelSizeInByte , cudaMemcpyHostToDevice ) );
 	HANDLE_ERROR( cudaMemcpy( imCUDA, im, imSizeInByte , cudaMemcpyHostToDevice ) );
 
 	///////////////////////////////////////////////////////////////////////
 	// DO THE WORK
 	convolution3DfftCUDAInPlace_core(imCUDA, imDim,
-					    kernelCUDA,kernelDim,
-					    // &fftPlanFwd, &fftPlanInv,
-					    devCUDA);
+					 kernelCUDA,kernelDim,
+					 devCUDA);
 	///////////////////////////////////////////////////////////////////////
-
-	//we destroy memory first so we can perform larger block convolutions
-
-	
 
 	//copy result to host and overwrite image
 	HANDLE_ERROR(cudaMemcpy(im,imCUDA,sizeof(imageType)*imSize,cudaMemcpyDeviceToHost));
 
 	
-    //( cufftDestroy(fftPlanFwd) );HANDLE_ERROR_KERNEL;
 	HANDLE_ERROR( cudaFree( imCUDA));
 	HANDLE_ERROR( cudaFree( kernelCUDA));
-	//HANDLE_ERROR( cudaFree( kernelCUDA));
-	//HANDLE_ERROR( cudaFree( kernelPaddedCUDA));
 
 }
 
