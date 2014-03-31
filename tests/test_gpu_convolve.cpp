@@ -14,12 +14,15 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
   float* image = new float[image_size_];
 
   std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
+  
+  print_kernel();
+  print_image();
 
   convolution3DfftCUDAInPlace(image, &image_dims_[0], 
-			      horizont_kernel_.data(),&kernel_dims_[0],
+			      identity_kernel_.data(),&kernel_dims_[0],
 			      0);
 
-  float * reference = image_.data();
+  float * reference = padded_image_.data();
   BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
  
   delete [] image;

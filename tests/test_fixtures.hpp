@@ -162,25 +162,26 @@ public:
   virtual ~convolutionFixture3D()  { 
     
   };
-   
-  void print_image(const float* _image=0) const {
-    if(!_image)
-      _image = &padded_image_.data()[0];
-    unsigned image_index = 0;
 
-    for(unsigned z_index = 0;z_index<(image_dims_[2]);++z_index){
+  template <typename IntensityT, typename DimT>
+  void print_3d_structure(const IntensityT* _image=0, const DimT* _dimensions=0) const {
+
+    DimT image_index = 0;
+
+    for(DimT z_index = 0;z_index<(_dimensions[2]);++z_index){
       std::cout << "z="<< z_index << "\n" << "x" << std::setw(8) << " ";
-      for(unsigned x_index = 0;x_index<(image_dims_[0]);++x_index){
+      for(DimT x_index = 0;x_index<(_dimensions[0]);++x_index){
 	std::cout << std::setw(8) << x_index << " ";
       }
       std::cout << "\n\n";
-      for(unsigned y_index = 0;y_index<(image_dims_[1]);++y_index){
+      for(DimT y_index = 0;y_index<(_dimensions[1]);++y_index){
 	std::cout << "y["<< std::setw(5) << y_index << "] ";
-	for(unsigned x_index = 0;x_index<(image_dims_[0]);++x_index){
+	for(DimT x_index = 0;x_index<(_dimensions[0]);++x_index){
+	  
+	  //FIXME: imposes a storage order
 	  image_index=x_index;
-	  image_index += y_index*image_dims_[0];
-	  image_index += z_index*image_dims_[0]*image_dims_[1] ;
-
+	  image_index += y_index*_dimensions[0];
+	  image_index += z_index*_dimensions[0]*_dimensions[1] ;
 	  
 	  std::cout << std::setw(8) << _image[image_index] << " ";
 	}
@@ -190,34 +191,40 @@ public:
       std::cout << "\n";
     }
 
+    DimT image_size = _dimensions[0]*_dimensions[1]*_dimensions[2];
+    std::cout << "flat memory storage:\n";
+    for(DimT index = 0;index<image_size;++index){
+      std::cout << std::setw(6) << _image[index] << " ";
+      if((index % 15u == 0) && index>0)
+	std::cout << "\n";
+    }
+    std::cout << "\n";
+      
+  };
+
+
+
+  void print_image(const float* _image=0) const {
+    
+    const float * image_ptr = 0;
+    if(!_image)
+      image_ptr = &padded_image_.data()[0];
+    else
+      image_ptr = _image;
+    
+    print_3d_structure(image_ptr, image_dims_.data());
+          
   };
     
   void print_kernel(const float* _kernel=0) const {
+
+    const float * kernel_ptr = 0;
     if(!_kernel)
-      _kernel = &identity_kernel_.data()[0];
-    unsigned kernel_index = 0;
-
-    for(unsigned z_index = 0;z_index<(kernel_dims_[2]);++z_index){
-      std::cout << "z="<< z_index << "\n" << "x" << std::setw(8) << " ";
-      for(unsigned x_index = 0;x_index<(kernel_dims_[0]);++x_index){
-	std::cout << std::setw(8) << x_index << " ";
-      }
-      std::cout << "\n\n";
-      for(unsigned y_index = 0;y_index<(kernel_dims_[1]);++y_index){
-	std::cout << "y["<< std::setw(5) << y_index << "] ";
-	for(unsigned x_index = 0;x_index<(kernel_dims_[0]);++x_index){
-	  kernel_index=x_index;
-	  kernel_index += y_index*kernel_dims_[0];
-	  kernel_index += z_index*kernel_dims_[0]*kernel_dims_[1] ;
-
-	  
-	  std::cout << std::setw(8) << _kernel[kernel_index] << " ";
-	}
-
-	std::cout << "\n";
-      }
-      std::cout << "\n";
-    }
+      kernel_ptr = &identity_kernel_.data()[0];
+    else
+      kernel_ptr = _kernel;
+    
+    print_3d_structure(kernel_ptr, kernel_dims_.data());
 
   };
 };
