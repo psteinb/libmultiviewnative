@@ -8,6 +8,31 @@
 
 BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture )
 
+BOOST_AUTO_TEST_CASE( trivial_convolve )
+{
+  
+  float* image = new float[image_size_];
+  float* kernel = new float[kernel_size_];
+  std::fill(kernel, kernel+kernel_size_,0.f);
+
+  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
+  
+  print_kernel(kernel);
+  print_image();
+
+  convolution3DfftCUDAInPlace(image, &image_dims_[0], 
+			      kernel,&kernel_dims_[0],
+			      selectDeviceWithHighestComputeCapability());
+
+  float sum = std::accumulate(image, image + image_size_,0.f);
+  BOOST_CHECK_CLOSE(sum, 0.f, .00001);
+
+  delete [] image;
+  delete [] kernel;
+}
+
+
+
 BOOST_AUTO_TEST_CASE( convolve_by_identity )
 {
   
@@ -16,11 +41,11 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
   std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
   
   print_kernel();
-  print_image();
+  print_image(image);
 
   convolution3DfftCUDAInPlace(image, &image_dims_[0], 
 			      identity_kernel_.data(),&kernel_dims_[0],
-			      0);
+			      selectDeviceWithHighestComputeCapability());
 
   float * reference = padded_image_.data();
   BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
@@ -38,7 +63,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 
   convolution3DfftCUDAInPlace(image, &image_dims_[0], 
 			      horizont_kernel_.data(),&kernel_dims_[0],
-			      0);
+			      selectDeviceWithHighestComputeCapability());
 
   float * reference = padded_image_folded_by_horizontal_.data();
   BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);

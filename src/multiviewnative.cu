@@ -35,7 +35,7 @@ __global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* ker
 								       unsigned int imDim_1,
 								       unsigned int imDim_2)
 {
-	int kernelSize = kernelDim_0 * kernelDim_1 * kernelDim_2;
+	unsigned int kernelSize = kernelDim_0 * kernelDim_1 * kernelDim_2;
 
 	unsigned int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -83,13 +83,17 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 
 	HANDLE_ERROR( cudaSetDevice( devCUDA ) );
 
-	size_t imSize = 1;
-	size_t kernelSize = 1;
-	for(int ii=0;ii<dimsImage;ii++)
-	{
-		imSize *= (imDim[ii]);
-		kernelSize *= (kernelDim[ii]);
-	}
+	size_t  imSize      =  std::accumulate(imDim,      imDim      +  3,  1,std::multiplies<int>());
+	size_t  kernelSize  =  std::accumulate(kernelDim,  kernelDim  +  3,  1,std::multiplies<int>());
+
+
+	// size_t imSize = 1;
+	// size_t kernelSize = 1;
+	// for(int ii=0;ii<dimsImage;ii++)
+	// {
+	// 	imSize *= (imDim[ii]);
+	// 	kernelSize *= (kernelDim[ii]);
+	// }
 
 	size_t imSizeFFT = imSize;
 	imSizeFFT += 2*imDim[0]*imDim[1]; //size of the R2C transform in cuFFTComplex
@@ -156,7 +160,10 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   size_t numBlocksFromImage = (kernelSize+numThreads-1)/(numThreads);
   int numBlocks=std::min(max_blocks_in_x,numBlocksFromImage);
 
-  fftShiftKernel<<<numBlocks,numThreads>>>(_d_kernelCUDA,kernelPaddedCUDA,kernelDim[0],kernelDim[1],kernelDim[2],imDim[0],imDim[1],imDim[2]);HANDLE_ERROR_KERNEL;
+  fftShiftKernel<<<numBlocks,numThreads>>>(_d_kernelCUDA,
+					   kernelPaddedCUDA,
+					   kernelDim[0],kernelDim[1],kernelDim[2],
+					   imDim[0],imDim[1],imDim[2]);HANDLE_ERROR_KERNEL;
 
 	
   //make sure GPU finishes 
