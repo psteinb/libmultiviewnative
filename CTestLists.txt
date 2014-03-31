@@ -6,3 +6,4 @@
 #  Independent_suite)
 
 add_test(NAME multi_array_fixture COMMAND multi_array_fixture)
+add_test(NAME gpu_convolve COMMAND gpu_convolve)
