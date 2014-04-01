@@ -4,93 +4,88 @@
 #include "test_fixtures.hpp"
 #include <numeric>
 #include "multiviewnative.h"
-#include "rfftw.h"
+#include "fftw3.h"
 
-BOOST_FIXTURE_TEST_SUITE( cpu_convolution_sandbox, multiviewnative::default_3D_fixture )
+BOOST_FIXTURE_TEST_SUITE( cpu_out_of_place_convolution, multiviewnative::default_3D_fixture )
 
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
-  
-  float* image = new float[image_size_];
-  float* kernel = new float[kernel_size_];
-  std::fill(kernel, kernel+kernel_size_,0.f);
-  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
-  
+  typedef multiviewnative::image_stack::array_view<3>::type subarray_view;
+  typedef boost::multi_array_types::index_range range;
+
   ///////////////////////////////////////////////////////////////////////////
-  //adapted from 
+  //prepare/padd data
+  unsigned common_size = image_axis_size + kernel_axis_size - 1;
+  unsigned image_offset = (common_size - image_axis_size)/2;
+
+  multiviewnative::image_stack  padded_image(   boost::extents[common_size][common_size][common_size]);
+  multiviewnative::image_stack  padded_kernel(  boost::extents[common_size][common_size][common_size]);
+
+  //padd image by zero
+  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  padded_image_view = padded_image_;
+
+  //padd and shift the kernel
+  //not required here
+  ///////////////////////////////////////////////////////////////////////////
+  //based upon from 
   //http://www.fftw.org/fftw2_doc/fftw_2.html
-  unsigned M = N = K = multiviewnative::default_3D_fixture::image_axis_size;
+  unsigned M = multiviewnative::default_3D_fixture::image_axis_size, N = multiviewnative::default_3D_fixture::image_axis_size, K = multiviewnative::default_3D_fixture::image_axis_size;
 
-  fftw_real a[M][N][2*(K/2+1)], b[M][N][2*(K/2+1)], c[M][N][K];
-  fftw_complex *A, *B, C[M][N][K/2+1];
-  rfftwnd_plan p, pinv;
-  fftw_real scale = 1.0 / (M * N * K);
-  unsigned i, j, k;
-  // ...
-  p    = rfftw3d_create_plan(M, N, K, FFTW_REAL_TO_COMPLEX,
-			     FFTW_ESTIMATE | FFTW_IN_PLACE);
-  pinv = rfftw3d_create_plan(M, N, K, FFTW_COMPLEX_TO_REAL,
-			     FFTW_ESTIMATE);
+  //see http://www.fftw.org/fftw3_doc/Multi_002dDimensional-DFTs-of-Real-Data.html#Multi_002dDimensional-DFTs-of-Real-Data
+  //For out-of-place transforms, this is the end of the story: the real data is stored as a row-major array of size n0 × n1 × n2 × … × nd-1 and the complex data is stored as a row-major array of size n0 × n1 × n2 × … × (nd-1/2 + 1).
+  // For in-place transforms, however, extra padding of the real-data array is necessary because the complex array is larger than the real array, and the two arrays share the same memory locations. Thus, for in-place transforms, the final dimension of the real-data array must be padded with extra values to accommodate the size of the complex data—two values if the last dimension is even and one if it is odd. That is, the last dimension of the real data must physically contain 2 * (nd-1/2+1)double values (exactly enough to hold the complex data). This physical array size does not, however, change the logical array size—only nd-1values are actually stored in the last dimension, and nd-1is the last dimension passed to the plan-creation routine.
+  unsigned fft_size = M*N*(K/2+1);
+  fftwf_complex* image_fourier = static_cast<fftwf_complex*>(fftwf_malloc(sizeof(fftwf_complex)*fft_size));
+  fftwf_complex* kernel_fourier = static_cast<fftwf_complex*>(fftwf_malloc(sizeof(fftwf_complex)*fft_size));
+  float scale = 1.0 / (M * N * K);
 
-     /* aliases for accessing complex transform outputs: */
-     A = (fftw_complex*) &a[0][0][0];
-     B = (fftw_complex*) &b[0][0][0];
-     // ...
-     // for (i = 0; i < M; ++i)
-     //      for (j = 0; j < N; ++j) {
-     //           a[i][j] = ... ;
-     //           b[i][j] = ... ;
-     //      }
-     // ...
-     rfftwnd_one_real_to_complex(p, &a[0][0], NULL);
-     rfftwnd_one_real_to_complex(p, &b[0][0], NULL);
+  
+  fftwf_plan image_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						    padded_image.data(), image_fourier,
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_fwd_plan);
 
-     for (i = 0; i < M; ++i)
-       for (j = 0; j < N; ++j)
-	 for (k = 0; k < K/2+1; ++k) {
-	   //int ij = i*(N/2+1) + j;
-	   unsigned index = i*N*(K/2+1) + j*(K/2+1) + k;
-               C[i][j][k].re = (A[index].re * B[index].re
-                             - A[index].im * B[index].im) * scale;
-               C[i][j][k].im = (A[index].re * B[index].im
-                             + A[index].im * B[index].re) * scale;
-          }
+  fftwf_plan kernel_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						     padded_kernel.data(), kernel_fourier,
+						     FFTW_ESTIMATE);
+  fftwf_execute(kernel_fwd_plan);
 
-     /* inverse transform to get c, the convolution of a and b;
-        this has the side effect of overwriting C */
-     rfftwnd_one_complex_to_real(pinv, &C[0][0][0], &c[0][0][0]);
-     // ...
-     rfftwnd_destroy_plan(p);
-     rfftwnd_destroy_plan(pinv);
 
-     ///////////////////
-  float sum = std::accumulate(image, image + image_size_,0.f);
+  
+  
+  for(unsigned index = 0;index < fft_size;++index){
+    float real = image_fourier[index][0]*kernel_fourier[index][0] - image_fourier[index][1]*kernel_fourier[index][1];
+    float imag = image_fourier[index][0]*kernel_fourier[index][1] + image_fourier[index][1]*kernel_fourier[index][0];
+    image_fourier[index][0] = real;
+    image_fourier[index][1] = imag;
+  }
+  
+  fftwf_destroy_plan(kernel_fwd_plan);
+  fftwf_destroy_plan(image_fwd_plan);
+  
+  float* image_result = (float *) fftwf_malloc(sizeof(float)*image_size_);
+  
+  fftwf_plan image_rev_plan = fftwf_plan_dft_c2r_3d(M, N, K/2+1,
+						    image_fourier, image_result,
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_rev_plan);
+  
+  float sum = std::accumulate(image_result, image_result + image_size_,0.f)*scale;
   BOOST_CHECK_CLOSE(sum, 0.f, .00001);
 
-  delete [] image;
-  delete [] kernel;
+  fftwf_destroy_plan(image_rev_plan);
+  fftwf_free(image_result);
+  fftwf_free(image_fourier);
+  fftwf_free(kernel_fourier);
+
 }
 
 
 
 BOOST_AUTO_TEST_CASE( convolve_by_identity )
 {
-  
-  float* image = new float[image_size_];
-
-  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
-  
-  print_kernel();
-  print_image(image);
-
-  convolution3DfftCUDAInPlace(image, &image_dims_[0], 
-			      identity_kernel_.data(),&kernel_dims_[0],
-			      selectDeviceWithHighestComputeCapability());
-
-  float * reference = padded_image_.data();
-  BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
- 
-  delete [] image;
+  BOOST_FAIL("convolution by unity not implemented yet");
 }
 
 

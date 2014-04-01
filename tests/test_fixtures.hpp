@@ -33,7 +33,8 @@ struct convolutionFixture3D
   image_stack			padded_image_folded_by_all1_		;
 
   const unsigned		kernel_size_				;
-  std::vector<int>	 	kernel_dims_			;
+  std::vector<int>	 	kernel_dims_				;
+  image_stack			trivial_kernel_				;
   image_stack			identity_kernel_			;
   image_stack			vertical_kernel_			;
   image_stack			horizont_kernel_			;
@@ -55,6 +56,7 @@ public:
     padded_image_folded_by_all1_  	(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
     kernel_size_		((unsigned)std::pow(KernelDimSize,3)),
     kernel_dims_		(3,KernelDimSize),
+    trivial_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
     identity_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
     vertical_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
     horizont_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
@@ -65,6 +67,7 @@ public:
     //FILL KERNELS
     const unsigned halfKernel  = KernelDimSize/2u;
         
+    std::fill(trivial_kernel_.origin()	,trivial_kernel_.origin()	+ kernel_size_	,0.f);
     std::fill(identity_kernel_.origin()	,identity_kernel_.origin()	+ kernel_size_	,0.f);
     std::fill(vertical_kernel_.origin()	,vertical_kernel_.origin()	+ kernel_size_	,0.f);
     std::fill(depth_kernel_.origin()	,depth_kernel_.origin()		+ kernel_size_	,0.f);
