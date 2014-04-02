@@ -13,6 +13,19 @@ typedef boost::multi_array_types::index_range range;
 using namespace multiviewnative;
 
 template <typename MatrixT>
+void print_mismatching_items(MatrixT& _reference, MatrixT& _other){
+  for(long x=0;x<_reference.shape()[0];++x)
+      for(long y=0;y<_reference.shape()[1];++y)
+	for(long z=0;z<_reference.shape()[2];++z){
+	  float reference = _reference[x][y][z];
+	  float to_compared = _other[x][y][z];
+	  if(std::fabs(reference - to_compared)>(1e-3*reference) && (std::fabs(reference) > 1e-4 || std::fabs(to_compared)>1e-4)){
+	    std::cout << "["<< x<<"]["<< y<<"]["<< z<<"] mismatch, ref: " << reference << " != to_compare: " << to_compared << "\n";
+	  }
+	}
+}
+
+template <typename MatrixT>
 void convolute_3d_out_of_place(MatrixT& _image, MatrixT& _kernel){
   
   if(_image.size()!=_kernel.size())
@@ -360,9 +373,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = horizont_kernel_[x][y][z];
       }
   
-  std::cout << "horizontal kernel:\n" << horizont_kernel_ << "\n\npadded input image:\n" << padded_image << "\n";
-  
-  convolute_3d_out_of_place(padded_image,padded_kernel);
+   convolute_3d_out_of_place(padded_image,padded_kernel);
 
   // multiviewnative::image_stack_ref result(image_result,boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   range image_segment_range = range(image_offset,image_offset+image_axis_size);
@@ -372,22 +383,118 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
   image_stack result_image = result_image_view;
   
 
-  std::cout << "input image:\n" << image_ << "\n";
-  std::cout << "result image:\n" << result_image << "\n";
   float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_size_,0.f);
   float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
 
-  if(std::fabs(sum - sum_original)>.001){
-    for(long x=0;x<image_axis_size;++x)
-      for(long y=0;y<image_axis_size;++y)
-	for(long z=0;z<image_axis_size;++z){
-	  float reference = image_folded_by_horizontal_[x][y][z];
-	  float to_compared = result_image[x][y][z];
-	  if(std::fabs(reference - to_compared)>(1e-3*reference) && (std::fabs(reference) > 1e-4 || std::fabs(to_compared)>1e-4)){
-	    std::cout << "["<< x<<"]["<< y<<"]["<< z<<"] mismatch, ref: " << reference << " != to_compare: " << to_compared << "\n";
-	  }
-	}
-  }
+  
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+
+
+BOOST_AUTO_TEST_CASE( convolve_by_vertical )
+{
+  
+  ///////////////////////////////////////////////////////////////////////////
+  //prepare/padd data
+  unsigned common_axis_size = image_axis_size + kernel_axis_size - 1;
+  unsigned common_size = common_axis_size*common_axis_size*common_axis_size;
+  unsigned image_offset = (common_axis_size - image_axis_size)/2;
+
+  multiviewnative::image_stack  padded_image(   boost::extents[common_axis_size][common_axis_size][common_axis_size]);
+  multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
+  
+  //insert input into zero-padded stack
+  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  padded_image_view = image_;
+
+  //insert kernel into zero-padded stack
+  std::fill(padded_kernel.origin(), padded_kernel.origin()+common_size,0.f);
+
+  //shift the kernel cyclic
+  for(long x=0;x<kernel_axis_size;++x)
+    for(long y=0;y<kernel_axis_size;++y)
+      for(long z=0;z<kernel_axis_size;++z){
+	long intermediate_x = x - kernel_axis_size/2L;
+	long intermediate_y = y - kernel_axis_size/2L;
+	long intermediate_z = z - kernel_axis_size/2L;
+	
+	intermediate_x =(intermediate_x<0) ? intermediate_x + common_axis_size: intermediate_x;
+	intermediate_y =(intermediate_y<0) ? intermediate_y + common_axis_size: intermediate_y;
+	intermediate_z =(intermediate_z<0) ? intermediate_z + common_axis_size: intermediate_z;
+
+	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = vertical_kernel_[x][y][z];
+      }
+  
+  convolute_3d_out_of_place(padded_image,padded_kernel);
+
+  // multiviewnative::image_stack_ref result(image_result,boost::extents[common_axis_size][common_axis_size][common_axis_size]);
+  range image_segment_range = range(image_offset,image_offset+image_axis_size);
+  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+
+  //copy awkward here
+  image_stack result_image = result_image_view;
+
+  float sum_original = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_size_,0.f);
+  float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
+
+  
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+
+
+BOOST_AUTO_TEST_CASE( convolve_by_all1 )
+{
+  
+  ///////////////////////////////////////////////////////////////////////////
+  //prepare/padd data
+  unsigned common_axis_size = image_axis_size + kernel_axis_size - 1;
+  unsigned common_size = common_axis_size*common_axis_size*common_axis_size;
+  unsigned image_offset = (common_axis_size - image_axis_size)/2;
+
+  multiviewnative::image_stack  padded_image(   boost::extents[common_axis_size][common_axis_size][common_axis_size]);
+  multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
+  
+  //insert input into zero-padded stack
+  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  padded_image_view = image_;
+
+  //insert kernel into zero-padded stack
+  std::fill(padded_kernel.origin(), padded_kernel.origin()+common_size,0.f);
+
+  //shift the kernel cyclic
+  for(long x=0;x<kernel_axis_size;++x)
+    for(long y=0;y<kernel_axis_size;++y)
+      for(long z=0;z<kernel_axis_size;++z){
+	long intermediate_x = x - kernel_axis_size/2L;
+	long intermediate_y = y - kernel_axis_size/2L;
+	long intermediate_z = z - kernel_axis_size/2L;
+	
+	intermediate_x =(intermediate_x<0) ? intermediate_x + common_axis_size: intermediate_x;
+	intermediate_y =(intermediate_y<0) ? intermediate_y + common_axis_size: intermediate_y;
+	intermediate_z =(intermediate_z<0) ? intermediate_z + common_axis_size: intermediate_z;
+
+	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = all1_kernel_[x][y][z];
+      }
+  
+  convolute_3d_out_of_place(padded_image,padded_kernel);
+
+  // multiviewnative::image_stack_ref result(image_result,boost::extents[common_axis_size][common_axis_size][common_axis_size]);
+  range image_segment_range = range(image_offset,image_offset+image_axis_size);
+  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+
+  //copy awkward here
+  image_stack result_image = result_image_view;
+
+  float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_size_,0.f);
+  float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
+
+  
 
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
