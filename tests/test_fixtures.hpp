@@ -11,9 +11,54 @@
 //http://www.boost.org/doc/libs/1_55_0/libs/multi_array/doc/user.html
 //http://stackoverflow.com/questions/2168082/how-to-rewrite-array-from-row-order-to-column-order
 
+
 namespace multiviewnative {
 
 typedef boost::multi_array<float, 3> image_stack;
+typedef boost::multi_array_ref<float, 3> image_stack_ref;
+
+std::ostream& operator<<(std::ostream& _cout, const image_stack& _marray){
+
+  if(image_stack::dimensionality!=3){
+    _cout << "dim!=3\n";
+    return _cout;
+  }
+
+
+  if(_marray.empty()){
+    _cout << "size=0\n";
+    return _cout;
+  }
+  
+  int precision = _cout.precision();
+  _cout << std::setprecision(4);
+  const size_t* shapes = _marray.shape(); 
+  
+  _cout << std::setw(9) << "x = ";
+  for(size_t x_index = 0;x_index<(shapes[0]);++x_index){
+	_cout << std::setw(8) << x_index << " ";
+  }
+  std::cout << "\n";
+  std::cout << std::setfill('-') << std::setw((shapes[0]+1)*9) << " " << std::setfill(' ')<< std::endl ;
+
+  for(size_t z_index = 0;z_index<(shapes[2]);++z_index){
+    _cout << "z["<< std::setw(5) << z_index << "] \n";
+      for(size_t y_index = 0;y_index<(shapes[1]);++y_index){
+	_cout << "y["<< std::setw(5) << y_index << "] ";
+
+	for(size_t x_index = 0;x_index<(shapes[0]);++x_index){
+	  _cout << std::setw(8) << _marray[x_index][y_index][z_index] << " ";
+	}
+
+	_cout << "\n";
+      }
+      _cout << "\n";
+    }
+
+  _cout << std::setprecision(precision);
+  return _cout;
+}
+
 
 template <unsigned short KernelDimSize = 3, 
 	  unsigned ImageDimSize = 8
@@ -167,9 +212,13 @@ public:
   };
 
   template <typename IntensityT, typename DimT>
-  void print_3d_structure(const IntensityT* _image=0, const DimT* _dimensions=0) const {
+  void print_3d_structure(const IntensityT* _image=0, const DimT* _dimensions=0, bool _print_flat = false) const {
 
     DimT image_index = 0;
+    if(!_image){
+      std::cerr << "Unable to print 3d structure!\n";
+      return;
+    }
 
     for(DimT z_index = 0;z_index<(_dimensions[2]);++z_index){
       std::cout << "z="<< z_index << "\n" << "x" << std::setw(8) << " ";
@@ -194,15 +243,16 @@ public:
       std::cout << "\n";
     }
 
-    DimT image_size = _dimensions[0]*_dimensions[1]*_dimensions[2];
-    std::cout << "flat memory storage:\n";
-    for(DimT index = 0;index<image_size;++index){
-      std::cout << std::setw(6) << _image[index] << " ";
-      if((index % 15u == 0) && index>0)
-	std::cout << "\n";
+    if(_print_flat){
+      DimT image_size = _dimensions[0]*_dimensions[1]*_dimensions[2];
+      std::cout << "flat memory storage:\n";
+      for(DimT index = 0;index<image_size;++index){
+	std::cout << std::setw(6) << _image[index] << " ";
+	if((index % 15u == 0) && index>0)
+	  std::cout << "\n";
+      }
+      std::cout << "\n";
     }
-    std::cout << "\n";
-      
   };
 
 
@@ -238,6 +288,7 @@ public:
 };
 
 typedef convolutionFixture3D<> default_3D_fixture;
+
 
 }
 
