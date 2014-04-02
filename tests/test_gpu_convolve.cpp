@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 			      horizont_kernel_.data(),&kernel_dims_[0],
 			      selectDeviceWithHighestComputeCapability());
 
-  float * reference = padded_image_folded_by_horizontal_.data();
+  float * reference = image_folded_by_horizontal_.data();
   BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
  
   delete [] image;

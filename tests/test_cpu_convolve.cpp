@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE( fft_ifft_image )
   float scale = 1.0 / (image_size_);
   
   fftwf_plan image_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
-						    padded_image_.data(), image_fourier,
+						    image_.data(), image_fourier,
 						    FFTW_ESTIMATE);
   fftwf_execute(image_fwd_plan);
   fftwf_destroy_plan(image_fwd_plan);
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE( fft_ifft_image )
   }
   
   float sum_result   = std::accumulate(image_result, image_result + image_size_, 0.f);
-  float sum_original = std::accumulate(padded_image_.origin(), padded_image_.origin() + image_size_, 0.f);
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_, 0.f);
   
   BOOST_CHECK_CLOSE(sum_result, sum_original, 0.000001);
   
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
   
   //padd image by zero
   subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
-  padded_image_view = padded_image_;
+  padded_image_view = image_;
 
   //padd and shift the kernel
   //not required here
@@ -198,7 +198,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
   
   //insert input into zero-padded stack
   subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
-  padded_image_view = padded_image_;
+  padded_image_view = image_;
 
   //insert kernel into zero-padded stack
   std::fill(padded_kernel.origin(), padded_kernel.origin()+common_size,0.f);
@@ -263,7 +263,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
 
   image_stack result_image = result_image_view;
   
-  float sum_original = std::accumulate(padded_image_.origin(), padded_image_.origin() + image_size_,0.f);
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
   float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
 
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity_from_external )
   
   //insert input into zero-padded stack
   subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
-  padded_image_view = padded_image_;
+  padded_image_view = image_;
 
   //insert kernel into zero-padded stack
   std::fill(padded_kernel.origin(), padded_kernel.origin()+common_size,0.f);
@@ -316,7 +316,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity_from_external )
 
   image_stack result_image = result_image_view;
   
-  float sum_original = std::accumulate(padded_image_.origin(), padded_image_.origin() + image_size_,0.f);
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
   float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
 
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
@@ -340,7 +340,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
   
   //insert input into zero-padded stack
   subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
-  padded_image_view = padded_image_;
+  padded_image_view = image_;
 
   //insert kernel into zero-padded stack
   std::fill(padded_kernel.origin(), padded_kernel.origin()+common_size,0.f);
@@ -360,7 +360,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = horizont_kernel_[x][y][z];
       }
   
-  std::cout << "horizontal kernel:\n" << horizont_kernel_ << "\n\npadded horizontal kernel:\n" << padded_kernel << "\n";
+  std::cout << "horizontal kernel:\n" << horizont_kernel_ << "\n\npadded input image:\n" << padded_image << "\n";
   
   convolute_3d_out_of_place(padded_image,padded_kernel);
 
@@ -370,19 +370,21 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 
   //copy awkward here
   image_stack result_image = result_image_view;
-  std::cout << "input image:\n" << padded_image_ << "\n";
+  
+
+  std::cout << "input image:\n" << image_ << "\n";
   std::cout << "result image:\n" << result_image << "\n";
-  float sum_original = std::accumulate(padded_image_folded_by_horizontal_.origin(), padded_image_folded_by_horizontal_.origin() + image_size_,0.f);
+  float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_size_,0.f);
   float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
 
   if(std::fabs(sum - sum_original)>.001){
     for(long x=0;x<image_axis_size;++x)
       for(long y=0;y<image_axis_size;++y)
 	for(long z=0;z<image_axis_size;++z){
-	  float reference = padded_image_folded_by_horizontal_[x][y][z];
+	  float reference = image_folded_by_horizontal_[x][y][z];
 	  float to_compared = result_image[x][y][z];
-	  if(std::fabs(reference - to_compared)>.01f*reference && (std::fabs(reference) > 1e-4 || std::fabs(to_compared)>1e-4)){
-	    std::cout << "["<< x<<"]["<< y<<"]["<< z<<"] mismatch, ref: " << reference << " != " << to_compared << "\n";
+	  if(std::fabs(reference - to_compared)>(1e-3*reference) && (std::fabs(reference) > 1e-4 || std::fabs(to_compared)>1e-4)){
+	    std::cout << "["<< x<<"]["<< y<<"]["<< z<<"] mismatch, ref: " << reference << " != to_compare: " << to_compared << "\n";
 	  }
 	}
   }

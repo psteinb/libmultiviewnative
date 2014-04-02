@@ -14,8 +14,10 @@
 
 namespace multiviewnative {
 
-typedef boost::multi_array<float, 3> image_stack;
-typedef boost::multi_array_ref<float, 3> image_stack_ref;
+  typedef boost::multi_array<float, 3> image_stack;
+  typedef boost::multi_array_ref<float, 3> image_stack_ref;
+  typedef image_stack::array_view<3>::type image_stack_view;
+  typedef boost::multi_array_types::index_range range;
 
 std::ostream& operator<<(std::ostream& _cout, const image_stack& _marray){
 
@@ -72,10 +74,10 @@ struct convolutionFixture3D
   std::vector<int>		image_dims_				;
   image_stack			image_					;
   image_stack			padded_image_				;
-  image_stack			padded_image_folded_by_horizontal_	;
-  image_stack			padded_image_folded_by_vertical_	;
-  image_stack			padded_image_folded_by_depth_		;
-  image_stack			padded_image_folded_by_all1_		;
+  image_stack			image_folded_by_horizontal_		;
+  image_stack			image_folded_by_vertical_		;
+  image_stack			image_folded_by_depth_			;
+  image_stack			image_folded_by_all1_			;
 
   const unsigned		kernel_size_				;
   std::vector<int>	 	kernel_dims_				;
@@ -94,13 +96,13 @@ public:
     image_size_				((unsigned)std::pow(ImageDimSize,3)),
     image_dims_				(3,ImageDimSize),
     image_				(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
-    padded_image_			(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
-    padded_image_folded_by_horizontal_	(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
-    padded_image_folded_by_vertical_  	(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
-    padded_image_folded_by_depth_  	(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
-    padded_image_folded_by_all1_  	(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
-    kernel_size_		((unsigned)std::pow(KernelDimSize,3)),
-    kernel_dims_		(3,KernelDimSize),
+    padded_image_			(boost::extents[ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)]),
+    image_folded_by_horizontal_		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
+    image_folded_by_vertical_  		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
+    image_folded_by_depth_  		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
+    image_folded_by_all1_  		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
+    kernel_size_			((unsigned)std::pow(KernelDimSize,3)),
+    kernel_dims_			(3,KernelDimSize),
     trivial_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
     identity_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
     vertical_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
@@ -124,65 +126,67 @@ public:
     for(unsigned int index = 0;index<KernelDimSize;++index){
       horizont_kernel_[index][halfKernel][halfKernel] = float(index+1);
       vertical_kernel_[halfKernel][index][halfKernel] = float(index+1);
-      depth_kernel_   [halfKernel][halfKernel][index]	= float(index+1);
+      depth_kernel_   [halfKernel][halfKernel][index] = float(index+1);
     }
     
     //FILL IMAGES
-    std::fill(image_.origin(),         image_.origin()         +  image_size_,  42.f  );
-    std::fill(padded_image_.origin(),  padded_image_.origin()  +  image_size_,  0.f   );
+    unsigned padded_image_axis = ImageDimSize+2*halfKernel;
+    unsigned padded_image_size = std::pow(padded_image_axis,3);
+    std::fill(image_.origin(),         image_.origin()         +  image_size_,        0.f  );
+    std::fill(padded_image_.origin(),  padded_image_.origin()  +  padded_image_size,  0.f  );
 
     unsigned image_index=0;
-    for(int z_index = halfKernel;z_index<int(image_dims_[2]-halfKernel);++z_index){
-      for(int y_index = halfKernel;y_index<int(image_dims_[1]-halfKernel);++y_index){
-	for(int x_index = halfKernel;x_index<int(image_dims_[0]-halfKernel);++x_index){
-	  image_index=x_index;
-	  image_index += y_index*image_dims_[0];
-	  image_index += z_index*image_dims_[0]*image_dims_[1] ;
-
-	  padded_image_[x_index][y_index][z_index] = float(image_index);
-	
-	}
-     
+    for(int z_index = 0;z_index<int(image_dims_[2]);++z_index){
+      for(int y_index = 0;y_index<int(image_dims_[1]);++y_index){
+    	for(int x_index = 0;x_index<int(image_dims_[0]);++x_index){
+    	  image_index=x_index;
+    	  image_index += y_index*image_dims_[0];
+    	  image_index += z_index*image_dims_[0]*image_dims_[1] ;
+    	  image_[x_index][y_index][z_index] = float(image_index);
+    	}
       }
     }
 
-    std::copy(padded_image_.origin(),  padded_image_.origin()  +  image_size_,  padded_image_folded_by_horizontal_.origin());
-    std::copy(padded_image_.origin(),  padded_image_.origin()  +  image_size_,  padded_image_folded_by_vertical_.origin());
-    std::copy(padded_image_.origin(),  padded_image_.origin()  +  image_size_,  padded_image_folded_by_depth_.origin());
-    std::copy(padded_image_.origin(),  padded_image_.origin()  +  image_size_,  padded_image_folded_by_all1_.origin());
+    //PADD THE IMAGE FOR CONVOLUTION
+    range axis_subrange = range(halfKernel,halfKernel+ImageDimSize);
+    image_stack_view padded_image_original = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
+    padded_image_original = image_;
     
+    image_stack padded_image_folded_by_horizontal  = padded_image_;
+    image_stack padded_image_folded_by_vertical    = padded_image_;
+    image_stack padded_image_folded_by_depth       = padded_image_;
+    image_stack padded_image_folded_by_all1        = padded_image_;
 
     //CONVOLVE
-
     float newValue = 0.;
     float kernel_value  = 0.f;
     float image_value   = 0.f;
 
-    for(int z_index = halfKernel;z_index<int(image_dims_[2]-halfKernel);++z_index){
-      for(int y_index = halfKernel;y_index<int(image_dims_[1]-halfKernel);++y_index){
-	for(int x_index = halfKernel;x_index<int(image_dims_[0]-halfKernel);++x_index){
+    for(int z_index = halfKernel;z_index<int(padded_image_axis-halfKernel);++z_index){
+      for(int y_index = halfKernel;y_index<int(padded_image_axis-halfKernel);++y_index){
+	for(int x_index = halfKernel;x_index<int(padded_image_axis-halfKernel);++x_index){
 	  	  
-	  padded_image_folded_by_horizontal_[x_index][y_index][z_index] = 0.f;
-	  padded_image_folded_by_vertical_[x_index][y_index][z_index] = 0.f;
-	  padded_image_folded_by_depth_[x_index][y_index][z_index] = 0.f;
-	  padded_image_folded_by_all1_[x_index][y_index][z_index] = 0.f;
+	  padded_image_folded_by_horizontal[x_index][y_index][z_index] = 0.f;
+	  padded_image_folded_by_vertical[x_index][y_index][z_index] = 0.f;
+	  padded_image_folded_by_depth[x_index][y_index][z_index] = 0.f;
+	  padded_image_folded_by_all1[x_index][y_index][z_index] = 0.f;
 
 	  for(int kindex = 0;kindex<KernelDimSize;++kindex){
 	    //convolution in x
 	    kernel_value  =  horizont_kernel_[KernelDimSize-1-kindex][halfKernel][halfKernel]	;
 	    image_value   =  padded_image_[x_index-halfKernel+kindex][y_index][z_index]		;
-	    padded_image_folded_by_horizontal_[x_index][y_index][z_index] += kernel_value*image_value;
+	    padded_image_folded_by_horizontal[x_index][y_index][z_index] += kernel_value*image_value;
 
 	    //convolution in y
 	    kernel_value  = vertical_kernel_[halfKernel][KernelDimSize-1-kindex][halfKernel];
 	    image_value   = padded_image_[x_index][y_index-halfKernel+kindex][z_index];
-	    padded_image_folded_by_vertical_[x_index][y_index][z_index] += kernel_value*image_value;
+	    padded_image_folded_by_vertical[x_index][y_index][z_index] += kernel_value*image_value;
 	      
 
 	    //convolution in z
 	    kernel_value  = depth_kernel_[halfKernel][halfKernel][KernelDimSize-1-kindex];
 	    image_value   = padded_image_[x_index][y_index][z_index-halfKernel+kindex];
-	    padded_image_folded_by_depth_[x_index][y_index][z_index] += kernel_value*image_value;
+	    padded_image_folded_by_depth[x_index][y_index][z_index] += kernel_value*image_value;
 	      
 	  }
   
@@ -195,16 +199,20 @@ public:
 	      }
 	    }
 	  }
-	  padded_image_folded_by_all1_[x_index][y_index][z_index] = newValue;
-	    
-	
-
+	  padded_image_folded_by_all1[x_index][y_index][z_index] = newValue;
 	
 	}
      
       }
     }
     
+    //EXTRACT NON-PADDED CONTENT FROM CONVOLVED IMAGE STACKS
+    image_folded_by_horizontal_  = padded_image_folded_by_horizontal[ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
+    image_folded_by_vertical_    = padded_image_folded_by_vertical  [ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
+    image_folded_by_depth_       = padded_image_folded_by_depth     [ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
+    image_folded_by_all1_        = padded_image_folded_by_all1      [ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
+
+
   }
   
   virtual ~convolutionFixture3D()  { 
@@ -261,7 +269,7 @@ public:
     
     const float * image_ptr = 0;
     if(!_image)
-      image_ptr = &padded_image_.data()[0];
+      image_ptr = &image_.data()[0];
     else
       image_ptr = _image;
     
