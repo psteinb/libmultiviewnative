@@ -83,6 +83,73 @@ void convolute_3d_out_of_place(MatrixT& _image, MatrixT& _kernel){
   fftwf_free(kernel_fourier);
 }
 
+template <typename MatrixT>
+void convolute_3d_in_place(MatrixT& _image, MatrixT& _kernel){
+  
+  if(_image.size()!=_kernel.size())
+    {
+      std::cerr << "received image and kernel of mismatching size!\n";
+      return;
+    }
+
+  unsigned M,N,K,Kprime;
+  M = _image.shape()[0];
+  N = _image.shape()[1];
+  K = _image.shape()[2];
+
+  ///////////////////////////////////////////////////////////////////////////
+  //prepare/padd data due to fftw memory restrictions on inplace transforms
+  //http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
+  Kprime = 2*(K/2 + 1);
+  _image.resize(boost::extents[M][N][Kprime]);
+  _kernel.resize(boost::extents[M][N][Kprime]);
+  
+  float scale = 1.0 / (M * N * K);
+  //define+run forward plans
+  fftwf_plan image_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						    _image.data(), (fftwf_complex*)_image.data(),
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_fwd_plan);
+
+  fftwf_plan kernel_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						     _kernel.data(), (fftwf_complex*)_kernel.data(),
+						     FFTW_ESTIMATE);
+  fftwf_execute(kernel_fwd_plan);
+
+
+  //multiply
+  fftwf_complex* image_fourier = (fftwf_complex*)_image.data();
+  fftwf_complex* kernel_fourier = (fftwf_complex*)_kernel.data();
+  unsigned fourier_num_elements = _image.num_elements()/2;
+  for(unsigned index = 0;index < fourier_num_elements;++index){
+    float real = image_fourier[index][0]*kernel_fourier[index][0] - image_fourier[index][1]*kernel_fourier[index][1];
+    float imag = image_fourier[index][0]*kernel_fourier[index][1] + image_fourier[index][1]*kernel_fourier[index][0];
+    image_fourier[index][0] = real;
+    image_fourier[index][1] = imag;
+  }
+  
+  fftwf_destroy_plan(kernel_fwd_plan);
+  fftwf_destroy_plan(image_fwd_plan);
+    
+  fftwf_plan image_rev_plan = fftwf_plan_dft_c2r_3d(M, N, K,
+						    (fftwf_complex*)_image.data(), _image.data(),
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_rev_plan);
+  
+  for(unsigned index = 0;index < _image.num_elements();++index){
+    _image.data()[index]*=scale;
+  }
+  
+  fftwf_destroy_plan(image_rev_plan);
+  std::cout << "image after convolution:\n" << _image << "\n";
+  image_stack meta = _image;
+  _image.resize(boost::extents[M][N][K]);
+  _image = meta[boost::indices[range(0,M)][range(0,N)][range(0,K)]];
+  _kernel.resize(boost::extents[M][N][K]);
+}
+
+
+
 BOOST_FIXTURE_TEST_SUITE( cpu_out_of_place_convolution, multiviewnative::default_3D_fixture )
 BOOST_AUTO_TEST_CASE( fft_ifft_image )
 {
@@ -493,11 +560,208 @@ BOOST_AUTO_TEST_CASE( convolve_by_all1 )
 
   float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_size_,0.f);
   float sum = std::accumulate(result_image.origin(), result_image.origin() + image_size_,0.f);
-
-  
+ 
 
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
+
+}
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_FIXTURE_TEST_SUITE( cpu_in_place_convolution, multiviewnative::default_3D_fixture )
+BOOST_AUTO_TEST_CASE( fft_ifft_image )
+{
+
+  unsigned M = multiviewnative::default_3D_fixture::image_axis_size, N = multiviewnative::default_3D_fixture::image_axis_size, K = multiviewnative::default_3D_fixture::image_axis_size;
+  
+  image_stack padded_image(boost::extents[M][N][2*(K/2 + 1)]);
+  image_stack_view padded_image_view = padded_image[ boost::indices[range()][range()][range(0,K)] ];
+  padded_image_view = image_;
+
+  float scale = 1.0 / (image_size_);
+  
+  fftwf_plan image_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						    padded_image.data(), (fftwf_complex*)padded_image.data(),
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_fwd_plan);
+  fftwf_destroy_plan(image_fwd_plan);
+  
+
+  fftwf_plan image_rev_plan = fftwf_plan_dft_c2r_3d(M, N, K,
+						    (fftwf_complex*)padded_image.data(), padded_image.data(),
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_rev_plan);
+  
+  for(unsigned index = 0;index < padded_image.num_elements();++index){
+    padded_image.data()[index]*=scale;
+  }
+
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_, 0.f);
+  
+  image_ = padded_image_view;
+  float sum_result   = std::accumulate(image_.origin(), image_.origin() + image_size_, 0.f);
+
+  
+  BOOST_CHECK_CLOSE(sum_result, sum_original, 0.000001);
+  
+  fftwf_destroy_plan(image_rev_plan);
+
+
+
+
+}
+
+BOOST_AUTO_TEST_CASE( convolve_by_identity )
+{
+  
+  ///////////////////////////////////////////////////////////////////////////
+  //prepare/padd data due to fftw memory restrictions on inplace transforms
+  //http://www.fftw.org/fftw3_doc/Real_002ddata-DFT-Array-Format.html#Real_002ddata-DFT-Array-Format
+  unsigned last_dim_size_for_inplace = 2*(image_axis_size/2 + 1);
+
+  multiviewnative::image_stack  padded_image(   boost::extents[image_axis_size][image_axis_size][last_dim_size_for_inplace]);
+  multiviewnative::image_stack  padded_kernel(  boost::extents[image_axis_size][image_axis_size][last_dim_size_for_inplace]);
+  
+  //insert input into zero-padded stack
+  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range()     ][  range()     ][  range(0,image_axis_size)     ]];
+  padded_image_view = image_;
+
+  //insert kernel into zero-padded stack
+  std::fill(padded_kernel.origin(), padded_kernel.origin()+padded_kernel.num_elements(),0.f);
+
+  //shift the kernel cyclic
+  for(long x=0;x<kernel_axis_size;++x)
+    for(long y=0;y<kernel_axis_size;++y)
+      for(long z=0;z<kernel_axis_size;++z){
+	long intermediate_x = x - kernel_axis_size/2L;
+	long intermediate_y = y - kernel_axis_size/2L;
+	long intermediate_z = z - kernel_axis_size/2L;
+	
+	intermediate_x =(intermediate_x<0) ? intermediate_x + image_axis_size: intermediate_x;
+	intermediate_y =(intermediate_y<0) ? intermediate_y + image_axis_size: intermediate_y;
+	intermediate_z =(intermediate_z<0) ? intermediate_z + image_axis_size: intermediate_z;
+
+	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = identity_kernel_[x][y][z];
+      }
+  
+  unsigned M = image_axis_size, N = image_axis_size, K = image_axis_size;
+  
+  //setup fourier space arrays
+  float scale = 1.0 / (M * N * K);
+
+  //define+run forward plans
+  fftwf_plan image_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						    padded_image.data(), (fftwf_complex*)padded_image.data(),
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_fwd_plan);
+
+  fftwf_plan kernel_fwd_plan = fftwf_plan_dft_r2c_3d(M, N, K,
+						     padded_kernel.data(), (fftwf_complex*)padded_kernel.data(),
+						     FFTW_ESTIMATE);
+  fftwf_execute(kernel_fwd_plan);
+
+
+  //multiply
+  fftwf_complex* image_fourier = (fftwf_complex*)padded_image.data();
+  fftwf_complex* kernel_fourier = (fftwf_complex*)padded_kernel.data();
+  unsigned fourier_num_elements = padded_image.num_elements()/2;
+  for(unsigned index = 0;index < fourier_num_elements;++index){
+    float real = image_fourier[index][0]*kernel_fourier[index][0] - image_fourier[index][1]*kernel_fourier[index][1];
+    float imag = image_fourier[index][0]*kernel_fourier[index][1] + image_fourier[index][1]*kernel_fourier[index][0];
+    image_fourier[index][0] = real;
+    image_fourier[index][1] = imag;
+  }
+  
+  fftwf_destroy_plan(kernel_fwd_plan);
+  fftwf_destroy_plan(image_fwd_plan);
+    
+  fftwf_plan image_rev_plan = fftwf_plan_dft_c2r_3d(M, N, K,
+						    (fftwf_complex*)padded_image.data(), padded_image.data(),
+						    FFTW_ESTIMATE);
+  fftwf_execute(image_rev_plan);
+  
+  for(unsigned index = 0;index < padded_image.num_elements();++index){
+    padded_image.data()[index]*=scale;
+  }
+  
+  
+  
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+  image_ = padded_image_view ;
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+  fftwf_destroy_plan(image_rev_plan);
+
+}
+
+BOOST_AUTO_TEST_CASE( convolve_by_identity_by_external )
+{
+  
+  ///////////////////////////////////////////////////////////////////////////
+  //padd the kernel to match the image
+  multiviewnative::image_stack  padded_kernel(  boost::extents[image_axis_size][image_axis_size][image_axis_size]);
+  std::fill(padded_kernel.origin(), padded_kernel.origin()+padded_kernel.num_elements(),0.f);
+
+  //shift the kernel cyclic
+  for(long x=0;x<kernel_axis_size;++x)
+    for(long y=0;y<kernel_axis_size;++y)
+      for(long z=0;z<kernel_axis_size;++z){
+	long intermediate_x = x - kernel_axis_size/2L;
+	long intermediate_y = y - kernel_axis_size/2L;
+	long intermediate_z = z - kernel_axis_size/2L;
+	
+	intermediate_x =(intermediate_x<0) ? intermediate_x + image_axis_size: intermediate_x;
+	intermediate_y =(intermediate_y<0) ? intermediate_y + image_axis_size: intermediate_y;
+	intermediate_z =(intermediate_z<0) ? intermediate_z + image_axis_size: intermediate_z;
+
+	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = identity_kernel_[x][y][z];
+      }
+    
+  
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  convolute_3d_in_place(image_, padded_kernel);
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+}
+
+BOOST_AUTO_TEST_CASE( convolve_by_horizontal_by_external )
+{
+  
+  ///////////////////////////////////////////////////////////////////////////
+  //padd the kernel to match the image
+  multiviewnative::image_stack  padded_kernel(  boost::extents[image_axis_size][image_axis_size][image_axis_size]);
+  std::fill(padded_kernel.origin(), padded_kernel.origin()+padded_kernel.num_elements(),0.f);
+
+  //shift the kernel cyclic
+  for(long x=0;x<kernel_axis_size;++x)
+    for(long y=0;y<kernel_axis_size;++y)
+      for(long z=0;z<kernel_axis_size;++z){
+	long intermediate_x = x - kernel_axis_size/2L;
+	long intermediate_y = y - kernel_axis_size/2L;
+	long intermediate_z = z - kernel_axis_size/2L;
+	
+	intermediate_x =(intermediate_x<0) ? intermediate_x + image_axis_size: intermediate_x;
+	intermediate_y =(intermediate_y<0) ? intermediate_y + image_axis_size: intermediate_y;
+	intermediate_z =(intermediate_z<0) ? intermediate_z + image_axis_size: intermediate_z;
+
+	padded_kernel[intermediate_x][intermediate_y][intermediate_z] = horizont_kernel_[x][y][z];
+      }
+    
+  
+  std::cout << "original:\n" << image_ << "\n\n";
+  float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_size_,0.f);
+  convolute_3d_in_place(image_, padded_kernel);
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+  std::cout << "result:\n" << image_ << "\n\n";
+  std::cout << "expected:\n" << image_folded_by_horizontal_ << "\n\n";
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+  
 
 }
 BOOST_AUTO_TEST_SUITE_END()
