@@ -121,7 +121,7 @@ struct minus_1_div_2 {
 };
 
 template <typename MatrixT>
-void convolute_3d_in_place(MatrixT& _image, MatrixT& _kernel){
+void convolute_3d_in_place(MatrixT& _image, const MatrixT& _kernel){
   
   if(_image.size()==_kernel.size())
     {
@@ -160,7 +160,7 @@ void convolute_3d_in_place(MatrixT& _image, MatrixT& _kernel){
 
   ///////////////////////////////////////////////////////////////////////////
   //PADD KERNEL
-  image_stack padded_kernel(common_extents, _image.storage_order());
+  image_stack padded_kernel(common_extents, _kernel.storage_order());
   for(long z=0;z<origin_kernel_extents[2];++z)
     for(long y=0;y<origin_kernel_extents[1];++y)
       for(long x=0;x<origin_kernel_extents[0];++x){
@@ -179,26 +179,28 @@ void convolute_3d_in_place(MatrixT& _image, MatrixT& _kernel){
   ///////////////////////////////////////////////////////////////////////////
   //RESIZE ALL TO ALLOW FFTW INPLACE TRANSFORM
   std::vector<unsigned> inplace_extents = adapt_extents_for_fftw_inplace(_image.storage_order(),common_extents);
-  padded_image.resize(inplace_extents);
-  padded_kernel.resize(inplace_extents);
+  padded_image.resize(boost::extents[inplace_extents[0]][inplace_extents[1]][inplace_extents[2]]);
+  padded_kernel.resize(boost::extents[inplace_extents[0]][inplace_extents[1]][inplace_extents[2]]);
   
 
   float scale = 1.0 / (size_of_transform);
+  fftwf_complex* complex_image_fourier  = (fftwf_complex*)padded_image.data();
+  fftwf_complex* complex_kernel_fourier = (fftwf_complex*)padded_kernel.data();
+
   //define+run forward plans
   fftwf_plan image_fwd_plan = fftwf_plan_dft_r2c_3d(common_extents[0], common_extents[1], common_extents[2],
-						    padded_image.data(), (fftwf_complex*)padded_image.data(),
+						    padded_image.data(), complex_image_fourier,
 						    FFTW_ESTIMATE);
   fftwf_execute(image_fwd_plan);
 
   fftwf_plan kernel_fwd_plan = fftwf_plan_dft_r2c_3d(common_extents[0], common_extents[1], common_extents[2],
-						     padded_kernel.data(), (fftwf_complex*)padded_kernel.data(),
+						     padded_kernel.data(), complex_kernel_fourier,
 						     FFTW_ESTIMATE);
   fftwf_execute(kernel_fwd_plan);
 
 
   //multiply
-  fftwf_complex* complex_image_fourier  = (fftwf_complex*)padded_image.data();
-  fftwf_complex* complex_kernel_fourier = (fftwf_complex*)padded_kernel.data();
+ 
   unsigned fourier_num_elements = padded_image.num_elements()/2;
   for(unsigned index = 0;index < fourier_num_elements;++index){
     float real = complex_image_fourier[index][0]*complex_kernel_fourier[index][0] - complex_image_fourier[index][1]*complex_kernel_fourier[index][1];
@@ -211,7 +213,7 @@ void convolute_3d_in_place(MatrixT& _image, MatrixT& _kernel){
   fftwf_destroy_plan(image_fwd_plan);
     
   fftwf_plan image_rev_plan = fftwf_plan_dft_c2r_3d(common_extents[0], common_extents[1], common_extents[2],
-						    (fftwf_complex*)padded_image.data(), padded_image.data(),
+						     complex_image_fourier, padded_image.data(),
 						    FFTW_ESTIMATE);
   fftwf_execute(image_rev_plan);
   
@@ -221,9 +223,8 @@ void convolute_3d_in_place(MatrixT& _image, MatrixT& _kernel){
 
   fftwf_destroy_plan(image_rev_plan);
 
-  subview_padded_image =  padded_image[ boost::indices[range(common_offsets[0], common_offsets[0]+origin_image_extents[0])][range(common_offsets[1], common_offsets[1]+origin_image_extents[1])][range(common_offsets[2], common_offsets[2]+origin_image_extents[2])] ];
-  _image = subview_padded_image;
-  
+  _image = padded_image[ boost::indices[range(common_offsets[0], common_offsets[0]+origin_image_extents[0])][range(common_offsets[1], common_offsets[1]+origin_image_extents[1])][range(common_offsets[2], common_offsets[2]+origin_image_extents[2])] ];
+
 }
 
 
@@ -647,7 +648,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_all1 )
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_FIXTURE_TEST_SUITE( cpu_in_place_convolution, multiviewnative::default_3D_fixture )
-BOOST_AUTO_TEST_CASE( fft_ifft_image )
+BOOST_AUTO_TEST_CASE( explicit_fft_ifft_image )
 {
 
   unsigned M = multiviewnative::default_3D_fixture::image_axis_size, N = multiviewnative::default_3D_fixture::image_axis_size, K = multiviewnative::default_3D_fixture::image_axis_size;
@@ -689,7 +690,7 @@ BOOST_AUTO_TEST_CASE( fft_ifft_image )
 
 }
 
-BOOST_AUTO_TEST_CASE( convolve_by_identity )
+BOOST_AUTO_TEST_CASE( explicit_convolve_by_identity )
 {
   
   ///////////////////////////////////////////////////////////////////////////
@@ -774,7 +775,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
 
 }
 
-BOOST_AUTO_TEST_CASE( convolve_by_identity_by_external )
+BOOST_AUTO_TEST_CASE( convolve_by_identity )
 {
   
   float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
@@ -787,7 +788,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity_by_external )
 
 }
 
-BOOST_AUTO_TEST_CASE( convolve_by_horizontal_by_external )
+BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 {
   
   
@@ -796,10 +797,41 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal_by_external )
   convolute_3d_in_place(image_, horizont_kernel_);
 
   float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
-  std::cout << "result:\n" << image_ << "\n\n";
-  std::cout << "expected:\n" << image_folded_by_horizontal_ << "\n\n";
+
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
   
 
 }
+
+BOOST_AUTO_TEST_CASE( convolve_by_vertical )
+{
+  
+  
+  float sum_original = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_size_,0.f);
+
+  convolute_3d_in_place(image_, vertical_kernel_);
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+  
+
+}
+
+BOOST_AUTO_TEST_CASE( convolve_by_all1 )
+{
+  
+  float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_size_,0.f);
+
+  
+  convolute_3d_in_place(image_, all1_kernel_);
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+  
+
+}
+
+
 BOOST_AUTO_TEST_SUITE_END()
