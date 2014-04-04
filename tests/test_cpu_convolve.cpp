@@ -835,3 +835,20 @@ BOOST_AUTO_TEST_CASE( convolve_by_all1 )
 
 
 BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_FIXTURE_TEST_SUITE( convolution_from_api, multiviewnative::default_3D_fixture )
+BOOST_AUTO_TEST_CASE( identity_kernel )
+{
+
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  cpu_convolve convolver(image_.data(), image_.shape(), identity_kernel_.data(), identity_kernel_.shape());
+  convolver.perform();
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_size_,0.f);
+
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+BOOST_AUTO_TEST_SUITE_END()
