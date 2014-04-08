@@ -12,53 +12,6 @@
 #include "fftw3.h"
 
 namespace multiviewnative {
-  template <typename StorageT, typename DimT>
-  DimT adapt_extents_for_fftw_inplace(const StorageT& _storage, const DimT& _extent){
-
-    DimT value = _extent;
-    std::fill(value.begin(),value.end(),0);
-
-    std::vector<int> storage_order(_extent.size());
-    for(int i = 0;i<_extent.size();++i)
-      storage_order[i] = _storage.ordering(i);
-
-    int lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
-
-    for(int i = 0;i<_extent.size();++i)
-      value[i] = (lowest_storage_index == i) ? 2*(_extent[i]/2 + 1) : _extent[i];  
-  
-    return value;
-  
-  }
-  template < typename T >
-  struct add_minus_1 {
-
-    T operator()(const T& _first, const T& _second){
-      return _first + _second - 1;
-    }
-  
-  };
-
-  template < typename T >
-  struct minus_1_div_2 {
-
-    T operator()(const T& _first){
-      return (_first - 1)/2;
-    }
-  
-  };
-
-  enum MemStrategy {
-    InPlace = 0,
-    OutOfPlace = 1
-  };
-
-  enum CPUStrategy {
-    no_wisdom = 0,
-    multithreaded = 1,
-    wisdom = 2,
-    multithreaded_wisdom = 3
-  };
 
   typedef  boost::multi_array<float,              3>    image_stack;
   typedef  boost::multi_array_ref<float,          3>    image_stack_ref;
