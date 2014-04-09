@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
 
 BOOST_AUTO_TEST_CASE( identity_convolve )
 {
-  using namespace multiviewnative;
+  
 
   float sum_original = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
   inplace_cpu_convolution(image_.data(), &image_dims_[0], 
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE( identity_convolve )
 
 BOOST_AUTO_TEST_CASE( horizontal_convolve )
 {
-  using namespace multiviewnative;
+  
 
   float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_folded_by_horizontal_.num_elements(),0.f);
   inplace_cpu_convolution(image_.data(), &image_dims_[0], 
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
 
 BOOST_AUTO_TEST_CASE( vertical_convolve )
 {
-  using namespace multiviewnative;
+  
 
   float sum_original = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_folded_by_vertical_.num_elements(),0.f);
   inplace_cpu_convolution(image_.data(), &image_dims_[0], 
@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE( vertical_convolve )
 
 BOOST_AUTO_TEST_CASE( all1_convolve )
 {
-  using namespace multiviewnative;
+  
 
   float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_folded_by_all1_.num_elements(),0.f);
   inplace_cpu_convolution(image_.data(), &image_dims_[0], 

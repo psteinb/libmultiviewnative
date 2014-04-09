@@ -1,5 +1,5 @@
 #define BOOST_TEST_DYN_LINK 
-#define BOOST_TEST_MODULE Independent
+#define BOOST_TEST_MODULE GPU_CONVOLUTION
 #include "boost/test/unit_test.hpp"
 #include "test_fixtures.hpp"
 #include <numeric>
@@ -11,14 +11,9 @@ BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
   
-  float* image = new float[image_size_];
+  float* image = image_.data();
   float* kernel = new float[kernel_size_];
   std::fill(kernel, kernel+kernel_size_,0.f);
-
-  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
-  
-  print_kernel(kernel);
-  print_image();
 
   convolution3DfftCUDAInPlace(image, &image_dims_[0], 
 			      kernel,&kernel_dims_[0],
@@ -27,90 +22,66 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
   float sum = std::accumulate(image, image + image_size_,0.f);
   BOOST_CHECK_CLOSE(sum, 0.f, .00001);
 
-  delete [] image;
   delete [] kernel;
 }
 
-
-
-BOOST_AUTO_TEST_CASE( convolve_by_identity )
+BOOST_AUTO_TEST_CASE( identity_convolve )
 {
   
-  float* image = new float[image_size_];
 
-  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
-  
-  print_kernel();
-  print_image(image);
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
+  			  identity_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
 
-  convolution3DfftCUDAInPlace(image, &image_dims_[0], 
-			      identity_kernel_.data(),&kernel_dims_[0],
-			      selectDeviceWithHighestComputeCapability());
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
-  float * reference = padded_image_.data();
-  BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
- 
-  delete [] image;
+
 }
 
-
-BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
+BOOST_AUTO_TEST_CASE( horizontal_convolve )
 {
   
-  float* image = new float[image_size_];
 
-  std::copy(padded_image_.origin(), padded_image_.origin() + image_size_,image);
+  float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_folded_by_horizontal_.num_elements(),0.f);
+  convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
+  			  horizont_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
 
-  convolution3DfftCUDAInPlace(image, &image_dims_[0], 
-			      horizont_kernel_.data(),&kernel_dims_[0],
-			      selectDeviceWithHighestComputeCapability());
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
-  float * reference = image_folded_by_horizontal_.data();
-  BOOST_CHECK_EQUAL_COLLECTIONS( image, image+image_size_/2, reference, reference + image_size_/2);
- 
-  delete [] image;
+
 }
-// BOOST_AUTO_TEST_CASE( convolve_by_vertical )
-// {
-//   int center_one_dim_size = image_dims_[0]/2;
+
+BOOST_AUTO_TEST_CASE( vertical_convolve )
+{
   
-//   BOOST_CHECK_NE(padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size], padded_image_folded_by_vertical_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
+
+  float sum_original = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_folded_by_vertical_.num_elements(),0.f);
+  convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
+  			  vertical_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+
+BOOST_AUTO_TEST_CASE( all1_convolve )
+{
   
-//   float intermediate = 2*padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size] 
-//     + 3*padded_image_[center_one_dim_size][center_one_dim_size-1][center_one_dim_size] 
-//     + 1*padded_image_[center_one_dim_size][center_one_dim_size+1][center_one_dim_size];
 
-//   BOOST_CHECK_EQUAL(intermediate, padded_image_folded_by_vertical_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
-// }
+  float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_folded_by_all1_.num_elements(),0.f);
+  convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
+  			  all1_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
 
-// BOOST_AUTO_TEST_CASE( convolve_by_depth )
-// {
-//   int center_one_dim_size = image_dims_[0]/2;
-  
-//   BOOST_CHECK_NE(padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size], padded_image_folded_by_depth_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
-  
-//   float intermediate = 2*padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size] 
-//     + 3*padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size-1] 
-//     + 1*padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size+1];
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
-//   BOOST_CHECK_EQUAL(intermediate, padded_image_folded_by_depth_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
-// }
 
-// BOOST_AUTO_TEST_CASE( convolve_by_all1 )
-// {
-//   int center_one_dim_size = image_dims_[0]/2;
-//   BOOST_CHECK_NE(padded_image_[center_one_dim_size][center_one_dim_size][center_one_dim_size], padded_image_folded_by_all1_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
-
-//   float value = 0.f;
-//   for(int z_shift=-1;z_shift<=1;++z_shift){
-//     for(int y_shift=-1;y_shift<=1;++y_shift){
-//       for(int x_shift=-1;x_shift<=1;++x_shift){
-// 	value += padded_image_[center_one_dim_size+x_shift][center_one_dim_size+y_shift][center_one_dim_size+z_shift];
-//       }
-//     }
-//   }
-//   BOOST_CHECK_EQUAL(value, padded_image_folded_by_all1_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
-
-// }
-
+}
 BOOST_AUTO_TEST_SUITE_END()
