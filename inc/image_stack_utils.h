@@ -4,7 +4,7 @@
 
 namespace multiviewnative {
 
-typedef  boost::multi_array<float,              3>    image_stack;
+  typedef  boost::multi_array<float,              3>    image_stack;
 
 std::ostream& operator<<(std::ostream& _cout, const image_stack& _marray){
 

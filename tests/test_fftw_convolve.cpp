@@ -8,7 +8,7 @@
 #include "fftw3.h"
 
 typedef multiviewnative::image_stack::array_view<3>::type subarray_view;
-typedef boost::multi_array_types::index_range range;
+
 
 using namespace multiviewnative;
 
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
   multiviewnative::image_stack  padded_kernel(  boost::extents[common_size][common_size][common_size]);
   
   //padd image by zero
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
   padded_image_view = image_;
 
   //padd and shift the kernel
@@ -363,7 +363,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
   multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   
   //insert input into zero-padded stack
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
   padded_image_view = image_;
 
   //insert kernel into zero-padded stack
@@ -425,7 +425,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity )
   }
   
   range image_segment_range = range(image_offset,image_offset+image_axis_size);
-  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+  image_stack_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
 
   image_stack result_image = result_image_view;
   
@@ -453,7 +453,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity_from_external )
   multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   
   //insert input into zero-padded stack
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
   padded_image_view = image_;
 
   //insert kernel into zero-padded stack
@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_identity_from_external )
   convolute_3d_out_of_place(padded_image,padded_kernel);
   
   range image_segment_range = range(image_offset,image_offset+image_axis_size);
-  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+  image_stack_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
 
   image_stack result_image = result_image_view;
   
@@ -505,7 +505,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
   multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   
   //insert input into zero-padded stack
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
   padded_image_view = image_;
 
   //insert kernel into zero-padded stack
@@ -530,7 +530,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
 
   // multiviewnative::image_stack_ref result(image_result,boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   range image_segment_range = range(image_offset,image_offset+image_axis_size);
-  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+  image_stack_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
 
   //copy awkward here
   image_stack result_image = result_image_view;
@@ -560,7 +560,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_vertical )
   multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   
   //insert input into zero-padded stack
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
   padded_image_view = image_;
 
   //insert kernel into zero-padded stack
@@ -585,7 +585,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_vertical )
 
   // multiviewnative::image_stack_ref result(image_result,boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   range image_segment_range = range(image_offset,image_offset+image_axis_size);
-  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+  image_stack_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
 
   //copy awkward here
   image_stack result_image = result_image_view;
@@ -614,7 +614,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_all1 )
   multiviewnative::image_stack  padded_kernel(  boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   
   //insert input into zero-padded stack
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ][  range(image_offset,image_offset+image_axis_size)     ]];
   padded_image_view = image_;
 
   //insert kernel into zero-padded stack
@@ -639,7 +639,7 @@ BOOST_AUTO_TEST_CASE( convolve_by_all1 )
 
   // multiviewnative::image_stack_ref result(image_result,boost::extents[common_axis_size][common_axis_size][common_axis_size]);
   range image_segment_range = range(image_offset,image_offset+image_axis_size);
-  subarray_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
+  image_stack_view  result_image_view   =  padded_image[ boost::indices[  image_segment_range     ][  image_segment_range     ][ image_segment_range    ] ];
 
   //copy awkward here
   image_stack result_image = result_image_view;
@@ -709,7 +709,7 @@ BOOST_AUTO_TEST_CASE( explicit_convolve_by_identity )
   multiviewnative::image_stack  padded_kernel(  boost::extents[image_axis_size][image_axis_size][last_dim_size_for_inplace]);
   
   //insert input into zero-padded stack
-  subarray_view  padded_image_view   =  padded_image[   boost::indices[  range()     ][  range()     ][  range(0,image_axis_size)     ]];
+  image_stack_view  padded_image_view   =  padded_image[   boost::indices[  range()     ][  range()     ][  range(0,image_axis_size)     ]];
   padded_image_view = image_;
 
   //insert kernel into zero-padded stack
