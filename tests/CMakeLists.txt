@@ -4,12 +4,13 @@ FIND_PACKAGE (Boost COMPONENTS system filesystem unit_test_framework REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/tests/cmake)
+
 SET(CMAKE_BUILD_TYPE Debug)
 
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp)
 target_link_libraries(test_multi_array_fixture boost_system boost_filesystem boost_unit_test_framework)
 
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 FIND_PACKAGE(FFTW)
 
 add_executable(test_fftw_convolve test_fftw_convolve.cpp)

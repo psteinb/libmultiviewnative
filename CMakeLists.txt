@@ -149,20 +149,15 @@ IF(INCLUDE_CUDA)
 ENDIF(INCLUDE_CUDA)
  
 
+
 # add subdirectories
 ADD_SUBDIRECTORY(src)
-
-#play around with tests
 ADD_SUBDIRECTORY(tests)
 enable_testing()
 include("CTestLists.txt")
 
-# Export the package for use from the build-tree
-# (this registers the build-tree with a global CMake-registry)
-#              v = binary    v = library
 
 export(PACKAGE ${PROJECT_NAME})
-
 # Create the multiviewnative-config.cmake and multiviewnative-config-version files
 file(RELATIVE_PATH REL_INCLUDE_DIR "${INSTALL_SHARE_DIR}"
    "${INSTALL_INCLUDE_DIR}")

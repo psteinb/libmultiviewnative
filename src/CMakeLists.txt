@@ -9,6 +9,9 @@ INCLUDE_DIRECTORIES(.)
 # build and link
 CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp SHARED)
 CUDA_ADD_CUFFT_TO_TARGET(${PROJECT_NAME})
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+FIND_PACKAGE(FFTW)
+
 target_link_libraries(${PROJECT_NAME} fftw3f fftw3)
 
 SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${PROJECT_SOURCE_DIR}/inc/multiviewnative.h") 
