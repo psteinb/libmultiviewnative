@@ -52,8 +52,8 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
   			  0);
 
   float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001f);
 
 }
 

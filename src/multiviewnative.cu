@@ -77,23 +77,11 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 {
 	imageType* imCUDA = NULL;
 	imageType* kernelCUDA = NULL;
-	
-
-	
 
 	HANDLE_ERROR( cudaSetDevice( devCUDA ) );
 
 	size_t  imSize      =  std::accumulate(imDim,      imDim      +  3,  1,std::multiplies<int>());
 	size_t  kernelSize  =  std::accumulate(kernelDim,  kernelDim  +  3,  1,std::multiplies<int>());
-
-
-	// size_t imSize = 1;
-	// size_t kernelSize = 1;
-	// for(int ii=0;ii<dimsImage;ii++)
-	// {
-	// 	imSize *= (imDim[ii]);
-	// 	kernelSize *= (kernelDim[ii]);
-	// }
 
 	size_t imSizeFFT = imSize;
 	imSizeFFT += 2*imDim[0]*imDim[1]; //size of the R2C transform in cuFFTComplex
