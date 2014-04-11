@@ -13,6 +13,7 @@
 
 // ------- Project ----------
 #include "multiviewnative.h"
+//#include "gpu_convolve.cuh"
 #include "cuda_helpers.cuh"
 #include "cuda_kernels.cuh"
 
@@ -44,9 +45,9 @@ __global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* ker
 	if(tid<kernelSize)
 	  {
 	    //find coordinates
-	    z = tid - (tid / kernelDim_2);
+	    z = tid - (tid / kernelDim_2)*kernelDim_2;
 	    aux = (tid - z)/kernelDim_2;
-	    y = aux - (aux / kernelDim_1);
+	    y = aux - (aux / kernelDim_1)*kernelDim_1;
 	    x = (aux - y)/kernelDim_1;
 
 	    //center coordinates
@@ -95,6 +96,7 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 	HANDLE_ERROR( cudaMemcpy( kernelCUDA, kernel, kernelSizeInByte , cudaMemcpyHostToDevice ) );
 	HANDLE_ERROR( cudaMemcpy( imCUDA, im, imSizeInByte , cudaMemcpyHostToDevice ) );
 
+
 	///////////////////////////////////////////////////////////////////////
 	convolution3DfftCUDAInPlace_core(imCUDA, imDim,
 					 kernelCUDA,kernelDim,
@@ -133,7 +135,6 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   imSizeFFT += 2*imDim[0]*imDim[1];
   size_t imSizeFFTInByte = imSizeFFT*sizeof(imageType);
 
-
   HANDLE_ERROR( cudaMalloc( (void**)&(kernelPaddedCUDA), imSizeFFTInByte ) );
   HANDLE_ERROR( cudaMemset( kernelPaddedCUDA, 0, imSizeFFTInByte ));
 
@@ -149,7 +150,8 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
 					   kernelDim[0],kernelDim[1],kernelDim[2],
 					   imDim[0],imDim[1],imDim[2]);HANDLE_ERROR_KERNEL;
 
-	
+  
+  
   //make sure GPU finishes 
   HANDLE_ERROR(cudaDeviceSynchronize());	
   
@@ -180,7 +182,8 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   cufftPlan3d(&fftPlanInv, imDim[0], imDim[1], imDim[2], CUFFT_C2R);HANDLE_ERROR_KERNEL;
   cufftSetCompatibilityMode(fftPlanInv,CUFFT_COMPATIBILITY_NATIVE);HANDLE_ERROR_KERNEL;
   cufftExecC2R(fftPlanInv, (cufftComplex *)_d_imCUDA, _d_imCUDA);HANDLE_ERROR_KERNEL;
-	
+  
+
   //release memory
   HANDLE_ERROR( cudaFree( kernelPaddedCUDA));
   ( cufftDestroy(fftPlanFwd) );HANDLE_ERROR_KERNEL;
@@ -448,3 +451,8 @@ void iterate_fft_tikhonov(imageType* _input,
 
 
 }
+
+
+ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
+
+ }

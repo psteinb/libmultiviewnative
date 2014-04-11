@@ -6,7 +6,7 @@
 #include "multiviewnative.h"
 #include "padd_utils.h"
 
-BOOST_FIXTURE_TEST_SUITE( convolution_legacy, multiviewnative::default_3D_fixture )
+BOOST_FIXTURE_TEST_SUITE( legacy_convolution, multiviewnative::default_3D_fixture )
 
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
@@ -46,21 +46,11 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
 
   float sum_expected = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_folded_by_horizontal_.num_elements(),0.f);
 
-  std::cout << "memory layout:\n";
-  for(int i = 0;i<128;++i)
-    std::cout << image_.data()[i] << " ";
-  std::cout << "\n";
-
   zero_padd<image_stack> padder(image_.shape(), horizont_kernel_.shape());
   image_stack padded_image(padder.extents_, image_.storage_order());
 
   padder.insert_at_offsets(image_, padded_image);
-  std::cout << "input given:\n" << padded_image << "\n";
-  std::cout << "memory layout:\n";
-  for(int i = 0;i<128;++i)
-    std::cout << padded_image_.data()[i] << " ";
-  std::cout << "\n";
-
+  
   std::vector<int> extents_as_int(padder.extents_.size());
   std::copy(padder.extents_.begin(), padder.extents_.end(), extents_as_int.begin());
 
@@ -71,44 +61,61 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
   image_ = padded_image[ boost::indices[range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
   
   float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  try{
-    BOOST_REQUIRE_CLOSE(sum, sum_expected, .00001);}
-  catch(...){
-    std::cout << "horizontal_convolve failed\nreceived result:\n " << padded_image << "\n";
-    std::cout << "horizontal_convolve failed\nextracted result:\n" << image_ << "\n";
-    std::cout << "horizontal_convolve failed\nexpected result:\n" << image_folded_by_horizontal_ << "\n";
-  }
+
+    BOOST_REQUIRE_CLOSE(sum, sum_expected, .00001);
+ 
+}
+
+BOOST_AUTO_TEST_CASE( vertical_convolve )
+{
+  
+  multiviewnative::zero_padd<multiviewnative::image_stack> padder(image_.shape(), vertical_kernel_.shape());
+  multiviewnative::image_stack padded_image(padder.extents_, image_.storage_order());
+
+  padder.insert_at_offsets(image_, padded_image);
+  
+  std::vector<int> extents_as_int(padder.extents_.size());
+  std::copy(padder.extents_.begin(), padder.extents_.end(), extents_as_int.begin());
+
+  convolution3DfftCUDAInPlace(padded_image.data(), &extents_as_int[0], 
+			      vertical_kernel_.data(),&kernel_dims_[0],
+			      selectDeviceWithHighestComputeCapability());
+
+
+  float sum_expected = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_folded_by_vertical_.num_elements(),0.f);
+
+  image_ = padded_image[ boost::indices[multiviewnative::range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][multiviewnative::range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][multiviewnative::range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
 
 
 }
 
-// BOOST_AUTO_TEST_CASE( vertical_convolve )
-// {
+BOOST_AUTO_TEST_CASE( all1_convolve )
+{
   
+  multiviewnative::zero_padd<multiviewnative::image_stack> padder(image_.shape(), all1_kernel_.shape());
+  multiviewnative::image_stack padded_image(padder.extents_, image_.storage_order());
 
-//   float sum_expected = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_folded_by_vertical_.num_elements(),0.f);
-//   convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
-//   			  vertical_kernel_.data(),&kernel_dims_[0],
-//   			  selectDeviceWithHighestComputeCapability());
-
-//   float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-//   BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
-
-
-// }
-
-// BOOST_AUTO_TEST_CASE( all1_convolve )
-// {
+  padder.insert_at_offsets(image_, padded_image);
   
+  std::vector<int> extents_as_int(padder.extents_.size());
+  std::copy(padder.extents_.begin(), padder.extents_.end(), extents_as_int.begin());
 
-//   float sum_expected = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_folded_by_all1_.num_elements(),0.f);
-//   convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
-//   			  all1_kernel_.data(),&kernel_dims_[0],
-//   			  selectDeviceWithHighestComputeCapability());
-
-//   float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-//   BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
+  convolution3DfftCUDAInPlace(padded_image.data(), &extents_as_int[0], 
+			      all1_kernel_.data(),&kernel_dims_[0],
+			      selectDeviceWithHighestComputeCapability());
 
 
-// }
+  float sum_expected = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_folded_by_all1_.num_elements(),0.f);
+
+  image_ = padded_image[ boost::indices[multiviewnative::range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][multiviewnative::range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][multiviewnative::range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
+
+
+}
+
 BOOST_AUTO_TEST_SUITE_END()

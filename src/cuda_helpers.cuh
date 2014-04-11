@@ -2,6 +2,7 @@
 #define _CUDA_HELPERS_H_
 
 #include <iostream>
+#include <iomanip>
 
 template <typename ValueT>
 struct multiplies : std::binary_function<ValueT, ValueT, ValueT> {
@@ -122,5 +123,61 @@ int selectDeviceWithHighestComputeCapability(){
 
   return value;
 }
+
+template <typename ArrT, typename DimT>
+void print_3d_array(ArrT* _array, DimT* _array_dims, DimT* _order){
+std::cout << "received: " << _array_dims[0] << "x" << _array_dims[1] << "x" << _array_dims[2] << " array ("
+	    << _order[0] << ", "<< _order[1] << ", "<< _order[2] << ")\n";
+
+  int precision = std::cout.precision();
+  std::cout << std::setprecision(4);
+
+  
+  std::cout << std::setw(9) << "x = ";
+  for(DimT x_index = 0;x_index<(_array_dims[0]);++x_index){
+	std::cout << std::setw(8) << x_index << " ";
+  }
+  std::cout << "\n";
+  std::cout << std::setfill('-') << std::setw((_array_dims[0]+1)*9) << " " << std::setfill(' ')<< std::endl ;
+  unsigned flat_index = 0;
+  size_t index[3];
+
+
+  for(index[2] = 0;index[2]<size_t(_array_dims[2]);++index[2]){
+    std::cout << "z["<< std::setw(5) << index[2] << "] \n";
+    
+      for(index[1] = 0;index[1]<size_t(_array_dims[1]);++index[1]){
+	std::cout << "y["<< std::setw(5) << index[1] << "] ";
+
+	for(index[0] = 0;index[0]<size_t(_array_dims[0]);++index[0]){
+
+	  flat_index = index[_order[0]] + _array_dims[_order[0]]*(index[_order[1]] + _array_dims[_order[1]]*index[_order[2]]);
+
+	  std::cout << std::setw(8) << _array[flat_index] << " ";
+	}
+
+	std::cout << "\n";
+      }
+      std::cout << "\n";
+    }
+
+  std::cout << std::setprecision(precision);
+}
+
+template <typename ArrT, typename DimT>
+void print_device_array(ArrT* _device_address, DimT* _array_dims, DimT* _order){
+  
+  
+  size_t total = std::accumulate(_array_dims,_array_dims + 3,1.,std::multiplies<int>());
+  ArrT* array = new ArrT[total];
+  std::cout << "transferring memory from device -> host: " << total << "items ("<< total*sizeof(ArrT)<<"B)\n";
+  HANDLE_ERROR( cudaMemcpy( array, _device_address, total*sizeof(ArrT) , cudaMemcpyDeviceToHost ) );
+
+  print_3d_array(array, _array_dims, _order);
+
+  delete [] array;
+
+}
+
 #endif /* _CUDA_HELPERS_H_ */
 

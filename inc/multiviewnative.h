@@ -11,6 +11,7 @@ typedef float imageType;
 #endif
 
 FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int nthreads);
+FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
 
 FUNCTION_PREFIX void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int devCUDA);
 

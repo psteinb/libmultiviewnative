@@ -27,8 +27,8 @@ std::ostream& operator<<(std::ostream& _cout, const image_stack& _marray){
   for(size_t x_index = 0;x_index<(shapes[0]);++x_index){
 	_cout << std::setw(8) << x_index << " ";
   }
-  std::cout << "\n";
-  std::cout << std::setfill('-') << std::setw((shapes[0]+1)*9) << " " << std::setfill(' ')<< std::endl ;
+  _cout << "\n";
+  _cout << std::setfill('-') << std::setw((shapes[0]+1)*9) << " " << std::setfill(' ')<< std::endl ;
 
   for(size_t z_index = 0;z_index<(shapes[2]);++z_index){
     _cout << "z["<< std::setw(5) << z_index << "] \n";

@@ -59,9 +59,9 @@ struct zero_padd {
 
     typedef typename boost::make_signed<size_type>::type signed_size_type;
 
-    for(signed_size_type z=0;z<_source.shape()[2];++z)
-      for(signed_size_type y=0;y<_source.shape()[1];++y)
-	for(signed_size_type x=0;x<_source.shape()[0];++x){
+    for(signed_size_type z=0;z<signed_size_type(_source.shape()[2]);++z)
+      for(signed_size_type y=0;y<signed_size_type(_source.shape()[1]);++y)
+	for(signed_size_type x=0;x<signed_size_type(_source.shape()[0]);++x){
 	  signed_size_type intermediate_x = x - _source.shape()[0]/2L;
 	  signed_size_type intermediate_y = y - _source.shape()[1]/2L;
 	  signed_size_type intermediate_z = z - _source.shape()[2]/2L;

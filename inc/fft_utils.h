@@ -13,7 +13,7 @@ namespace multiviewnative {
     for(size_t i = 0;i<_extent.size();++i)
       storage_order[i] = _storage.ordering(i);
 
-    int lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
+    size_t lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
 
     for(size_t i = 0;i<_extent.size();++i)
       _value[i] = (lowest_storage_index == i) ? 2*(_extent[i]/2 + 1) : _extent[i];  
