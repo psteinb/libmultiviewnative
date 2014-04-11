@@ -107,12 +107,12 @@ template <typename StorageT, typename DimT, typename ODimT>
     std::fill(_value.begin(),_value.end(),0);
 
     std::vector<int> storage_order(_extent.size());
-    for(int i = 0;i<_extent.size();++i)
+    for(unsigned i = 0;i<_extent.size();++i)
       storage_order[i] = _storage.ordering(i);
 
-    int lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
+    unsigned lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
 
-    for(int i = 0;i<_extent.size();++i)
+    for(unsigned i = 0;i<_extent.size();++i)
       _value[i] = (lowest_storage_index == i) ? 2*(_extent[i]/2 + 1) : _extent[i];  
   
   
