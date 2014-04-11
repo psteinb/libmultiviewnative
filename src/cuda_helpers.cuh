@@ -41,13 +41,13 @@ T largestDivisor(const T& _to_divide, const T& _divided_by){
 size_t getMaxNThreadsOfDevice(short _devId){
   cudaDeviceProp prop;
   HANDLE_ERROR( cudaGetDeviceProperties(&prop, _devId));
-  return prop.maxThreadsPerBlock;
+  return (size_t)prop.maxThreadsPerBlock;
 }
 
 size_t getMaxNBlocksOfDevice(short _devId,short _dim){
   cudaDeviceProp prop;
   HANDLE_ERROR( cudaGetDeviceProperties(&prop, _devId));
-  return prop.maxGridSize[_dim];
+  return (size_t)prop.maxGridSize[_dim];
 }
 
 void fit_2Dblocks_to_threads_for_device(dim3& _blocks, dim3& _threads, const int& _device){

@@ -202,11 +202,12 @@ __global__ void  modulateAndNormalize_kernel(cufftComplex *d_Dst,
 
     a = d_Src[globalIdx];
     b = d_Dst[globalIdx];
-    // result.x = c * (a.x * b.x - a.y * b.y);
-    // result.y = c * (a.x * b.x + a.y * b.y);
 
-    result.x = scale_subtracted(a.x,b.x,a.y,b.y,c);
-    result.y = scale_added(a.x,b.x,a.y,b.y,c);
+    result.x = c * (a.x * b.x - a.y * b.y);
+    result.y = c * (a.x * b.y + a.y * b.x);
+
+    // result.x = scale_subtracted(a.x,b.x,a.y,b.y,c);
+    // result.y = scale_added(a.y,b.x,a.x,b.y,c);
 
     d_Dst[globalIdx] = result;
   

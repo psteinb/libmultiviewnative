@@ -35,12 +35,12 @@ __global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* ker
 								       unsigned int imDim_1,
 								       unsigned int imDim_2)
 {
-	unsigned int kernelSize = kernelDim_0 * kernelDim_1 * kernelDim_2;
+	long int kernelSize = kernelDim_0 * kernelDim_1 * kernelDim_2;
+	long int imageSize = imDim_0 * imDim_1 * imDim_2;
 
 	unsigned int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-	int x,y,z;
-	unsigned aux;
+	long int x,y,z,aux;
 	if(tid<kernelSize)
 	  {
 	    //find coordinates
@@ -50,9 +50,9 @@ __global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* ker
 	    x = (aux - y)/kernelDim_1;
 
 	    //center coordinates
-	    x -= (int)kernelDim_0/2;
-	    y -= (int)kernelDim_1/2;
-	    z -= (int)kernelDim_2/2;
+	    x -= (long int)kernelDim_0/2;
+	    y -= (long int)kernelDim_1/2;
+	    z -= (long int)kernelDim_2/2;
 
 	    //circular shift if necessary
 	    if(x<0) x += imDim_0;
@@ -61,10 +61,10 @@ __global__ void  __launch_bounds__(LB_MAX_THREADS) fftShiftKernel(imageType* ker
 
 	    //WOW! this is a depth-major format
 	    //calculate position in padded kernel
-	    aux = (unsigned int)z + imDim_2 * ((unsigned int)y + imDim_1 * (unsigned int)x);
+	    aux = z + imDim_2 * (y + imDim_1 * x);
 
 	    //copy value
-	    if(aux<(imDim_0 * imDim_1 * imDim_2))
+	    if(aux<imageSize)
 	      kernelPaddedCUDA[aux] = kernelCUDA[tid];//for the most part it should be a coalescent access in oth places
 	  }
 }
@@ -96,7 +96,6 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 	HANDLE_ERROR( cudaMemcpy( imCUDA, im, imSizeInByte , cudaMemcpyHostToDevice ) );
 
 	///////////////////////////////////////////////////////////////////////
-	// DO THE WORK
 	convolution3DfftCUDAInPlace_core(imCUDA, imDim,
 					 kernelCUDA,kernelDim,
 					 devCUDA);
@@ -121,7 +120,6 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
 {
   cufftHandle fftPlanFwd, fftPlanInv;
   imageType* kernelPaddedCUDA = NULL;
-  //apply ffshift to kernel and pad it with zeros so we can calculate convolution with FFT
 
   size_t imSize = 1;
   size_t kernelSize = 1;
@@ -132,10 +130,8 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
     }
 
   size_t imSizeFFT = imSize;
-  imSizeFFT += 2*imDim[0]*imDim[1]; //size of the R2C transform in cuFFTComplex
+  imSizeFFT += 2*imDim[0]*imDim[1];
   size_t imSizeFFTInByte = imSizeFFT*sizeof(imageType);
-  // size_t imSizeInByte = imSize*sizeof(imageType);
-  // size_t kernelSizeInByte = (kernelSize)*sizeof(imageType);
 
 
   HANDLE_ERROR( cudaMalloc( (void**)&(kernelPaddedCUDA), imSizeFFTInByte ) );
@@ -172,10 +168,11 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   numBlocks=std::min(max_blocks_in_x,numBlocksFromImage);
 
   //convolve
+  float scale = 1.0f/float(imSize);
   modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_d_imCUDA, 
 							(cufftComplex *)kernelPaddedCUDA, 
 							halfImSizeFFT,
-							1.0f/(float)(imSize));HANDLE_ERROR_KERNEL;//last parameter is the size of the FFT
+							scale);HANDLE_ERROR_KERNEL;//last parameter is the size of the FFT
 
 
 
