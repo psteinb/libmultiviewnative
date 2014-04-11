@@ -68,7 +68,7 @@ namespace multiviewnative {
     };
 
     template <typename TransformT>
-    void inplace(const bool& _verbose = false){
+    void inplace(){
       
       typedef typename TransformT::complex_type complex_type;
 
@@ -99,24 +99,6 @@ namespace multiviewnative {
 
       (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
     };
-
-    template <typename TransformT>
-    void debug_inplace(){
-
-      using namespace multiviewnative;
-
-      std::cout << "before transform:\n";
-      std::cout << "padded image:\n" << *padded_image_ << "\n";
-      std::cout << "padded kernel:\n" << *padded_kernel_ << "\n";
-
-      this->inplace<TransformT>(true);
-
-      std::cout << "after transform:\n";
-      std::cout << "padded image:\n" << *padded_image_ << "\n";
-      std::cout << "padded kernel:\n" << *padded_kernel_ << "\n";
-      std::cout << "result:\n" << *image_ << "\n";
-
-    }
 
     ~cpu_convolve(){
       delete image_;

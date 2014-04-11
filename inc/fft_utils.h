@@ -2,6 +2,7 @@
 #define _FFT_UTILS_H_
 #include <vector>
 #include "fftw_interface.h"
+#include "boost/thread.hpp"
 
 namespace multiviewnative {
   template <typename StorageT, typename DimT, typename ODimT>
@@ -25,8 +26,6 @@ namespace multiviewnative {
 template <typename ImageStackT>
 class inplace_3d_transform {
   
-  
-
 public:
   
   typedef fftw_api_definitions<typename ImageStackT::element> fftw_api;
@@ -99,6 +98,56 @@ private:
 
 };
 
+template <typename ImageStackT>
+class parallel_inplace_3d_transform : public inplace_3d_transform<ImageStackT> {
+
+  static int nthreads_;
+
+public:
+  parallel_inplace_3d_transform(ImageStackT*  _input):
+    inplace_3d_transform<ImageStackT>(_input)
+  {
+    
+  }
+
+  void forward(){
+
+    int success = fftw_init_threads();
+    if(!success){
+      std::cerr << "parallel_inplace_3d_transform::forward\tunable to initialize threads of fftw3\n";
+    }
+
+    fftw_plan_with_nthreads(nthreads_);
+    inplace_3d_transform<ImageStackT>::forward();
+    
+    fftw_cleanup_threads();
+
+  };
+
+  void backward(){
+    
+    int success = fftw_init_threads();
+    if(!success){
+      std::cerr << "parallel_inplace_3d_transform::backward\tunable to initialize threads of fftw3\n";
+    }
+
+    fftw_plan_with_nthreads(nthreads_);
+    inplace_3d_transform<ImageStackT>::backward();
+    fftw_cleanup_threads();
+
+
+  };
+
+  static void set_n_threads(const int& _nthreads = 0){
+    if(_nthreads > 1)
+      parallel_inplace_3d_transform::nthreads_ = _nthreads;
+    else
+      parallel_inplace_3d_transform::nthreads_ = int(boost::thread::hardware_concurrency());
+  }
+};
+
+  template <typename T>
+  int parallel_inplace_3d_transform<T>::nthreads_;
 
 }
 #endif /* _FFT_UTILS_H_ */
