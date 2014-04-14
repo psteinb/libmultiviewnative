@@ -16,11 +16,6 @@
 
 namespace multiviewnative {
 
-  typedef  boost::multi_array<float,              3>    image_stack;
-  typedef  boost::multi_array_ref<float,          3>    image_stack_ref;
-  typedef  image_stack::array_view<3>::type		image_stack_view;
-  typedef  boost::multi_array_types::index_range	range;
-  typedef  boost::general_storage_order<3>		storage;
 
   template <typename PaddingT, typename TransferT, typename SizeT>
   struct gpu_convolve : public PaddingT {
@@ -87,7 +82,7 @@ namespace multiviewnative {
       image_transform.backward();
 
       
-    };
+    }
 
      template <typename TransformT>
      void inplace(){
@@ -117,14 +112,14 @@ namespace multiviewnative {
 
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
-     };
+     }
 
     ~gpu_convolve(){
       delete image_;
       delete kernel_;
       delete padded_image_;
       delete padded_kernel_;
-    };
+    }
 
     void set_device(const int& _device){
       HANDLE_ERROR( cudaSetDevice( _device ) );

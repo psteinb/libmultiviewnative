@@ -20,11 +20,12 @@
 #include "padd_utils.h"
 
 
-
 void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
 
-  typedef multiviewnative::zero_padd<multiviewnative::image_stack> padding;
-  typedef multiviewnative::inplace_3d_transform_on_device<imageType> transform;
+  using namespace multiviewnative;
+
+  typedef zero_padd<image_stack> padding;
+  typedef inplace_3d_transform_on_device<imageType> transform;
   
   unsigned image_dim[3];
   unsigned kernel_dim[3];
@@ -32,7 +33,7 @@ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* ker
   std::copy(imDim, imDim + 3, &image_dim[0]);
   std::copy(kernelDim, kernelDim + 3, &kernel_dim[0]);
   
-  multiviewnative::gpu_convolve<padding,imageType,unsigned> convolver(im, image_dim, kernel, kernel_dim);
+  gpu_convolve<padding,imageType,unsigned> convolver(im, image_dim, kernel, kernel_dim);
 
   convolver.set_device(device);
 

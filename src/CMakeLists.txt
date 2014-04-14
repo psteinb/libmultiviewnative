@@ -5,7 +5,7 @@ INCLUDE_DIRECTORIES(.)
 FIND_PACKAGE (Boost 1.40 COMPONENTS "thread" REQUIRED)
 
 # build and link
-CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp SHARED)
+CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp image_stack_utils.cpp SHARED)
 CUDA_ADD_CUFFT_TO_TARGET(${PROJECT_NAME})
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 FIND_PACKAGE(FFTW)

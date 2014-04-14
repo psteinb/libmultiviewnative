@@ -5,6 +5,7 @@
 #include <numeric>
 #include <cmath>
 #include "multiviewnative.h"
+#include "image_stack_utils.h"
 #include "fftw3.h"
 
 typedef multiviewnative::image_stack::array_view<3>::type subarray_view;
@@ -101,22 +102,22 @@ struct minus_1_div_2 {
   
 };
 
-template <typename StorageT, typename DimT, typename ODimT>
-  void adapt_extents_for_fftw_inplace(const StorageT& _storage, const DimT& _extent, ODimT& _value){
+// template <typename StorageT, typename DimT, typename ODimT>
+//   void adapt_extents_for_fftw_inplace(const StorageT& _storage, const DimT& _extent, ODimT& _value){
 
-    std::fill(_value.begin(),_value.end(),0);
+//     std::fill(_value.begin(),_value.end(),0);
 
-    std::vector<int> storage_order(_extent.size());
-    for(unsigned i = 0;i<_extent.size();++i)
-      storage_order[i] = _storage.ordering(i);
+//     std::vector<int> storage_order(_extent.size());
+//     for(unsigned i = 0;i<_extent.size();++i)
+//       storage_order[i] = _storage.ordering(i);
 
-    unsigned lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
+//     unsigned lowest_storage_index = std::min_element(storage_order.begin(),storage_order.end()) - storage_order.begin() ;
 
-    for(unsigned i = 0;i<_extent.size();++i)
-      _value[i] = (lowest_storage_index == i) ? 2*(_extent[i]/2 + 1) : _extent[i];  
+//     for(unsigned i = 0;i<_extent.size();++i)
+//       _value[i] = (lowest_storage_index == i) ? 2*(_extent[i]/2 + 1) : _extent[i];  
   
   
-  }
+//   }
 
 template <typename MatrixT>
 void convolute_3d_in_place(MatrixT& _image, const MatrixT& _kernel, const bool& _verbose=false){

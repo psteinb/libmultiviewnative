@@ -14,11 +14,11 @@
 
 namespace multiviewnative {
 
-  typedef  boost::multi_array<float,              3>    image_stack;
-  typedef  boost::multi_array_ref<float,          3>    image_stack_ref;
-  typedef  image_stack::array_view<3>::type		image_stack_view;
-  typedef  boost::multi_array_types::index_range	range;
-  typedef  boost::general_storage_order<3>		storage;
+  // typedef  boost::multi_array<float,              3>    image_stack;
+  // typedef  boost::multi_array_ref<float,          3>    image_stack_ref;
+  // typedef  image_stack::array_view<3>::type		image_stack_view;
+  // typedef  boost::multi_array_types::index_range	range;
+  // typedef  boost::general_storage_order<3>		storage;
 
   template <typename PaddingT, typename TransferT, typename SizeT>
   struct cpu_convolve : public PaddingT {
