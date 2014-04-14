@@ -16,7 +16,7 @@ We currently support the following operating systems:
 
 * CUDA 5 or later (the nvcc compiler, libcudart and libcufft) must be available.
 * cmake versions later than 2.8 ( FindCUDA.cmake sources are needed )
-* boost 1.40 or later
+* boost 1.42 or later
 * fftw 3.1 or later
 
 ## Install:

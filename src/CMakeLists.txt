@@ -2,7 +2,11 @@
 # src directory
 INCLUDE_DIRECTORIES(.)
 
-FIND_PACKAGE (Boost 1.40 COMPONENTS "thread" REQUIRED)
+SET(Boost_USE_MULTITHREADED      ON)
+
+IF(Boost_FOUND)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+ENDIF()
 
 # build and link
 CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp image_stack_utils.cpp SHARED)
@@ -10,7 +14,7 @@ CUDA_ADD_CUFFT_TO_TARGET(${PROJECT_NAME})
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 FIND_PACKAGE(FFTW)
 
-target_link_libraries(${PROJECT_NAME} fftw3f_threads fftw3f fftw3_threads fftw3 boost_thread-mt)
+target_link_libraries(${PROJECT_NAME} fftw3f_threads fftw3f fftw3_threads fftw3 boost_thread)
 
 SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${PROJECT_SOURCE_DIR}/inc/multiviewnative.h") 
 INSTALL(TARGETS ${PROJECT_NAME}

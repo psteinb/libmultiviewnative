@@ -159,7 +159,6 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
 			  selectDeviceWithHighestComputeCapability());
 
 
-
   float sum = std::accumulate(image_.data(), image_.data() + image_size_,0.f);
   BOOST_CHECK_CLOSE(sum, 0.f, .00001);
 

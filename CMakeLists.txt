@@ -153,10 +153,15 @@ ENDIF(INCLUDE_CUDA)
 
 # add subdirectories
 ADD_SUBDIRECTORY(src)
+
+FIND_PACKAGE (Boost 1.42 COMPONENTS system filesystem unit_test_framework thread REQUIRED)
+IF(Boost_FOUND)
 ADD_SUBDIRECTORY(tests)
 enable_testing()
 include("CTestLists.txt")
-
+ELSE()
+MESSAGE(WARNING ">> Boost libraries not found, unable to compile tests (skipping)")
+ENDIF()
 
 export(PACKAGE ${PROJECT_NAME})
 # Create the multiviewnative-config.cmake and multiviewnative-config-version files
