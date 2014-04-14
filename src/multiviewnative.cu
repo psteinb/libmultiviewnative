@@ -13,9 +13,34 @@
 
 // ------- Project ----------
 #include "multiviewnative.h"
-//#include "gpu_convolve.cuh"
 #include "cuda_helpers.cuh"
 #include "cuda_kernels.cuh"
+#include "gpu_convolve.cuh"
+#include "cufft_utils.cuh"
+#include "padd_utils.h"
+
+
+
+void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
+
+  typedef multiviewnative::zero_padd<multiviewnative::image_stack> padding;
+  typedef multiviewnative::inplace_3d_transform_on_device<imageType> transform;
+  
+  unsigned image_dim[3];
+  unsigned kernel_dim[3];
+
+  std::copy(imDim, imDim + 3, &image_dim[0]);
+  std::copy(kernelDim, kernelDim + 3, &kernel_dim[0]);
+  
+  multiviewnative::gpu_convolve<padding,imageType,unsigned> convolver(im, image_dim, kernel, kernel_dim);
+
+  convolver.set_device(device);
+
+  convolver.inplace<transform>();
+  
+}
+
+
 
 #ifndef LB_MAX_THREADS
 #define LB_MAX_THREADS 1024 
@@ -453,6 +478,3 @@ void iterate_fft_tikhonov(imageType* _input,
 }
 
 
- void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
-
- }

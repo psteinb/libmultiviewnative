@@ -1,5 +1,5 @@
 #define BOOST_TEST_DYN_LINK 
-#define BOOST_TEST_MODULE Independent
+#define BOOST_TEST_MODULE CPU_CONVOLUTION
 #include "boost/test/unit_test.hpp"
 #include "test_fixtures.hpp"
 #include <numeric>

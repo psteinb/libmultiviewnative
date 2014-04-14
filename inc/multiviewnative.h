@@ -10,10 +10,16 @@ typedef float imageType;
 #define FUNCTION_PREFIX extern "C"
 #endif
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPU convolution
 FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int nthreads);
 
-// GPU convolution(s)
+// GPU convolution
+FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Legacy GPU convolution(s)
 FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
 
 FUNCTION_PREFIX void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int devCUDA);
