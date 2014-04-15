@@ -3,10 +3,12 @@
 INCLUDE_DIRECTORIES(.)
 
 SET(Boost_USE_MULTITHREADED      ON)
-
+FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS thread REQUIRED)
 IF(Boost_FOUND)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 ENDIF()
+
 
 # build and link
 CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp image_stack_utils.cpp SHARED)
