@@ -122,7 +122,6 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 	HANDLE_ERROR( cudaMemcpy( kernelCUDA, kernel, kernelSizeInByte , cudaMemcpyHostToDevice ) );
 	HANDLE_ERROR( cudaMemcpy( imCUDA, im, imSizeInByte , cudaMemcpyHostToDevice ) );
 
-
 	///////////////////////////////////////////////////////////////////////
 	convolution3DfftCUDAInPlace_core(imCUDA, imDim,
 					 kernelCUDA,kernelDim,
@@ -132,7 +131,7 @@ void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int*
 	//copy result to host and overwrite image
 	HANDLE_ERROR(cudaMemcpy(im,imCUDA,sizeof(imageType)*imSize,cudaMemcpyDeviceToHost));
 
-	
+
 	HANDLE_ERROR( cudaFree( imCUDA));
 	HANDLE_ERROR( cudaFree( kernelCUDA));
 
@@ -181,7 +180,6 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   //make sure GPU finishes 
   HANDLE_ERROR(cudaDeviceSynchronize());	
   
-  
   cufftPlan3d(&fftPlanFwd, imDim[0], imDim[1], imDim[2], CUFFT_R2C);HANDLE_ERROR_KERNEL;
   cufftSetCompatibilityMode(fftPlanFwd,CUFFT_COMPATIBILITY_NATIVE);HANDLE_ERROR_KERNEL; //for highest performance since we do not need FFTW compatibility
   
@@ -189,7 +187,7 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
   cufftExecR2C(fftPlanFwd, _d_imCUDA, (cufftComplex *)_d_imCUDA);HANDLE_ERROR_KERNEL;
   cufftExecR2C(fftPlanFwd, kernelPaddedCUDA, (cufftComplex *)kernelPaddedCUDA);HANDLE_ERROR_KERNEL;
 
-	
+
   size_t halfImSizeFFT = imSizeFFT/2;
   numThreads=std::min( max_threads_on_device , halfImSizeFFT);
   numBlocksFromImage = (halfImSizeFFT+numThreads-1)/(numThreads);
@@ -201,7 +199,6 @@ void convolution3DfftCUDAInPlace_core(imageType* _d_imCUDA,int* imDim,
 							(cufftComplex *)kernelPaddedCUDA, 
 							halfImSizeFFT,
 							scale);HANDLE_ERROR_KERNEL;//last parameter is the size of the FFT
-
 
 
   //inverse FFT of image only

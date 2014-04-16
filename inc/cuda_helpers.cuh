@@ -128,8 +128,8 @@ int selectDeviceWithHighestComputeCapability(){
   return value;
 }
 
-template <typename ArrT, typename DimT>
-void print_3d_array(ArrT* _array, DimT* _array_dims, DimT* _order){
+template <typename ArrT, typename DimT, typename ODimT>
+void print_3d_array(ArrT* _array, DimT* _array_dims, ODimT* _order){
 std::cout << "received: " << _array_dims[0] << "x" << _array_dims[1] << "x" << _array_dims[2] << " array ("
 	    << _order[0] << ", "<< _order[1] << ", "<< _order[2] << ")\n";
 
@@ -168,14 +168,24 @@ std::cout << "received: " << _array_dims[0] << "x" << _array_dims[1] << "x" << _
   std::cout << std::setprecision(precision);
 }
 
-template <typename ArrT, typename DimT>
-void print_device_array(ArrT* _device_address, DimT* _array_dims, DimT* _order){
+template <typename ArrT, typename DimT, typename ODimT>
+void print_device_array(ArrT* _device_address, DimT* _array_dims, ODimT* _order){
   
   
   size_t total = std::accumulate(_array_dims,_array_dims + 3,1.,std::multiplies<int>());
   ArrT* array = new ArrT[total];
   std::cout << "transferring memory from device -> host: " << total << "items ("<< total*sizeof(ArrT)<<"B)\n";
   HANDLE_ERROR( cudaMemcpy( array, _device_address, total*sizeof(ArrT) , cudaMemcpyDeviceToHost ) );
+  cudaDeviceSynchronize();
+
+  int precision = std::cout.precision();
+  std::cout << std::setprecision(4);
+  std::cout << "raw data in memory:\n";
+  for(unsigned idx = 0;idx < ((256 > total) ? total : 256);++idx){
+    std::cout << array[idx] << (((idx+1) % 32 == 0) ? "\n" : " ");
+  }
+
+  std::cout << "\n" << std::setprecision(precision);
 
   print_3d_array(array, _array_dims, _order);
 

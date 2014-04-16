@@ -28,9 +28,18 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
 BOOST_AUTO_TEST_CASE( identity_convolve )
 {
   
+  using namespace multiviewnative;
 
   float sum_expected = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  convolution3DfftCUDAInPlace(image_.data(), &image_dims_[0], 
+
+  zero_padd<image_stack> padder(image_.shape(), identity_kernel_.shape());
+  image_stack padded_image(padder.extents_, image_.storage_order());
+  padder.insert_at_offsets(image_, padded_image);
+  
+  std::vector<int> extents_as_int(padder.extents_.size());
+  std::copy(padder.extents_.begin(), padder.extents_.end(), extents_as_int.begin());
+
+  convolution3DfftCUDAInPlace(padded_image.data(), &extents_as_int[0], 
   			  identity_kernel_.data(),&kernel_dims_[0],
   			  selectDeviceWithHighestComputeCapability());
 
@@ -146,7 +155,7 @@ BOOST_AUTO_TEST_CASE( all1_convolve )
 
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_FIXTURE_TEST_SUITE( convolution_through_api, multiviewnative::default_3D_fixture )
+BOOST_FIXTURE_TEST_SUITE( gpu_convolution_works, multiviewnative::default_3D_fixture )
 
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
@@ -155,7 +164,7 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
   std::fill(kernel, kernel+kernel_size_,0.f);
 
   inplace_gpu_convolution(image_.data(), &image_dims_[0], 
-			  all1_kernel_.data(),&kernel_dims_[0],
+			  kernel,&kernel_dims_[0],
 			  selectDeviceWithHighestComputeCapability());
 
 
@@ -163,5 +172,81 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
   BOOST_CHECK_CLOSE(sum, 0.f, .00001);
 
   delete [] kernel;
+}
+
+BOOST_AUTO_TEST_CASE( identity_convolve )
+{
+  using namespace multiviewnative;
+
+  
+
+  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  inplace_gpu_convolution(image_.data(), &image_dims_[0], 
+  			  identity_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
+
+  
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+
+BOOST_AUTO_TEST_CASE( horizontal_convolve )
+{
+  using namespace multiviewnative;
+
+  
+
+  float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_.num_elements(),0.f);
+  inplace_gpu_convolution(image_.data(), &image_dims_[0], 
+  			  horizont_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
+
+  
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+
+BOOST_AUTO_TEST_CASE( vertical_convolve )
+{
+  using namespace multiviewnative;
+
+  
+
+  float sum_original = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_.num_elements(),0.f);
+  inplace_gpu_convolution(image_.data(), &image_dims_[0], 
+  			  vertical_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
+
+  
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
+}
+
+BOOST_AUTO_TEST_CASE( all1_convolve )
+{
+  using namespace multiviewnative;
+
+  
+
+  float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_.num_elements(),0.f);
+  inplace_gpu_convolution(image_.data(), &image_dims_[0], 
+  			  all1_kernel_.data(),&kernel_dims_[0],
+  			  selectDeviceWithHighestComputeCapability());
+
+  
+
+  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+
 }
 BOOST_AUTO_TEST_SUITE_END()

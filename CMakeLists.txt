@@ -27,14 +27,13 @@ set(INSTALL_INCLUDE_DIR include CACHE PATH "Installation directory for header fi
 IF(UNIX)
   IF(APPLE)
     set(INSTALL_SHARE_DIR ${PROJECT_NAME}.app/Contents/Resources/ CACHE PATH "Installation directory for shared files")
+  ELSE(APPLE)
+    set(INSTALL_SHARE_DIR lib/CMake/${PROJECT_NAME} CACHE PATH "Installation directory for shared files")
+  ENDIF(APPLE)
     #the following was tested with OSX 10.8.5 and Xcode 5.0.2
     #seems to me that under apple the rpath is not stripped automatically when doing the install
     #under linux it is
     SET(CMAKE_SKIP_RPATH ON)
-  ELSE(APPLE)
-    set(INSTALL_SHARE_DIR lib/CMake/${PROJECT_NAME} CACHE PATH "Installation directory for shared files")
-    SET(CMAKE_SKIP_RPATH ON)
-  ENDIF(APPLE)
 ELSE(UNIX)
   IF(WIN32 AND NOT CYGWIN)
     set(INSTALL_SHARE_DIR CMake CACHE PATH "Installation directory for shared files")

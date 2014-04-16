@@ -59,8 +59,8 @@ namespace multiviewnative {
 
     };
 
-    template <typename TransformT>
-    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device){
+    template <typename TransformT, typename ExtentsT>
+    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device, const ExtentsT& _extents){
             
 
       TransformT image_transform(_image_on_device, &(this->extents_[0]));
@@ -69,7 +69,8 @@ namespace multiviewnative {
       kernel_transform.forward();
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());      
-      unsigned fourier_num_elements = padded_image_->num_elements()/2;
+      unsigned fourier_num_elements = std::accumulate(_extents.begin(),_extents.end(),1,std::multiplies<size_type>())/2;
+
       value_type scale = 1.0 / (transform_size);
 
       unsigned numThreads = 32;
@@ -77,10 +78,8 @@ namespace multiviewnative {
 
       modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_image_on_device, (cufftComplex *)_kernel_on_device, fourier_num_elements, scale);
       HANDLE_ERROR(cudaPeekAtLastError());
-
       
       image_transform.backward();
-
       
     }
 
@@ -90,25 +89,25 @@ namespace multiviewnative {
        //extend kernel and image according to inplace requirements (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
        std::vector<unsigned> inplace_extents(this->extents_.size());
        adapt_extents_for_fftw_inplace(padded_image_->storage_order(),this->extents_, inplace_extents);
-       padded_image_->resize(boost::extents[inplace_extents[0]][inplace_extents[1]][inplace_extents[2]]);
-       padded_kernel_->resize(boost::extents[inplace_extents[0]][inplace_extents[1]][inplace_extents[2]]);
-
+       //TODO: depending on the Transform, the inplace extents need to be propagated to the transform 
+       //(inplace transforms by CUFFT in native mode do not follow the same data conventions than fftw)
+       
        //place image and kernel on device
-       size_type fft_size_byte = padded_image_->num_elements()*sizeof(value_type);
+       size_type padded_size_byte = std::accumulate(inplace_extents.begin(), inplace_extents.end(),1,std::multiplies<unsigned>())*sizeof(value_type);
        value_type* image_on_device = 0;
        value_type* kernel_on_device = 0;
 
-       HANDLE_ERROR( cudaMalloc( (void**)&(image_on_device), fft_size_byte ) );
-       HANDLE_ERROR( cudaMalloc( (void**)&(kernel_on_device), fft_size_byte ) );
+       HANDLE_ERROR( cudaMalloc( (void**)&(image_on_device), padded_size_byte ) );
+       HANDLE_ERROR( cudaMalloc( (void**)&(kernel_on_device), padded_size_byte ) );
 
-       HANDLE_ERROR( cudaMemcpy( image_on_device, padded_image_->data(), fft_size_byte , cudaMemcpyHostToDevice ) );       
-       HANDLE_ERROR( cudaMemcpy( kernel_on_device, padded_kernel_->data(), fft_size_byte , cudaMemcpyHostToDevice ) );
-
+       HANDLE_ERROR( cudaMemcpy( image_on_device, padded_image_->data(), padded_image_->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );       
+       HANDLE_ERROR( cudaMemcpy( kernel_on_device, padded_kernel_->data(), padded_kernel_->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );
+       
        //perform transform
-       this->inplace_on_device<TransformT>(image_on_device,kernel_on_device);
-
+       this->inplace_on_device<TransformT>(image_on_device,kernel_on_device,inplace_extents);
+       
        //place image and kernel on device
-       HANDLE_ERROR( cudaMemcpy(padded_image_->data(), image_on_device , fft_size_byte , cudaMemcpyDeviceToHost ) );
+       HANDLE_ERROR( cudaMemcpy(padded_image_->data(), image_on_device , padded_image_->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost ) );
 
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];

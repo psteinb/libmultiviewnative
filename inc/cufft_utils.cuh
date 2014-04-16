@@ -21,7 +21,7 @@ static void HandleCufftError( cufftResult_t err,
 
 #define HANDLE_CUFFT_ERROR( err ) (HandleCufftError( err, __FILE__, __LINE__ ))
 
-template <typename TransferT>
+  template <typename TransferT, cufftCompatibility Mode = CUFFT_COMPATIBILITY_NATIVE>
 class inplace_3d_transform_on_device {
   
   static const int dimensionality = 3;
@@ -47,7 +47,7 @@ public:
   void forward(){
     
     HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, (int)shape_[0], (int)shape_[1], (int)shape_[2], CUFFT_R2C));
-    HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
+    HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,Mode));
     HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, input_, (cufftComplex *)input_));
 
     clean_up();
@@ -57,7 +57,7 @@ public:
   void backward(){
     
     HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, (int)shape_[0], (int)shape_[1], (int)shape_[2], CUFFT_C2R));
-    HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
+    HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,Mode));
     HANDLE_CUFFT_ERROR(cufftExecC2R(transform_plan_,(cufftComplex *)input_, input_));
 
     clean_up();
