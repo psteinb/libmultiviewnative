@@ -111,7 +111,7 @@ namespace multiviewnative {
        HANDLE_ERROR( cudaMalloc( (void**)&(kernel_on_device), padded_size_byte ) );
 
        HANDLE_ERROR( cudaMemcpyAsync( image_on_device, padded_image_->data(), 
-				 padded_image_->num_elements()*sizeof(value_type) , 
+				      padded_image_->num_elements()*sizeof(value_type) , 
 				      cudaMemcpyHostToDevice, streams_[0] ) );       
 
        HANDLE_ERROR( cudaMemcpyAsync( kernel_on_device, padded_kernel_->data(), 
