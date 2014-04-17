@@ -30,6 +30,9 @@ ELSE(CUDA_FOUND)
 WARNING("Skipping GPU based tests, CUDA not found\!")
 ENDIF(CUDA_FOUND)
 
+FIND_PACKAGE(TIFF REQUIRED)
 
+add_executable(test_tiff_fixture test_tiff_fixture.cpp)
+target_link_libraries(test_tiff_fixture boost_system boost_filesystem boost_unit_test_framework tiff)
 
 

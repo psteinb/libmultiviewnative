@@ -1,5 +1,5 @@
-#ifndef _TEST_FIXTURES_H_
-#define _TEST_FIXTURES_H_
+#ifndef _TIFF_FIXTURES_H_
+#define _TIFF_FIXTURES_H_
 #include <iostream> 
 #include <iomanip> 
 #include <vector>
@@ -9,252 +9,156 @@
 #include "boost/multi_array.hpp"
 
 #include <string>
+#include <sstream>
 #include "image_stack_utils.h"
+#include "tiff_utils.h"
 
-// Explanation of the test images:
-// image_i.tif		.. the input frame stack
-// psf1_i.tif		.. point spread function 1
-// psf2_i.tif		.. point spread function 2
-// weights_i.tif	.. the weights
+////////////////////////////////////////////////////////////////////////////
+// Explanation of the test images
+// input :
+// image_view_i.tif	.. the input frame stack from view i
+// kernel1_view_i.tif	.. point spread function 1 from view i
+// kernel2_view_i.tif	.. point spread function 2 from view i
+// weights_view_i.tif	.. the weights from view i
 // results:
 // psi_i.tif		.. the results after the i-th iteration
-// Psi_0		.. first guess (all pixels have the same intensity)
+// psi_0		.. first guess (all pixels have the same intensity)
 
 namespace multiviewnative {
 
-  template <std::string PathToImages = "" 
-	    >
-struct deconvolutionFixture
-{
+  static const std::string path_to_test_images = "/home/steinbac/development/libmultiview_data/";
 
-  const unsigned  		image_size_				;
-  std::vector<int>		image_dims_				;
-  image_stack			image_					;
-  image_stack			padded_image_				;
-  image_stack			image_folded_by_horizontal_		;
-  image_stack			image_folded_by_vertical_		;
-  image_stack			image_folded_by_depth_			;
-  image_stack			image_folded_by_all1_			;
-
-  const unsigned		kernel_size_				;
-  std::vector<int>	 	kernel_dims_				;
-  image_stack			trivial_kernel_				;
-  image_stack			identity_kernel_			;
-  image_stack			vertical_kernel_			;
-  image_stack			horizont_kernel_			;
-  image_stack			depth_kernel_				;
-  image_stack			all1_kernel_				;
-  
-  BOOST_STATIC_ASSERT(KernelDimSize % 2 != 0);
-
-public:
-  
-  convolutionFixture3D():
-    image_size_				((unsigned)std::pow(ImageDimSize,3)),
-    image_dims_				(3,ImageDimSize),
-    image_				(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
-    padded_image_			(boost::extents[ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)]),
-    image_folded_by_horizontal_		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
-    image_folded_by_vertical_  		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
-    image_folded_by_depth_  		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
-    image_folded_by_all1_  		(boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),       
-    kernel_size_			((unsigned)std::pow(KernelDimSize,3)),
-    kernel_dims_			(3,KernelDimSize),
-    trivial_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
-    identity_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
-    vertical_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
-    horizont_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
-    depth_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize]),
-    all1_kernel_			(boost::extents[KernelDimSize][KernelDimSize][KernelDimSize])
+  template <int ViewNumber = 0>
+  struct ReferenceDataLoader
   {
+
+    std::stringstream  image_path_  ;
+    std::stringstream  kernel1_path_   ;
+    std::stringstream  kernel2_path_   ;
+    std::stringstream  weights_path_   ;
+
+    TIFF*  image_tiff_  ;
+    TIFF*  kernel1_tiff_   ;
+    TIFF*  kernel2_tiff_   ;
+    TIFF*  weights_tiff_   ;
+
+    image_stack  image_     ;
+    image_stack  kernel1_   ;
+    image_stack  kernel2_   ;
+    image_stack  weights_   ;
+
+    // BOOST_STATIC_ASSERT(path_to_test_images.empty() != true);
+    BOOST_STATIC_ASSERT(ViewNumber >= 0 && ViewNumber < 6);
+
+    ReferenceDataLoader():
+      image_path_    (  ""  )  ,
+      kernel1_path_  (  ""  )  ,
+      kernel2_path_  (  ""  )  ,
+      weights_path_  (  ""  )  ,
+      image_tiff_    (  0   )  ,
+      kernel1_tiff_  (  0   )  ,
+      kernel2_tiff_  (  0   )  ,
+      weights_tiff_  (  0   )  ,
+      image_         (     )  ,
+      kernel1_       (     )  ,
+      kernel2_       (     )  ,
+      weights_       (     )
+    {
+      image_path_    << path_to_test_images <<  "image_view_"    <<  ViewNumber  <<  ".tif";
+      kernel1_path_  << path_to_test_images <<  "kernel1_view_"  <<  ViewNumber  <<  ".tif";
+      kernel2_path_  << path_to_test_images <<  "kernel2_view_"  <<  ViewNumber  <<  ".tif";
+      weights_path_  << path_to_test_images <<  "weights_view_"  <<  ViewNumber  <<  ".tif";
     
-    //FILL KERNELS
-    const unsigned halfKernel  = KernelDimSize/2u;
-        
-    std::fill(trivial_kernel_.origin()	,trivial_kernel_.origin()	+ kernel_size_	,0.f);
-    std::fill(identity_kernel_.origin()	,identity_kernel_.origin()	+ kernel_size_	,0.f);
-    std::fill(vertical_kernel_.origin()	,vertical_kernel_.origin()	+ kernel_size_	,0.f);
-    std::fill(depth_kernel_.origin()	,depth_kernel_.origin()		+ kernel_size_	,0.f);
-    std::fill(horizont_kernel_.origin()	,horizont_kernel_.origin()	+ kernel_size_	,0.f);
-    std::fill(all1_kernel_.origin()	,all1_kernel_.origin()		+ kernel_size_	,1.f);
+      image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
+      kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
+      kernel2_tiff_ = TIFFOpen( kernel2_path_.str().c_str() , "r" );
+      weights_tiff_ = TIFFOpen( weights_path_.str().c_str() , "r" );
 
-    identity_kernel_.data()[kernel_size_/2]=1.; 
+      std::vector<tdir_t> image_tdirs   ;get_tiff_dirs(image_tiff_,   image_tdirs  );
+      std::vector<tdir_t> kernel1_tdirs ;get_tiff_dirs(kernel1_tiff_, kernel1_tdirs);
+      std::vector<tdir_t> kernel2_tdirs ;get_tiff_dirs(kernel2_tiff_, kernel2_tdirs);
+      std::vector<tdir_t> weights_tdirs ;get_tiff_dirs(weights_tiff_, weights_tdirs);
 
-    for(unsigned int index = 0;index<KernelDimSize;++index){
-      horizont_kernel_[index][halfKernel][halfKernel] = float(index+1);
-      vertical_kernel_[halfKernel][index][halfKernel] = float(index+1);
-      depth_kernel_   [halfKernel][halfKernel][index] = float(index+1);
+      extract_tiff_to_image_stack(image_tiff_,   image_tdirs  , image_     );
+      extract_tiff_to_image_stack(kernel1_tiff_, kernel1_tdirs, kernel1_   );
+      extract_tiff_to_image_stack(kernel2_tiff_, kernel2_tdirs, kernel2_   );
+      extract_tiff_to_image_stack(weights_tiff_, weights_tdirs, weights_   );
+
     }
-    
-    //FILL IMAGES
-    unsigned padded_image_axis = ImageDimSize+2*halfKernel;
-    unsigned padded_image_size = std::pow(padded_image_axis,3);
-    std::fill(image_.origin(),         image_.origin()         +  image_size_,        0.f  );
-    std::fill(padded_image_.origin(),  padded_image_.origin()  +  padded_image_size,  0.f  );
 
-    unsigned image_index=0;
-    for(int z_index = 0;z_index<int(image_dims_[2]);++z_index){
-      for(int y_index = 0;y_index<int(image_dims_[1]);++y_index){
-    	for(int x_index = 0;x_index<int(image_dims_[0]);++x_index){
-    	  image_index=x_index;
-    	  image_index += y_index*image_dims_[0];
-    	  image_index += z_index*image_dims_[0]*image_dims_[1] ;
-    	  image_[x_index][y_index][z_index] = float(image_index);
-    	}
-      }
-    }
+    virtual ~ReferenceDataLoader()  { 
 
-    //PADD THE IMAGE FOR CONVOLUTION
-    range axis_subrange = range(halfKernel,halfKernel+ImageDimSize);
-    image_stack_view padded_image_original = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
-    padded_image_original = image_;
-    
-    image_stack padded_image_folded_by_horizontal  = padded_image_;
-    image_stack padded_image_folded_by_vertical    = padded_image_;
-    image_stack padded_image_folded_by_depth       = padded_image_;
-    image_stack padded_image_folded_by_all1        = padded_image_;
 
-    //CONVOLVE
-    float newValue = 0.;
-    float kernel_value  = 0.f;
-    float image_value   = 0.f;
+      if(image_tiff_)
+	TIFFClose( image_tiff_ );
 
-    for(int z_index = halfKernel;z_index<int(padded_image_axis-halfKernel);++z_index){
-      for(int y_index = halfKernel;y_index<int(padded_image_axis-halfKernel);++y_index){
-	for(int x_index = halfKernel;x_index<int(padded_image_axis-halfKernel);++x_index){
-	  	  
-	  padded_image_folded_by_horizontal[x_index][y_index][z_index] = 0.f;
-	  padded_image_folded_by_vertical[x_index][y_index][z_index] = 0.f;
-	  padded_image_folded_by_depth[x_index][y_index][z_index] = 0.f;
-	  padded_image_folded_by_all1[x_index][y_index][z_index] = 0.f;
+      if(kernel1_tiff_)
+	TIFFClose( kernel1_tiff_ );
 
-	  for(int kindex = 0;kindex<KernelDimSize;++kindex){
-	    //convolution in x
-	    kernel_value  =  horizont_kernel_[KernelDimSize-1-kindex][halfKernel][halfKernel]	;
-	    image_value   =  padded_image_[x_index-halfKernel+kindex][y_index][z_index]		;
-	    padded_image_folded_by_horizontal[x_index][y_index][z_index] += kernel_value*image_value;
+      if(kernel2_tiff_)
+	TIFFClose( kernel2_tiff_ );
 
-	    //convolution in y
-	    kernel_value  = vertical_kernel_[halfKernel][KernelDimSize-1-kindex][halfKernel];
-	    image_value   = padded_image_[x_index][y_index-halfKernel+kindex][z_index];
-	    padded_image_folded_by_vertical[x_index][y_index][z_index] += kernel_value*image_value;
-	      
+      if(weights_tiff_)
+	TIFFClose( weights_tiff_ );
 
-	    //convolution in z
-	    kernel_value  = depth_kernel_[halfKernel][halfKernel][KernelDimSize-1-kindex];
-	    image_value   = padded_image_[x_index][y_index][z_index-halfKernel+kindex];
-	    padded_image_folded_by_depth[x_index][y_index][z_index] += kernel_value*image_value;
-	      
-	  }
+    };
+
   
 
-	  newValue = 0.;
-	  for(int z_kernel = -(int)halfKernel;z_kernel<=((int)halfKernel);++z_kernel){
-	    for(int y_kernel = -(int)halfKernel;y_kernel<=((int)halfKernel);++y_kernel){
-	      for(int x_kernel = -(int)halfKernel;x_kernel<=((int)halfKernel);++x_kernel){
-		newValue += padded_image_[x_index+x_kernel][y_index+y_kernel][z_index+z_kernel]*all1_kernel_[halfKernel+x_kernel][halfKernel+y_kernel][halfKernel+z_kernel];
-	      }
-	    }
-	  }
-	  padded_image_folded_by_all1[x_index][y_index][z_index] = newValue;
-	
-	}
-     
-      }
-    }
-    
-    //EXTRACT NON-PADDED CONTENT FROM CONVOLVED IMAGE STACKS
-    image_folded_by_horizontal_  = padded_image_folded_by_horizontal[ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
-    image_folded_by_vertical_    = padded_image_folded_by_vertical  [ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
-    image_folded_by_depth_       = padded_image_folded_by_depth     [ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
-    image_folded_by_all1_        = padded_image_folded_by_all1      [ boost::indices[axis_subrange][axis_subrange][axis_subrange] ];
-
-
-  }
-  
-  virtual ~convolutionFixture3D()  { 
-    
   };
 
-  template <typename IntensityT, typename DimT>
-  void print_3d_structure(const IntensityT* _image=0, const DimT* _dimensions=0, bool _print_flat = false) const {
+  typedef ReferenceDataLoader<0> view0_loader;
+  typedef ReferenceDataLoader<1> view1_loader;
+  typedef ReferenceDataLoader<2> view2_loader;
+  typedef ReferenceDataLoader<3> view3_loader;
+  typedef ReferenceDataLoader<4> view4_loader;
+  typedef ReferenceDataLoader<5> view5_loader;
 
-    DimT image_index = 0;
-    if(!_image){
-      std::cerr << "Unable to print 3d structure!\n";
-      return;
+  template<int ViewNumber>
+  struct DeconvolutionFixture
+  {
+    image_stack  image_     ;
+    image_stack  kernel1_   ;
+    image_stack  kernel2_   ;
+    image_stack  weights_   ;
+
+    DeconvolutionFixture():
+      image_(),
+      kernel1_(),
+      kernel2_(),
+      weights_(){}
+
+    DeconvolutionFixture(const ReferenceDataLoader<ViewNumber>& _other):
+      image_(_other.image_),
+      kernel1_(_other.kernel1_),
+      kernel2_(_other.kernel2_),
+      weights_(_other.weights_){}
+
+    DeconvolutionFixture& operator=(const ReferenceDataLoader<ViewNumber>& _other){
+      image_    =  _other.image_    ;
+      kernel1_  =  _other.kernel1_  ;
+      kernel2_  =  _other.kernel2_  ;
+      weights_  =  _other.weights_  ;
     }
 
-    for(DimT z_index = 0;z_index<(_dimensions[2]);++z_index){
-      std::cout << "z="<< z_index << "\n" << "x" << std::setw(8) << " ";
-      for(DimT x_index = 0;x_index<(_dimensions[0]);++x_index){
-	std::cout << std::setw(8) << x_index << " ";
-      }
-      std::cout << "\n\n";
-      for(DimT y_index = 0;y_index<(_dimensions[1]);++y_index){
-	std::cout << "y["<< std::setw(5) << y_index << "] ";
-	for(DimT x_index = 0;x_index<(_dimensions[0]);++x_index){
-	  
-	  //FIXME: imposes a storage order
-	  image_index=x_index;
-	  image_index += y_index*_dimensions[0];
-	  image_index += z_index*_dimensions[0]*_dimensions[1] ;
-	  
-	  std::cout << std::setw(8) << _image[image_index] << " ";
-	}
-
-	std::cout << "\n";
-      }
-      std::cout << "\n";
-    }
-
-    if(_print_flat){
-      DimT image_size = _dimensions[0]*_dimensions[1]*_dimensions[2];
-      std::cout << "flat memory storage:\n";
-      for(DimT index = 0;index<image_size;++index){
-	std::cout << std::setw(6) << _image[index] << " ";
-	if((index % 15u == 0) && index>0)
-	  std::cout << "\n";
-      }
-      std::cout << "\n";
+    void setup_from(const ReferenceDataLoader<ViewNumber>& _other){
+      this->image_   .resize( boost::extents[_other.image_  .shape()[0]][_other.image_  .shape()[1]][_other.image_  .shape()[2]] )  ;
+      this->kernel1_ .resize( boost::extents[_other.kernel1_.shape()[0]][_other.kernel1_.shape()[1]][_other.kernel1_.shape()[2]] )  ;
+      this->kernel2_ .resize( boost::extents[_other.kernel2_.shape()[0]][_other.kernel2_.shape()[1]][_other.kernel2_.shape()[2]] )  ;
+      this->weights_ .resize( boost::extents[_other.weights_.shape()[0]][_other.weights_.shape()[1]][_other.weights_.shape()[2]] )  ;
+      this->image_    =  _other.image_    ;
+      this->kernel1_  =  _other.kernel1_  ;
+      this->kernel2_  =  _other.kernel2_  ;
+      this->weights_  =  _other.weights_  ;
     }
   };
 
-
-
-  void print_image(const float* _image=0) const {
-    
-    const float * image_ptr = 0;
-    if(!_image)
-      image_ptr = &image_.data()[0];
-    else
-      image_ptr = _image;
-    
-    print_3d_structure(image_ptr, image_dims_.data());
-          
-  };
-    
-  void print_kernel(const float* _kernel=0) const {
-
-    const float * kernel_ptr = 0;
-    if(!_kernel)
-      kernel_ptr = &identity_kernel_.data()[0];
-    else
-      kernel_ptr = _kernel;
-    
-    print_3d_structure(kernel_ptr, kernel_dims_.data());
-
-  };
-
-  
-  static const unsigned image_axis_size = ImageDimSize;
-  static const unsigned kernel_axis_size = KernelDimSize;
-
-};
-
-typedef convolutionFixture3D<> default_3D_fixture;
-
-
+  typedef DeconvolutionFixture<0> view0_fixture;
+  typedef DeconvolutionFixture<1> view1_fixture;
+  typedef DeconvolutionFixture<2> view2_fixture;
+  typedef DeconvolutionFixture<3> view3_fixture;
+  typedef DeconvolutionFixture<4> view4_fixture;
+  typedef DeconvolutionFixture<5> view5_fixture;
 }
 
 #endif
