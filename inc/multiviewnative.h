@@ -13,6 +13,9 @@ typedef float imageType;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPU convolution
 FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int nthreads);
+FUNCTION_PREFIX void inplace_cpu_deconvolution(imageType* im,int* imDim,imageType* weights,
+					       imageType* kernel1,int* kernel1Dim,imageType* kernel2,int* kernel2Dim,
+					       int nthreads);
 
 // GPU convolution
 FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);

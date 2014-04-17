@@ -32,7 +32,14 @@ ENDIF(CUDA_FOUND)
 
 FIND_PACKAGE(TIFF REQUIRED)
 
+IF(TIFF_FOUND)
 add_executable(test_tiff_fixture test_tiff_fixture.cpp)
 target_link_libraries(test_tiff_fixture boost_system boost_filesystem boost_unit_test_framework tiff)
+
+add_executable(test_cpu_deconvolve test_cpu_deconvolve.cpp)
+target_link_libraries(test_cpu_deconvolve boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
+ELSE(TIFF_FOUND)
+WARNING("Skipping tests based on reference images, libtiff not found\!")
+ENDIF(TIFF_FOUND)
 
 

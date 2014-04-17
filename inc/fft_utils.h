@@ -125,8 +125,9 @@ public:
   };
 
   static void set_n_threads(const int& _nthreads = 0){
-    if(_nthreads > 1)
+    if(_nthreads > 0){
       parallel_inplace_3d_transform::nthreads_ = _nthreads;
+    }
     else
       parallel_inplace_3d_transform::nthreads_ = int(boost::thread::hardware_concurrency());
   }
