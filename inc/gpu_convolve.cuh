@@ -32,7 +32,8 @@ namespace multiviewnative {
       image_(0),
       padded_image_(0),
       kernel_(0),
-      padded_kernel_(0)
+      padded_kernel_(0),
+      streams_(2)
     {
       std::vector<size_type> image_shape(num_dims);
       std::copy(_image_extents_arr, _image_extents_arr+num_dims,image_shape.begin());
@@ -57,29 +58,35 @@ namespace multiviewnative {
       this->insert_at_offsets(*image_,*padded_image_);
       this->wrapped_insert_at_offsets(*kernel_,*padded_kernel_);
 
+      
+
     };
 
     template <typename TransformT, typename ExtentsT>
-    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device, const ExtentsT& _extents){
+    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device, const ExtentsT& _fft_extents){
             
 
       TransformT image_transform(_image_on_device, &(this->extents_[0]));
       TransformT kernel_transform(_kernel_on_device, &(this->extents_[0]));
-      image_transform.forward();
-      kernel_transform.forward();
+      image_transform.forward(&streams_[0]);
+      kernel_transform.forward(&streams_[1]);
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());      
-      unsigned fourier_num_elements = std::accumulate(_extents.begin(),_extents.end(),1,std::multiplies<size_type>())/2;
+      unsigned fft_num_elements = std::accumulate(_fft_extents.begin(),_fft_extents.end(),1,std::multiplies<size_type>())/2;
 
       value_type scale = 1.0 / (transform_size);
 
       unsigned numThreads = 32;
-      unsigned numBlocks = largestDivisor(fourier_num_elements,numThreads);
+      unsigned numBlocks = largestDivisor(fft_num_elements,numThreads);
 
-      modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_image_on_device, (cufftComplex *)_kernel_on_device, fourier_num_elements, scale);
+      cudaStreamSynchronize(streams_[0]);
+      modulateAndNormalize_kernel<<<numBlocks,numThreads,0,streams_[1]>>>((cufftComplex *)_image_on_device, 
+									   (cufftComplex *)_kernel_on_device, 
+									   fft_num_elements, 
+									   scale);
       HANDLE_ERROR(cudaPeekAtLastError());
       
-      image_transform.backward();
+      image_transform.backward(&streams_[1]);
       
     }
 
@@ -97,17 +104,26 @@ namespace multiviewnative {
        value_type* image_on_device = 0;
        value_type* kernel_on_device = 0;
 
+       for (int i = 0; i < 2; ++i)
+	 HANDLE_ERROR(cudaStreamCreate(&streams_[i]));
+
        HANDLE_ERROR( cudaMalloc( (void**)&(image_on_device), padded_size_byte ) );
        HANDLE_ERROR( cudaMalloc( (void**)&(kernel_on_device), padded_size_byte ) );
 
-       HANDLE_ERROR( cudaMemcpy( image_on_device, padded_image_->data(), padded_image_->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );       
-       HANDLE_ERROR( cudaMemcpy( kernel_on_device, padded_kernel_->data(), padded_kernel_->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );
+       HANDLE_ERROR( cudaMemcpyAsync( image_on_device, padded_image_->data(), 
+				 padded_image_->num_elements()*sizeof(value_type) , 
+				      cudaMemcpyHostToDevice, streams_[0] ) );       
+
+       HANDLE_ERROR( cudaMemcpyAsync( kernel_on_device, padded_kernel_->data(), 
+				      padded_kernel_->num_elements()*sizeof(value_type) , 
+				      cudaMemcpyHostToDevice, streams_[1] ) );
        
-       //perform transform
        this->inplace_on_device<TransformT>(image_on_device,kernel_on_device,inplace_extents);
        
-       //place image and kernel on device
-       HANDLE_ERROR( cudaMemcpy(padded_image_->data(), image_on_device , padded_image_->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost ) );
+
+       HANDLE_ERROR( cudaMemcpyAsync(padded_image_->data(), image_on_device , 
+				     padded_image_->num_elements()*sizeof(value_type) , 
+				     cudaMemcpyDeviceToHost, streams_[0] ) );
 
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
@@ -118,6 +134,9 @@ namespace multiviewnative {
       delete kernel_;
       delete padded_image_;
       delete padded_kernel_;
+
+      for (int i = 0; i < 2; ++i)
+	HANDLE_ERROR(cudaStreamDestroy(streams_[i]));
     }
 
     void set_device(const int& _device){
@@ -133,6 +152,8 @@ namespace multiviewnative {
 
     image_stack_ref* kernel_;
     image_stack* padded_kernel_;
+
+    std::vector<cudaStream_t> streams_;
 
   };
 

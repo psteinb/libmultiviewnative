@@ -44,20 +44,24 @@ public:
   }
 
   
-  void forward(){
+  void forward(cudaStream_t* _stream = 0){
     
     HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, (int)shape_[0], (int)shape_[1], (int)shape_[2], CUFFT_R2C));
     HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,Mode));
+    if(_stream)
+      HANDLE_CUFFT_ERROR(cufftSetStream(transform_plan_,*_stream));
     HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, input_, (cufftComplex *)input_));
 
     clean_up();
   };
 
 
-  void backward(){
+  void backward(cudaStream_t* _stream = 0){
     
     HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, (int)shape_[0], (int)shape_[1], (int)shape_[2], CUFFT_C2R));
     HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,Mode));
+    if(_stream)
+      HANDLE_CUFFT_ERROR(cufftSetStream(transform_plan_,*_stream));
     HANDLE_CUFFT_ERROR(cufftExecC2R(transform_plan_,(cufftComplex *)input_, input_));
 
     clean_up();
