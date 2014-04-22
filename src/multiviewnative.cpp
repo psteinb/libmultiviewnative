@@ -1,5 +1,7 @@
 #define __MULTIVIEWNATIVE_CPP__
 
+#include <vector>
+
 #include "multiviewnative.h"
 #include "cpu_convolve.h"
 #include "padd_utils.h"
@@ -38,34 +40,39 @@ void inplace_cpu_convolution(imageType* im,
 }
 
 
-void inplace_cpu_deconvolution(imageType* im,int* imDim,imageType* weights,
-			       imageType* kernel1,int* kernel1Dim,imageType* kernel2,int* kernel2Dim,
-			       int nthreads){
+void inplace_cpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
+				 imageType* kernel1,int* kernel1Dim,
+				 imageType* kernel2,int* kernel2Dim,
+				 int nthreads, double lambda, imageType minValue){
 
-  unsigned image_dim[3];
-  unsigned kernel1_dim[3];
-  unsigned kernel2_dim[3];
+  std::vector<unsigned> image_dim(3);
+  std::vector<unsigned> kernel1_dim(3);
+  std::vector<unsigned> kernel2_dim(3);
 
-  std::copy(imDim, imDim + 3, &image_dim[0]);
+  std::copy(psiDim, psiDim + 3, &image_dim[0]);
   std::copy(kernel1Dim, kernel1Dim + 3, &kernel1_dim[0]);
   std::copy(kernel2Dim, kernel2Dim + 3, &kernel2_dim[0]);
 
 
-  multiviewnative::image_stack_cref initial(im, image_dim);
-  multiviewnative::image_stack image = initial;
+  multiviewnative::image_stack_ref initial_psi(psi, image_dim);
+  multiviewnative::image_stack current_psi = initial_psi;
   
-  //convolve(initial) with kernel1 -> psiBlurred
-  default_convolution convolver1(image.data(), &image_dim[0], kernel1, &kernel1_dim[0]);
+  //convolve: initial_psi x kernel1 -> psiBlurred
+  default_convolution convolver1(current_psi.data(), &image_dim[0], kernel1, &kernel1_dim[0]);
   convolver1.inplace<serial_transform>();
 
-  //computeQuotient(psiBlurred,initial)
-  //psiBlurred = initial / psiBlurred
-  computeQuotient(initial.data(),image.data(),image.num_elements());
+  //initial_psi / psiBlurred -> psiBlurred 
+  computeQuotient(initial_psi.data(),current_psi.data(),current_psi.num_elements());
 
-  //convolve(psiBlurred) with kernel2 -> integral
-  default_convolution convolver2(image.data(), &image_dim[0], kernel2, &kernel2_dim[0]);
+  //convolve: psiBlurred x kernel2 -> integral = current_psi
+  default_convolution convolver2(current_psi.data(), &image_dim[0], kernel2, &kernel2_dim[0]);
   convolver2.inplace<serial_transform>();
 
-  //computeFinalValues(initial,integral,weights)
-  computeFinalValues(initial.data(), image.data(), weights, image.num_elements(),0, 1., .00001);
+  //computeFinalValues(initial_psi,integral,weights)
+  computeFinalValues(initial_psi.data(), current_psi.data(), weights, 
+		       current_psi.num_elements(),
+		       0, lambda, minValue);
+
+//copy current image back to initial pointer
+initial_psi = current_psi;
 }

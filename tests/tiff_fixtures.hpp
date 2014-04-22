@@ -117,28 +117,41 @@ namespace multiviewnative {
   template<int ViewNumber>
   struct DeconvolutionFixture
   {
+    double       lambda_    ;
+    double       minValue_  ;
     image_stack  image_     ;
     image_stack  kernel1_   ;
     image_stack  kernel2_   ;
     image_stack  weights_   ;
 
+    std::vector<int> image_shape_  ;
+    std::vector<int> kernel1_shape_;
+    std::vector<int> kernel2_shape_;
+    std::vector<int> weights_shape_;
+
     DeconvolutionFixture():
+      lambda_(.006),
+      minValue_(1e-4),
       image_(),
       kernel1_(),
       kernel2_(),
-      weights_(){}
+      weights_(),
+      image_shape_  (3, -1),
+      kernel1_shape_(3, -1),
+      kernel2_shape_(3, -1),
+      weights_shape_(3, -1)
+    {}
 
-    DeconvolutionFixture(const ReferenceDataLoader<ViewNumber>& _other):
-      image_(_other.image_),
-      kernel1_(_other.kernel1_),
-      kernel2_(_other.kernel2_),
-      weights_(_other.weights_){}
+    DeconvolutionFixture(const ReferenceDataLoader<ViewNumber>& _other)
+      {
+	this->setup_from(_other);
+      }
 
     DeconvolutionFixture& operator=(const ReferenceDataLoader<ViewNumber>& _other){
-      image_    =  _other.image_    ;
-      kernel1_  =  _other.kernel1_  ;
-      kernel2_  =  _other.kernel2_  ;
-      weights_  =  _other.weights_  ;
+      
+	this->setup_from(_other);
+	
+	return *this;
     }
 
     void setup_from(const ReferenceDataLoader<ViewNumber>& _other){
@@ -150,6 +163,11 @@ namespace multiviewnative {
       this->kernel1_  =  _other.kernel1_  ;
       this->kernel2_  =  _other.kernel2_  ;
       this->weights_  =  _other.weights_  ;
+
+      std::copy(&_other.image_  .shape()[0], &_other.image_  .shape()[0] + 3, this->image_shape_  .begin());
+      std::copy(&_other.kernel1_.shape()[0], &_other.kernel1_.shape()[0] + 3, this->kernel1_shape_.begin());
+      std::copy(&_other.kernel2_.shape()[0], &_other.kernel2_.shape()[0] + 3, this->kernel2_shape_.begin());
+      std::copy(&_other.weights_.shape()[0], &_other.weights_.shape()[0] + 3, this->weights_shape_.begin());
     }
   };
 
