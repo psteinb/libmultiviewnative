@@ -43,7 +43,7 @@ void inplace_cpu_convolution(imageType* im,
 void inplace_cpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
 				 imageType* kernel1,int* kernel1Dim,
 				 imageType* kernel2,int* kernel2Dim,
-				 int nthreads, double lambda, imageType minValue){
+			       int nthreads, double lambda, imageType minValue){
 
   std::vector<unsigned> image_dim(3);
   std::vector<unsigned> kernel1_dim(3);
@@ -70,9 +70,9 @@ void inplace_cpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
 
   //computeFinalValues(initial_psi,integral,weights)
   computeFinalValues(initial_psi.data(), current_psi.data(), weights, 
-		       current_psi.num_elements(),
-		       0, lambda, minValue);
+		     current_psi.num_elements(),
+		     0, lambda, minValue);
 
-//copy current image back to initial pointer
-initial_psi = current_psi;
+  //copy current image back to initial pointer
+  initial_psi = current_psi;
 }

@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include "cuda.h"
 
 template <typename ValueT>
 struct multiplies : std::binary_function<ValueT, ValueT, ValueT> {

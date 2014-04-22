@@ -18,14 +18,15 @@
 #include "gpu_convolve.cuh"
 #include "cufft_utils.cuh"
 #include "padd_utils.h"
+#include "image_stack_utils.h"
 
+typedef multiviewnative::zero_padd<multiviewnative::image_stack> padding;
+typedef multiviewnative::inplace_3d_transform_on_device<imageType> device_transform;
+typedef multiviewnative::gpu_convolve<padding,imageType,unsigned> device_convolve;
 
 void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
 
   using namespace multiviewnative;
-
-  typedef zero_padd<image_stack> padding;
-  typedef inplace_3d_transform_on_device<imageType> transform;
   
   unsigned image_dim[3];
   unsigned kernel_dim[3];
@@ -33,14 +34,54 @@ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* ker
   std::copy(imDim, imDim + 3, &image_dim[0]);
   std::copy(kernelDim, kernelDim + 3, &kernel_dim[0]);
   
-  gpu_convolve<padding,imageType,unsigned> convolver(im, image_dim, kernel, kernel_dim);
+  device_convolve convolver(im, image_dim, kernel, kernel_dim);
 
   convolver.set_device(device);
 
-  convolver.inplace<transform>();
+  convolver.inplace<device_transform>();
   
 }
 
+void inplace_gpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
+			       imageType* kernel1,int* kernel1Dim,
+			       imageType* kernel2,int* kernel2Dim,
+			       int device, double lambda, imageType minValue){
+
+
+  assert(false && "not implemented yet");
+  std::vector<unsigned> image_dim(3);
+  std::vector<unsigned> kernel1_dim(3);
+  std::vector<unsigned> kernel2_dim(3);
+
+  std::copy(psiDim, psiDim + 3, &image_dim[0]);
+  std::copy(kernel1Dim, kernel1Dim + 3, &kernel1_dim[0]);
+  std::copy(kernel2Dim, kernel2Dim + 3, &kernel2_dim[0]);
+
+
+  multiviewnative::image_stack_ref initial_psi(psi, image_dim);
+  multiviewnative::image_stack current_psi = initial_psi;
+  
+  //convolve: initial_psi x kernel1 -> psiBlurred
+  device_convolve convolver1(current_psi.data(), &image_dim[0], kernel1, &kernel1_dim[0]);
+  convolver1.set_device(device);
+  convolver1.inplace<device_transform>();
+
+  //initial_psi / psiBlurred -> psiBlurred 
+  // computeQuotient(initial_psi.data(),current_psi.data(),current_psi.num_elements());
+
+  //convolve: psiBlurred x kernel2 -> integral = current_psi
+  device_convolve convolver2(current_psi.data(), &image_dim[0], kernel2, &kernel2_dim[0]);
+  convolver2.set_device(device);
+  convolver2.inplace<device_transform>();
+
+  //computeFinalValues(initial_psi,integral,weights)
+  // computeFinalValues(initial_psi.data(), current_psi.data(), weights, 
+  // 		     current_psi.num_elements(),
+  // 		     0, lambda, minValue);
+
+  //copy current image back to initial pointer
+  initial_psi = current_psi;
+}
 
 
 #ifndef LB_MAX_THREADS

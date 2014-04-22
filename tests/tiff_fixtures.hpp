@@ -46,23 +46,30 @@ namespace multiviewnative {
     image_stack  kernel1_   ;
     image_stack  kernel2_   ;
     image_stack  weights_   ;
-
-    // BOOST_STATIC_ASSERT(path_to_test_images.empty() != true);
+    
+    std::vector<image_stack> psi_;
+    std::vector<std::string> psi_path_;
+    std::vector<TIFF*> psi_tiff_;
+    
     BOOST_STATIC_ASSERT(ViewNumber >= 0 && ViewNumber < 6);
 
     ReferenceDataLoader():
-      image_path_    (  ""  )  ,
-      kernel1_path_  (  ""  )  ,
-      kernel2_path_  (  ""  )  ,
-      weights_path_  (  ""  )  ,
-      image_tiff_    (  0   )  ,
-      kernel1_tiff_  (  0   )  ,
-      kernel2_tiff_  (  0   )  ,
-      weights_tiff_  (  0   )  ,
-      image_         (     )  ,
-      kernel1_       (     )  ,
-      kernel2_       (     )  ,
-      weights_       (     )
+      image_path_             (  ""  )  ,
+      kernel1_path_           (  ""  )  ,
+      kernel2_path_           (  ""  )  ,
+      weights_path_           (  ""  )  ,
+      image_tiff_             (  0   )  ,
+      kernel1_tiff_           (  0   )  ,
+      kernel2_tiff_           (  0   )  ,
+      weights_tiff_           (  0   )  ,
+      image_                  (  )   ,
+      kernel1_                (  )   ,
+      kernel2_                (  )   ,
+      weights_                (  )   ,
+      psi_                    (  3   )  ,
+      psi_path_               (  3   )  ,
+      psi_tiff_               (  3   )
+
     {
       image_path_    << path_to_test_images <<  "image_view_"    <<  ViewNumber  <<  ".tif";
       kernel1_path_  << path_to_test_images <<  "kernel1_view_"  <<  ViewNumber  <<  ".tif";
@@ -84,6 +91,17 @@ namespace multiviewnative {
       extract_tiff_to_image_stack(kernel2_tiff_, kernel2_tdirs, kernel2_   );
       extract_tiff_to_image_stack(weights_tiff_, weights_tdirs, weights_   );
 
+      std::vector<tdir_t> found_tdirs;
+      std::stringstream found_path;
+      for(short num = 0;num<3;++num){
+	found_tdirs.clear();
+	found_path.str("");
+	found_path    << path_to_test_images <<  "psi_"    <<  num  <<  ".tif";
+	psi_tiff_[num]    = TIFFOpen( found_path.str().c_str() , "r" );
+	get_tiff_dirs(psi_tiff_[num],   found_tdirs  );
+	extract_tiff_to_image_stack(psi_tiff_[num],   found_tdirs  , psi_[num]     );
+      }
+      
     }
 
     virtual ~ReferenceDataLoader()  { 
@@ -101,6 +119,8 @@ namespace multiviewnative {
       if(weights_tiff_)
 	TIFFClose( weights_tiff_ );
 
+      for(short num = 0;num<3;++num)
+	TIFFClose( psi_tiff_[num] );
     };
 
   

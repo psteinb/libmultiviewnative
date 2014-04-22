@@ -127,6 +127,10 @@ namespace multiviewnative {
 
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
+     
+       HANDLE_ERROR( cudaFree( image_on_device ) );
+       HANDLE_ERROR( cudaFree( kernel_on_device ) );
+ 
      }
 
     ~gpu_convolve(){
@@ -137,6 +141,7 @@ namespace multiviewnative {
 
       for (int i = 0; i < 2; ++i)
 	HANDLE_ERROR(cudaStreamDestroy(streams_[i]));
+
     }
 
     void set_device(const int& _device){
