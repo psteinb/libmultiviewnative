@@ -26,11 +26,12 @@
 
 namespace multiviewnative {
 
-  static const std::string path_to_test_images = "/home/steinbac/development/libmultiview_data/";
-
-  template <int ViewNumber = 0>
-  struct ReferenceDataLoader
+  static const std::string path_to_test_images = "/dev/shm/libmultiview_data/";
+  
+  struct ViewFromDisk
   {
+
+    int view_number_;
 
     std::stringstream  image_path_  ;
     std::stringstream  kernel1_path_   ;
@@ -47,13 +48,8 @@ namespace multiviewnative {
     image_stack  kernel2_   ;
     image_stack  weights_   ;
     
-    std::vector<image_stack> psi_;
-    std::vector<std::string> psi_path_;
-    std::vector<TIFF*> psi_tiff_;
-    
-    BOOST_STATIC_ASSERT(ViewNumber >= 0 && ViewNumber < 6);
-
-    ReferenceDataLoader():
+    ViewFromDisk(const int& _view_number = -1):
+      view_number_ ( _view_number ) ,
       image_path_             (  ""  )  ,
       kernel1_path_           (  ""  )  ,
       kernel2_path_           (  ""  )  ,
@@ -65,16 +61,76 @@ namespace multiviewnative {
       image_                  (  )   ,
       kernel1_                (  )   ,
       kernel2_                (  )   ,
-      weights_                (  )   ,
-      psi_                    (  3   )  ,
-      psi_path_               (  3   )  ,
-      psi_tiff_               (  3   )
+      weights_                (  )   
 
     {
-      image_path_    << path_to_test_images <<  "image_view_"    <<  ViewNumber  <<  ".tif";
-      kernel1_path_  << path_to_test_images <<  "kernel1_view_"  <<  ViewNumber  <<  ".tif";
-      kernel2_path_  << path_to_test_images <<  "kernel2_view_"  <<  ViewNumber  <<  ".tif";
-      weights_path_  << path_to_test_images <<  "weights_view_"  <<  ViewNumber  <<  ".tif";
+      if(view_number_>-1)
+	this->load(view_number_);
+    }
+
+    ViewFromDisk(const ViewFromDisk& _rhs):
+      view_number_               (              _rhs.view_number_   )                                 ,
+      image_path_                (              _rhs.image_path_.str()    )                                 ,
+      kernel1_path_              (              _rhs.kernel1_path_.str()  )                                 ,
+      kernel2_path_              (              _rhs.kernel2_path_.str()  )                                 ,
+      weights_path_              (              _rhs.weights_path_.str()  )                                 ,
+      image_tiff_                (              TIFFOpen(           _rhs.image_path_  .str().c_str()  ,    "r"  )  )  ,
+      kernel1_tiff_              (              TIFFOpen(           _rhs.kernel1_path_.str().c_str()  ,    "r"  )  )  ,
+      kernel2_tiff_              (              TIFFOpen(           _rhs.kernel2_path_.str().c_str()  ,    "r"  )  )  ,
+      weights_tiff_              (              TIFFOpen(           _rhs.weights_path_.str().c_str()  ,    "r"  )  )  ,
+      image_                     (              _rhs.image_         )                                 ,
+      kernel1_                   (              _rhs.kernel1_       )                                 ,
+      kernel2_                   (              _rhs.kernel2_       )                                 ,
+      weights_                   (              _rhs.weights_       )
+    {
+      if(view_number_>-1)
+	this->load(view_number_);
+    }
+
+    ViewFromDisk& operator=(const ViewFromDisk& _rhs){
+ 
+      this->clear();
+
+      view_number_   =  _rhs.view_number_   ;
+      image_path_  .str(_rhs.image_path_  .str())  ;
+      kernel1_path_.str(_rhs.kernel1_path_.str())  ;
+      kernel2_path_.str(_rhs.kernel2_path_.str())  ;
+      weights_path_.str(_rhs.weights_path_.str())  ;
+
+      image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
+      kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
+      kernel2_tiff_ = TIFFOpen( kernel2_path_.str().c_str() , "r" );
+      weights_tiff_ = TIFFOpen( weights_path_.str().c_str() , "r" );
+
+      image_         =  _rhs.image_         ;
+      kernel1_       =  _rhs.kernel1_       ;
+      kernel2_       =  _rhs.kernel2_       ;
+      weights_       =  _rhs.weights_       ;
+
+      return *this;
+	    
+    }
+    
+    ViewFromDisk& operator=(const int& _view_number){
+
+      this->clear();
+
+      view_number_ = _view_number;
+      
+      if(view_number_>-1)
+	this->load(view_number_);
+      
+      return *this;
+    }
+
+    void load(const int& _view_number){
+
+      view_number_ = _view_number;
+
+      image_path_    << path_to_test_images <<  "image_view_"    <<  view_number_  <<  ".tif";
+      kernel1_path_  << path_to_test_images <<  "kernel1_view_"  <<  view_number_  <<  ".tif";
+      kernel2_path_  << path_to_test_images <<  "kernel2_view_"  <<  view_number_  <<  ".tif";
+      weights_path_  << path_to_test_images <<  "weights_view_"  <<  view_number_  <<  ".tif";
     
       image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
       kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
@@ -91,20 +147,49 @@ namespace multiviewnative {
       extract_tiff_to_image_stack(kernel2_tiff_, kernel2_tdirs, kernel2_   );
       extract_tiff_to_image_stack(weights_tiff_, weights_tdirs, weights_   );
 
-      std::vector<tdir_t> found_tdirs;
-      std::stringstream found_path;
-      for(short num = 0;num<3;++num){
-	found_tdirs.clear();
-	found_path.str("");
-	found_path    << path_to_test_images <<  "psi_"    <<  num  <<  ".tif";
-	psi_tiff_[num]    = TIFFOpen( found_path.str().c_str() , "r" );
-	get_tiff_dirs(psi_tiff_[num],   found_tdirs  );
-	extract_tiff_to_image_stack(psi_tiff_[num],   found_tdirs  , psi_[num]     );
-      }
-      
     }
 
-    virtual ~ReferenceDataLoader()  { 
+    void load(const ViewFromDisk& _rhs){
+      
+      this->clear();
+
+      view_number_   =  _rhs.view_number_   ;
+      image_path_  .str(_rhs.image_path_  .str())  ;
+      kernel1_path_.str(_rhs.kernel1_path_.str())  ;
+      kernel2_path_.str(_rhs.kernel2_path_.str())  ;
+      weights_path_.str(_rhs.weights_path_.str())  ;
+
+      image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
+      kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
+      kernel2_tiff_ = TIFFOpen( kernel2_path_.str().c_str() , "r" );
+      weights_tiff_ = TIFFOpen( weights_path_.str().c_str() , "r" );
+      
+      std::vector<unsigned> image_shape(3);
+      std::copy(&_rhs.image_  .shape()[0], &_rhs.image_  .shape()[0] + 3,image_shape.begin());
+
+      std::vector<unsigned> kernel1_shape(3);
+      std::copy(&_rhs.kernel1_  .shape()[0], &_rhs.kernel1_  .shape()[0] + 3,kernel1_shape.begin());
+
+      std::vector<unsigned> kernel2_shape(3);
+      std::copy(&_rhs.kernel2_  .shape()[0], &_rhs.kernel2_  .shape()[0] + 3,kernel2_shape.begin());
+
+      std::vector<unsigned> weights_shape(3);
+      std::copy(&_rhs.weights_  .shape()[0], &_rhs.weights_  .shape()[0] + 3,weights_shape.begin());
+
+      image_         .resize(  image_shape )       ;
+      kernel1_       .resize(  kernel1_shape )       ;
+      kernel2_       .resize(  kernel2_shape )       ;
+      weights_       .resize(  weights_shape )       ;
+
+      image_         =  _rhs.image_         ;
+      kernel1_       =  _rhs.kernel1_       ;
+      kernel2_       =  _rhs.kernel2_       ;
+      weights_       =  _rhs.weights_       ;
+
+    }
+
+
+    void clear(){
 
 
       if(image_tiff_)
@@ -119,84 +204,38 @@ namespace multiviewnative {
       if(weights_tiff_)
 	TIFFClose( weights_tiff_ );
 
-      for(short num = 0;num<3;++num)
-	TIFFClose( psi_tiff_[num] );
+    }
+
+    virtual ~ViewFromDisk()  { 
+
+      clear();
+      
     };
 
   
 
   };
 
-  typedef ReferenceDataLoader<0> view0_loader;
-  typedef ReferenceDataLoader<1> view1_loader;
-  typedef ReferenceDataLoader<2> view2_loader;
-  typedef ReferenceDataLoader<3> view3_loader;
-  typedef ReferenceDataLoader<4> view4_loader;
-  typedef ReferenceDataLoader<5> view5_loader;
+  struct ReferenceData {
+    
+    std::vector<ViewFromDisk> views_;
 
-  template<int ViewNumber>
-  struct DeconvolutionFixture
-  {
-    double       lambda_    ;
-    double       minValue_  ;
-    image_stack  image_     ;
-    image_stack  kernel1_   ;
-    image_stack  kernel2_   ;
-    image_stack  weights_   ;
-
-    std::vector<int> image_shape_  ;
-    std::vector<int> kernel1_shape_;
-    std::vector<int> kernel2_shape_;
-    std::vector<int> weights_shape_;
-
-    DeconvolutionFixture():
-      lambda_(.006),
-      minValue_(1e-4),
-      image_(),
-      kernel1_(),
-      kernel2_(),
-      weights_(),
-      image_shape_  (3, -1),
-      kernel1_shape_(3, -1),
-      kernel2_shape_(3, -1),
-      weights_shape_(3, -1)
-    {}
-
-    DeconvolutionFixture(const ReferenceDataLoader<ViewNumber>& _other)
-      {
-	this->setup_from(_other);
-      }
-
-    DeconvolutionFixture& operator=(const ReferenceDataLoader<ViewNumber>& _other){
-      
-	this->setup_from(_other);
-	
-	return *this;
+    ReferenceData():
+      views_(6){
+      for(int i = 0;i<6;++i)
+	views_[i].load(i);
     }
 
-    void setup_from(const ReferenceDataLoader<ViewNumber>& _other){
-      this->image_   .resize( boost::extents[_other.image_  .shape()[0]][_other.image_  .shape()[1]][_other.image_  .shape()[2]] )  ;
-      this->kernel1_ .resize( boost::extents[_other.kernel1_.shape()[0]][_other.kernel1_.shape()[1]][_other.kernel1_.shape()[2]] )  ;
-      this->kernel2_ .resize( boost::extents[_other.kernel2_.shape()[0]][_other.kernel2_.shape()[1]][_other.kernel2_.shape()[2]] )  ;
-      this->weights_ .resize( boost::extents[_other.weights_.shape()[0]][_other.weights_.shape()[1]][_other.weights_.shape()[2]] )  ;
-      this->image_    =  _other.image_    ;
-      this->kernel1_  =  _other.kernel1_  ;
-      this->kernel2_  =  _other.kernel2_  ;
-      this->weights_  =  _other.weights_  ;
+    ReferenceData(const ReferenceData& _rhs):
+      views_(_rhs.views_){
+    }
 
-      std::copy(&_other.image_  .shape()[0], &_other.image_  .shape()[0] + 3, this->image_shape_  .begin());
-      std::copy(&_other.kernel1_.shape()[0], &_other.kernel1_.shape()[0] + 3, this->kernel1_shape_.begin());
-      std::copy(&_other.kernel2_.shape()[0], &_other.kernel2_.shape()[0] + 3, this->kernel2_shape_.begin());
-      std::copy(&_other.weights_.shape()[0], &_other.weights_.shape()[0] + 3, this->weights_shape_.begin());
+    void copy_in(const ReferenceData& _other){
+      for(int i = 0;i<6;++i)
+	views_[i] = _other.views_[i];
     }
   };
-
-  typedef DeconvolutionFixture<0> view0_fixture;
-  typedef DeconvolutionFixture<1> view1_fixture;
-  typedef DeconvolutionFixture<2> view2_fixture;
-  typedef DeconvolutionFixture<3> view3_fixture;
-  typedef DeconvolutionFixture<4> view4_fixture;
-  typedef DeconvolutionFixture<5> view5_fixture;
-}
+  
+  }
 
 #endif
