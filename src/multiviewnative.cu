@@ -48,39 +48,8 @@ void inplace_gpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
 			       int device, double lambda, imageType minValue){
 
 
-  assert(false && "not implemented yet");
-  std::vector<unsigned> image_dim(3);
-  std::vector<unsigned> kernel1_dim(3);
-  std::vector<unsigned> kernel2_dim(3);
-
-  std::copy(psiDim, psiDim + 3, &image_dim[0]);
-  std::copy(kernel1Dim, kernel1Dim + 3, &kernel1_dim[0]);
-  std::copy(kernel2Dim, kernel2Dim + 3, &kernel2_dim[0]);
-
-
-  multiviewnative::image_stack_ref initial_psi(psi, image_dim);
-  multiviewnative::image_stack current_psi = initial_psi;
+  //assert(false && "not implemented yet");
   
-  //convolve: initial_psi x kernel1 -> psiBlurred
-  device_convolve convolver1(current_psi.data(), &image_dim[0], kernel1, &kernel1_dim[0]);
-  convolver1.set_device(device);
-  convolver1.inplace<device_transform>();
-
-  //initial_psi / psiBlurred -> psiBlurred 
-  // computeQuotient(initial_psi.data(),current_psi.data(),current_psi.num_elements());
-
-  //convolve: psiBlurred x kernel2 -> integral = current_psi
-  device_convolve convolver2(current_psi.data(), &image_dim[0], kernel2, &kernel2_dim[0]);
-  convolver2.set_device(device);
-  convolver2.inplace<device_transform>();
-
-  //computeFinalValues(initial_psi,integral,weights)
-  // computeFinalValues(initial_psi.data(), current_psi.data(), weights, 
-  // 		     current_psi.num_elements(),
-  // 		     0, lambda, minValue);
-
-  //copy current image back to initial pointer
-  initial_psi = current_psi;
 }
 
 

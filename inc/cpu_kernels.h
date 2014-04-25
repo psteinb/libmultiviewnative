@@ -15,7 +15,7 @@ void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _s
 
 
 template <typename TransferT>
-void computeFinalValues(const TransferT* _initial,TransferT* _integral, const TransferT* _weight, 
+void computeFinalValues(const TransferT* _psi,TransferT* _integral, const TransferT* _weight, 
 			size_t _size,
 			size_t _offset,
 			double _lambda = 0.006,
@@ -24,7 +24,7 @@ void computeFinalValues(const TransferT* _initial,TransferT* _integral, const Tr
   TransferT value = 0.f;
   TransferT new_value = 0.f;
   for(size_t pixel = _offset;pixel<_size;++pixel){
-    value = _initial[pixel]*_integral[pixel];
+    value = _psi[pixel]*_integral[pixel];
     if(value>0.f){
       //
       // perform Tikhonov regularization if desired

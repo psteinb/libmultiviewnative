@@ -127,5 +127,50 @@ namespace multiviewnative {
   }
   
   
+  void write_image_stack(const image_stack& _stack, const std::string& _dest){
+
+    typedef typename image_stack::element value_type;
+    typedef  image_stack::const_array_view<1>::type		stack_line;
+
+    TIFF *output_image = TIFFOpen(_dest.c_str(), "w");
+    if(!output_image){
+      std::cerr << "Unable to open "<< _dest<<"\n";
+      return;
+    }
+    else
+      std::cout << "Writing "<< _dest<<"\n";
+
+    unsigned w = _stack.shape()[0];
+    unsigned h = _stack.shape()[1];
+    unsigned z = _stack.shape()[2];
+    
+    for(unsigned frame = 0;frame<z;++frame){
+      TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH,		w);
+      TIFFSetField(output_image, TIFFTAG_IMAGELENGTH,		h);
+      TIFFSetField(output_image, TIFFTAG_BITSPERSAMPLE,		32);
+      TIFFSetField(output_image, TIFFTAG_SAMPLESPERPIXEL,	1);
+      TIFFSetField(output_image, TIFFTAG_PLANARCONFIG, 		PLANARCONFIG_CONTIG);
+      TIFFSetField(output_image, TIFFTAG_ROWSPERSTRIP, 		TIFFDefaultStripSize(output_image, 0));
+      TIFFSetField(output_image, TIFFTAG_PHOTOMETRIC,  		PHOTOMETRIC_MINISBLACK);
+      TIFFSetField(output_image, TIFFTAG_COMPRESSION,  		COMPRESSION_NONE);
+      TIFFSetField(output_image, TIFFTAG_SAMPLEFORMAT, 		SAMPLEFORMAT_IEEEFP);
+      TIFFSetField(output_image, TIFFTAG_SUBFILETYPE,		FILETYPE_PAGE);
+      TIFFSetField(output_image, TIFFTAG_PAGENUMBER,		frame, z); 
+
+      std::vector<value_type> temp_row(w);
+      
+      for (unsigned y=0;y<h;++y) {
+
+	stack_line temp = _stack[ boost::indices[multiviewnative::range(0,w)][y][frame] ];
+	std::copy(temp.begin(), temp.end(), temp_row.begin());
+	TIFFWriteScanline(output_image,&temp_row[0],y,0);
+
+      }
+
+      TIFFWriteDirectory(output_image);
+    }
+    TIFFClose(output_image);
+  }
+
 }
 #endif /* _TIFF_UTILS_H_ */

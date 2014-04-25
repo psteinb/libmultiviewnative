@@ -4,9 +4,9 @@
 #include <iomanip> 
 #include <vector>
 #include <cmath>
-//#include "mxn_indexer.hpp"
-#include <boost/static_assert.hpp>
+#include <stdexcept>
 #include "boost/multi_array.hpp"
+#include <boost/filesystem.hpp>
 
 #include <string>
 #include <sstream>
@@ -27,6 +27,71 @@
 namespace multiviewnative {
 
   static const std::string path_to_test_images = "/dev/shm/libmultiview_data/";
+
+  struct tiff_stack {
+    
+    std::string  stack_path_  ;
+    image_stack  stack_     ;
+
+    tiff_stack():
+      stack_path_(""),
+      stack_(){
+
+    }
+
+    tiff_stack(const std::string& _path):
+      stack_path_(_path),
+      stack_(){
+      if(boost::filesystem::is_regular_file(_path) || !_path.empty())
+	load(_path);
+      else
+	std::cerr << "Unable to load file " << _path << "\n";
+    }
+
+    tiff_stack(const tiff_stack& _rhs):
+      stack_path_(_rhs.stack_path_),
+      stack_(){
+      
+      std::vector<unsigned> dims(3);
+      for(int i = 0;i<3;++i)
+	dims[i] = _rhs.stack_.shape()[i];
+
+      stack_.resize(dims);
+      
+      stack_ = _rhs.stack_;
+
+    }
+
+    void load(const std::string& _path){
+      if(!boost::filesystem::is_regular_file(_path) || _path.empty()){
+	std::stringstream msg("");
+	msg << "unable to load file at path " << _path << "\n";
+	throw std::runtime_error(msg.str().c_str());
+      }
+
+      stack_path_ = _path;
+      TIFF* stack_tiff   = TIFFOpen( _path.c_str() , "r" );
+      std::vector<tdir_t> stack_tdirs   ;
+      get_tiff_dirs(stack_tiff,   stack_tdirs  );
+      unsigned stack_size = stack_.num_elements();
+      extract_tiff_to_image_stack(stack_tiff,   stack_tdirs  , stack_     );
+      TIFFClose(stack_tiff);
+      
+      if(stack_size-stack_.num_elements() != 0 && stack_.num_elements()>0)
+	std::cout << "successfully loaded " << _path 
+		  << " [" << stack_.shape()[0]  << "x" << stack_.shape()[1]  << "x" << stack_.shape()[2]  << "]"
+		  <<  "\n";
+    }
+    
+    ~tiff_stack(){
+
+    }
+
+    bool empty(){
+      return !(stack_.num_elements() > 0);
+    }
+    
+  };
   
   struct ViewFromDisk
   {
@@ -38,31 +103,28 @@ namespace multiviewnative {
     std::stringstream  kernel2_path_   ;
     std::stringstream  weights_path_   ;
 
-    TIFF*  image_tiff_  ;
-    TIFF*  kernel1_tiff_   ;
-    TIFF*  kernel2_tiff_   ;
-    TIFF*  weights_tiff_   ;
+    tiff_stack  image_     ;
+    tiff_stack  kernel1_   ;
+    tiff_stack  kernel2_   ;
+    tiff_stack  weights_   ;
 
-    image_stack  image_     ;
-    image_stack  kernel1_   ;
-    image_stack  kernel2_   ;
-    image_stack  weights_   ;
-    
+    std::vector<int>  image_dims_     ;
+    std::vector<int>  kernel1_dims_   ;
+    std::vector<int>  kernel2_dims_   ;
+        
     ViewFromDisk(const int& _view_number = -1):
       view_number_ ( _view_number ) ,
       image_path_             (  ""  )  ,
       kernel1_path_           (  ""  )  ,
       kernel2_path_           (  ""  )  ,
       weights_path_           (  ""  )  ,
-      image_tiff_             (  0   )  ,
-      kernel1_tiff_           (  0   )  ,
-      kernel2_tiff_           (  0   )  ,
-      weights_tiff_           (  0   )  ,
       image_                  (  )   ,
       kernel1_                (  )   ,
       kernel2_                (  )   ,
-      weights_                (  )   
-
+      weights_                (  ) ,  
+      image_dims_                  ( 3 )   ,
+      kernel1_dims_                ( 3 )   ,
+      kernel2_dims_                ( 3 )  
     {
       if(view_number_>-1)
 	this->load(view_number_);
@@ -74,46 +136,38 @@ namespace multiviewnative {
       kernel1_path_              (              _rhs.kernel1_path_.str()  )                                 ,
       kernel2_path_              (              _rhs.kernel2_path_.str()  )                                 ,
       weights_path_              (              _rhs.weights_path_.str()  )                                 ,
-      image_tiff_                (              TIFFOpen(           _rhs.image_path_  .str().c_str()  ,    "r"  )  )  ,
-      kernel1_tiff_              (              TIFFOpen(           _rhs.kernel1_path_.str().c_str()  ,    "r"  )  )  ,
-      kernel2_tiff_              (              TIFFOpen(           _rhs.kernel2_path_.str().c_str()  ,    "r"  )  )  ,
-      weights_tiff_              (              TIFFOpen(           _rhs.weights_path_.str().c_str()  ,    "r"  )  )  ,
       image_                     (              _rhs.image_         )                                 ,
       kernel1_                   (              _rhs.kernel1_       )                                 ,
       kernel2_                   (              _rhs.kernel2_       )                                 ,
-      weights_                   (              _rhs.weights_       )
+      weights_                   (              _rhs.weights_       ),  
+      image_dims_                  ( _rhs.image_dims_   )   ,
+      kernel1_dims_                ( _rhs.kernel1_dims_ )   ,
+      kernel2_dims_                ( _rhs.kernel2_dims_ )  
     {
-      if(view_number_>-1)
-	this->load(view_number_);
     }
 
     ViewFromDisk& operator=(const ViewFromDisk& _rhs){
  
-      this->clear();
-
       view_number_   =  _rhs.view_number_   ;
       image_path_  .str(_rhs.image_path_  .str())  ;
       kernel1_path_.str(_rhs.kernel1_path_.str())  ;
       kernel2_path_.str(_rhs.kernel2_path_.str())  ;
       weights_path_.str(_rhs.weights_path_.str())  ;
 
-      image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
-      kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
-      kernel2_tiff_ = TIFFOpen( kernel2_path_.str().c_str() , "r" );
-      weights_tiff_ = TIFFOpen( weights_path_.str().c_str() , "r" );
+      image_   = _rhs.image_  ;
+      kernel1_ = _rhs.kernel1_;
+      kernel2_ = _rhs.kernel2_;
+      weights_ = _rhs.weights_;
 
-      image_         =  _rhs.image_         ;
-      kernel1_       =  _rhs.kernel1_       ;
-      kernel2_       =  _rhs.kernel2_       ;
-      weights_       =  _rhs.weights_       ;
+      image_dims_   = _rhs.image_dims_  ;
+      kernel1_dims_ = _rhs.kernel1_dims_;
+      kernel2_dims_ = _rhs.kernel2_dims_;      
 
       return *this;
 	    
     }
     
     ViewFromDisk& operator=(const int& _view_number){
-
-      this->clear();
 
       view_number_ = _view_number;
       
@@ -132,26 +186,19 @@ namespace multiviewnative {
       kernel2_path_  << path_to_test_images <<  "kernel2_view_"  <<  view_number_  <<  ".tif";
       weights_path_  << path_to_test_images <<  "weights_view_"  <<  view_number_  <<  ".tif";
     
-      image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
-      kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
-      kernel2_tiff_ = TIFFOpen( kernel2_path_.str().c_str() , "r" );
-      weights_tiff_ = TIFFOpen( weights_path_.str().c_str() , "r" );
+      image_  .load(image_path_  .str());
+      kernel1_.load(kernel1_path_.str());
+      kernel2_.load(kernel2_path_.str());
+      weights_.load(weights_path_.str());
 
-      std::vector<tdir_t> image_tdirs   ;get_tiff_dirs(image_tiff_,   image_tdirs  );
-      std::vector<tdir_t> kernel1_tdirs ;get_tiff_dirs(kernel1_tiff_, kernel1_tdirs);
-      std::vector<tdir_t> kernel2_tdirs ;get_tiff_dirs(kernel2_tiff_, kernel2_tdirs);
-      std::vector<tdir_t> weights_tdirs ;get_tiff_dirs(weights_tiff_, weights_tdirs);
-
-      extract_tiff_to_image_stack(image_tiff_,   image_tdirs  , image_     );
-      extract_tiff_to_image_stack(kernel1_tiff_, kernel1_tdirs, kernel1_   );
-      extract_tiff_to_image_stack(kernel2_tiff_, kernel2_tdirs, kernel2_   );
-      extract_tiff_to_image_stack(weights_tiff_, weights_tdirs, weights_   );
+      std::copy(&image_.stack_.shape()[0], &image_.stack_.shape()[0] + 3, image_dims_.begin());
+      std::copy(&kernel1_.stack_.shape()[0], &kernel1_.stack_.shape()[0] + 3, kernel1_dims_.begin());
+      std::copy(&kernel2_.stack_.shape()[0], &kernel2_.stack_.shape()[0] + 3, kernel2_dims_.begin());
 
     }
 
     void load(const ViewFromDisk& _rhs){
       
-      this->clear();
 
       view_number_   =  _rhs.view_number_   ;
       image_path_  .str(_rhs.image_path_  .str())  ;
@@ -159,60 +206,78 @@ namespace multiviewnative {
       kernel2_path_.str(_rhs.kernel2_path_.str())  ;
       weights_path_.str(_rhs.weights_path_.str())  ;
 
-      image_tiff_   = TIFFOpen( image_path_  .str().c_str() , "r" );
-      kernel1_tiff_ = TIFFOpen( kernel1_path_.str().c_str() , "r" );
-      kernel2_tiff_ = TIFFOpen( kernel2_path_.str().c_str() , "r" );
-      weights_tiff_ = TIFFOpen( weights_path_.str().c_str() , "r" );
-      
-      std::vector<unsigned> image_shape(3);
-      std::copy(&_rhs.image_  .shape()[0], &_rhs.image_  .shape()[0] + 3,image_shape.begin());
+      image_   = _rhs.image_  ;
+      kernel1_ = _rhs.kernel1_;
+      kernel2_ = _rhs.kernel2_;
+      weights_ = _rhs.weights_;
 
-      std::vector<unsigned> kernel1_shape(3);
-      std::copy(&_rhs.kernel1_  .shape()[0], &_rhs.kernel1_  .shape()[0] + 3,kernel1_shape.begin());
-
-      std::vector<unsigned> kernel2_shape(3);
-      std::copy(&_rhs.kernel2_  .shape()[0], &_rhs.kernel2_  .shape()[0] + 3,kernel2_shape.begin());
-
-      std::vector<unsigned> weights_shape(3);
-      std::copy(&_rhs.weights_  .shape()[0], &_rhs.weights_  .shape()[0] + 3,weights_shape.begin());
-
-      image_         .resize(  image_shape )       ;
-      kernel1_       .resize(  kernel1_shape )       ;
-      kernel2_       .resize(  kernel2_shape )       ;
-      weights_       .resize(  weights_shape )       ;
-
-      image_         =  _rhs.image_         ;
-      kernel1_       =  _rhs.kernel1_       ;
-      kernel2_       =  _rhs.kernel2_       ;
-      weights_       =  _rhs.weights_       ;
-
+      image_dims_   = _rhs.image_dims_  ;
+      kernel1_dims_ = _rhs.kernel1_dims_;
+      kernel2_dims_ = _rhs.kernel2_dims_;     
     }
 
 
-    void clear(){
-
-
-      if(image_tiff_)
-	TIFFClose( image_tiff_ );
-
-      if(kernel1_tiff_)
-	TIFFClose( kernel1_tiff_ );
-
-      if(kernel2_tiff_)
-	TIFFClose( kernel2_tiff_ );
-
-      if(weights_tiff_)
-	TIFFClose( weights_tiff_ );
-
-    }
 
     virtual ~ViewFromDisk()  { 
 
-      clear();
-      
     };
 
-  
+    image_stack* image() {
+      return &(image_.stack_);
+    }
+
+    const image_stack* image() const {
+      return &(image_.stack_);
+    }
+
+    const image_stack* kernel1() const {
+      return &(kernel1_.stack_);
+    }
+
+    image_stack* kernel1() {
+      return &(kernel1_.stack_);
+    }
+
+    const image_stack* weights() const {
+      return &(weights_.stack_);
+    }
+
+    image_stack* weights() {
+      return &(weights_.stack_);
+    }
+
+    const image_stack* kernel2() const {
+      return &(kernel2_.stack_);
+    }
+
+    image_stack* kernel2() {
+      return &(kernel2_.stack_);
+    }
+
+    int* image_dims() {
+      return &(image_dims_[0]);
+    }
+
+    int* kernel1_dims() {
+      return &(kernel1_dims_[0]);
+    }
+
+    int* kernel2_dims() {
+      return &(kernel2_dims_[0]);
+    }
+
+    const int* image_dims() const {
+      return &(image_dims_[0]);
+    }
+
+    const int* kernel1_dims() const {
+      return &(kernel1_dims_[0]);
+    }
+
+    const int* kernel2_dims() const {
+      return &(kernel2_dims_[0]);
+    }
+
 
   };
 
@@ -235,6 +300,60 @@ namespace multiviewnative {
 	views_[i] = _other.views_[i];
     }
   };
+
+  template <unsigned max_num_psi = 2>
+  struct IterationData {
+    
+    std::vector<tiff_stack> psi_;
+    std::vector<std::string> psi_paths_;
+
+    double lambda_;
+    float minValue_;
+
+    IterationData():
+      psi_(),
+      psi_paths_(max_num_psi),
+      lambda_(0),
+      minValue_(0)
+    {
+      psi_.reserve(max_num_psi);
+
+      for(int i = 0;i<max_num_psi;++i){
+	std::stringstream path("");
+	path << path_to_test_images << "psi_" << i << ".tif";
+	psi_paths_[i] = path.str();
+
+	psi_.push_back(tiff_stack(path.str()));
+
+      }
+    }
+
+    IterationData(const IterationData& _rhs):
+      psi_(_rhs.psi_.begin(), _rhs.psi_.end()),
+      psi_paths_(_rhs.psi_paths_.begin(), _rhs.psi_paths_.end()),
+      lambda_(_rhs.lambda_),
+      minValue_(_rhs.minValue_)
+    {
+    }
+
+    void copy_in(const IterationData& _other){
+      std::copy(_other.psi_.begin(), _other.psi_.end(), psi_.begin());
+      std::copy(_other.psi_paths_.begin(), _other.psi_paths_.end(), psi_paths_.begin());
+      lambda_ = (_other.lambda_);
+      minValue_ = (_other.minValue_);
+    }
+
+    image_stack* psi(const int& _index){
+      return &(psi_.at(_index).stack_);
+    }
+
+    const image_stack* psi(const int& _index) const {
+      return &(psi_.at(_index).stack_);
+    }
+  };
+  
+  typedef IterationData<2> first_2_iterations;
+  typedef IterationData<10> all_iterations;
   
   }
 

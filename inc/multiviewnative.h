@@ -10,18 +10,46 @@ typedef float imageType;
 #define FUNCTION_PREFIX extern "C"
 #endif
 
+//helper structs because Java clients are using JNA
+struct view_data {
+
+  imageType  *  image_    ;
+  imageType  *  kernel1_  ;
+  imageType  *  kernel2_  ;
+  imageType  *  weights_  ;
+
+  int        *  image_dims_    ;
+  int        *  kernel1_dims_  ;
+  int        *  kernel2_dims_  ;
+  int        *  weights_dims_  ;
+
+};
+
+
+struct workspace {
+
+  view_data  *      data_      ;
+  unsigned   short  num_views  ;
+
+};
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPU convolution
-FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int nthreads);
-FUNCTION_PREFIX void inplace_cpu_deconvolution(imageType* im,int* imDim,imageType* weights,
-					       imageType* kernel1,int* kernel1Dim,imageType* kernel2,int* kernel2Dim,
-					       int nthreads, double lambda, imageType minValue);
+FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,
+					     imageType* kernel,int* kernelDim,
+					     int nthreads);
+
+FUNCTION_PREFIX void inplace_cpu_deconvolve_iteration(imageType* psi,
+						      workspace input,
+						      int nthreads, 
+						      double lambda, 
+						      imageType minValue);
 
 // GPU convolution
 FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
-FUNCTION_PREFIX void inplace_gpu_deconvolution(imageType* im,int* imDim,imageType* weights,
-					       imageType* kernel1,int* kernel1Dim,imageType* kernel2,int* kernel2Dim,
-					       int device, double lambda, imageType minValue);
+// FUNCTION_PREFIX void inplace_gpu_deconvolution(imageType* im,int* imDim,imageType* weights,
+// 					       imageType* kernel1,int* kernel1Dim,imageType* kernel2,int* kernel2Dim,
+// 					       int device, double lambda, imageType minValue);
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

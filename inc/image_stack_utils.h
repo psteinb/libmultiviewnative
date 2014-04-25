@@ -11,6 +11,8 @@ namespace multiviewnative {
   typedef  boost::multi_array_ref<float,          3>    image_stack_ref;
   typedef  boost::const_multi_array_ref<float,          3>    image_stack_cref;
   typedef  image_stack::array_view<3>::type		image_stack_view;
+  typedef  image_stack::array_view<2>::type		image_stack_frame;
+  typedef  image_stack::array_view<1>::type		image_stack_line;
   typedef  boost::multi_array_types::index_range	range;
   typedef  boost::general_storage_order<3>		storage;
 

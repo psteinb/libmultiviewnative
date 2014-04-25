@@ -1,6 +1,7 @@
 #define __MULTIVIEWNATIVE_CPP__
 
 #include <vector>
+#include <cmath>
 
 #include "multiviewnative.h"
 #include "cpu_convolve.h"
@@ -13,6 +14,21 @@ typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_pad
 typedef multiviewnative::inplace_3d_transform<multiviewnative::image_stack> serial_transform;
 typedef multiviewnative::parallel_inplace_3d_transform<multiviewnative::image_stack> parallel_transform;
 typedef multiviewnative::cpu_convolve<wrap_around_padding,imageType, unsigned> default_convolution;
+
+template <typename T>
+bool check_nan(T* _array, const size_t& _size){
+
+  bool value = false;
+  for(size_t i = 0;i<_size;++i){
+    if(std::isnan(_array[i])){
+	value = true;
+	break;
+    }
+       
+  }
+
+  return value;
+}
 
 void inplace_cpu_convolution(imageType* im,
 			     int* imDim,
@@ -40,39 +56,70 @@ void inplace_cpu_convolution(imageType* im,
 }
 
 
-void inplace_cpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
-				 imageType* kernel1,int* kernel1Dim,
-				 imageType* kernel2,int* kernel2Dim,
-			       int nthreads, double lambda, imageType minValue){
+void inplace_cpu_deconvolve_iteration(imageType* psi,
+				      workspace input,
+				      int nthreads, 
+				      double lambda, 
+				      imageType minValue){
 
   std::vector<unsigned> image_dim(3);
-  std::vector<unsigned> kernel1_dim(3);
-  std::vector<unsigned> kernel2_dim(3);
-
-  std::copy(psiDim, psiDim + 3, &image_dim[0]);
-  std::copy(kernel1Dim, kernel1Dim + 3, &kernel1_dim[0]);
-  std::copy(kernel2Dim, kernel2Dim + 3, &kernel2_dim[0]);
-
+  std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
 
   multiviewnative::image_stack_ref initial_psi(psi, image_dim);
   multiviewnative::image_stack current_psi = initial_psi;
-  
-  //convolve: initial_psi x kernel1 -> psiBlurred
-  default_convolution convolver1(current_psi.data(), &image_dim[0], kernel1, &kernel1_dim[0]);
-  convolver1.inplace<serial_transform>();
+  multiviewnative::image_stack integral = initial_psi;
 
-  //initial_psi / psiBlurred -> psiBlurred 
-  computeQuotient(initial_psi.data(),current_psi.data(),current_psi.num_elements());
+  view_data view_access;
+  std::vector<unsigned> kernel1_dim(3);
+  std::vector<unsigned> kernel2_dim(3);
 
-  //convolve: psiBlurred x kernel2 -> integral = current_psi
-  default_convolution convolver2(current_psi.data(), &image_dim[0], kernel2, &kernel2_dim[0]);
-  convolver2.inplace<serial_transform>();
+  for(unsigned view = 0;view < input.num_views;++view){
 
-  //computeFinalValues(initial_psi,integral,weights)
-  computeFinalValues(initial_psi.data(), current_psi.data(), weights, 
-		     current_psi.num_elements(),
-		     0, lambda, minValue);
+    view_access = input.data_[view];
 
-  //copy current image back to initial pointer
+    std::copy(view_access.image_dims_    ,  view_access.image_dims_    +  3  ,  image_dim  .begin()  );
+    std::copy(view_access.kernel1_dims_  ,  view_access.kernel1_dims_  +  3  ,  kernel1_dim.begin()  );
+    std::copy(view_access.kernel2_dims_  ,  view_access.kernel2_dims_  +  3  ,  kernel2_dim.begin()  );
+
+if(check_nan(current_psi.data(),current_psi.num_elements())){
+      std::cerr << "[before convolver1] current_psi contains nan! view: " << view << "\n";
+break;
+}
+
+    //convolve: psi x kernel1 -> psiBlurred
+    default_convolution convolver1(current_psi.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
+    convolver1.inplace<serial_transform>();
+
+if(check_nan(current_psi.data(),current_psi.num_elements())){
+      std::cerr << "[after convolver1] current_psi contains nan! view: " << view << "\n";
+break;
+}
+    //image / psiBlurred -> psiBlurred 
+    computeQuotient(view_access.image_,current_psi.data(),current_psi.num_elements());
+
+if(check_nan(current_psi.data(),current_psi.num_elements())){
+      std::cerr << "[after computeQuotient] current_psi contains nan! view: " << view << "\n";
+break;
+}
+    //convolve: psiBlurred x kernel2 -> integral = current_psi
+    integral = current_psi;
+    default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
+    convolver2.inplace<serial_transform>();
+
+if(check_nan(integral.data(),integral.num_elements())){
+      std::cerr << "[after convolver2] integral contains nan! view: " << view << "\n";
+break;
+}
+    //computeFinalValues(initial_psi,integral,weights)
+    computeFinalValues(current_psi.data(), integral.data(), view_access.weights_, 
+		       current_psi.num_elements(),
+		       0, lambda, minValue);
+
+if(check_nan(current_psi.data(),current_psi.num_elements())){
+      std::cerr << "[after computeFV] current_psi contains nan! view: " << view << "\n";
+break;}
+  }
+
+  //running psi into initial array
   initial_psi = current_psi;
 }
