@@ -5,36 +5,65 @@
 
 namespace multiviewnative {
 
+  template <typename ImageStackT> 
+  struct synch {
+
+    typedef typename ImageStackT::element value_type;
+    
+    void push(ImageStackT* _host_ptr, value_type _device_ptr, cudaStream_t* _stream = 0 ){
+      HANDLE_ERROR( cudaMemcpy(_device_ptr , _host_ptr->data(),  _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );
+    }
+
+    void pull(value_type _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
+      HANDLE_ERROR( cudaMemcpy(_host_ptr->data(), _device_ptr , _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost ) );
+    }
+  };
+
+
+  template <typename ImageStackT> 
+  struct asynch {
+
+    typedef typename ImageStackT::element value_type;
+    
+    void push(const ImageStackT* _host_ptr, value_type _device_ptr, cudaStream_t* _stream = 0 ){
+      HANDLE_ERROR( cudaMemcpyAsync(_device_ptr , _host_ptr->data(),  _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice, *_stream ) );
+    }
+
+    void pull(value_type _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
+      HANDLE_ERROR( cudaMemcpyAsync(_host_ptr->data(), _device_ptr , _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost, *_stream ) );
+    }
+  };
+
   template <typename ImageStackT>
-  struct stack_on_device {
+  struct stack_on_device  {
 
     typedef typename ImageStackT::element value_type;
     
     ImageStackT* host_stack_;
-    value_type* device_stack_;
+    value_type* device_stack_ptr_;
     unsigned size_in_byte_;
 
     stack_on_device():
       host_stack_(0),
-      device_stack_(0),
+      device_stack_ptr_(0),
       size_in_byte_(0)
     {}
     
     stack_on_device( ImageStackT& _other):
       host_stack_(&_other),
-      device_stack_(0),
+      device_stack_ptr_(0),
       size_in_byte_(sizeof(value_type)*_other.num_elements())
     {
-      HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_), size_in_byte_ ) );
+      HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
       HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
     }
 
     stack_on_device(ImageStackT* _other):
       host_stack_(_other),
-      device_stack_(0),
+      device_stack_ptr_(0),
       size_in_byte_(sizeof(value_type)*_other->num_elements())
     {
-      HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_), size_in_byte_ ) );
+      HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
       HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
     }
 
@@ -48,62 +77,26 @@ namespace multiviewnative {
 
       if(_rhs.num_elements()!=(size_in_byte_/sizeof(value_type))){
 	this->clear();
-	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_), size_in_byte_ ) );
+	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
       }
       
       return *this;
     }
     
-    void pull(cudaStream_t* _stream = 0){
-      if(_stream)
-	async_pull(_stream);
-      else
-	sync_pull();
+    template <typename T>
+    void pull_from_device(cudaStream_t* _stream = 0){
+      T::pull(device_stack_ptr_, host_stack_,  _stream);
     }
-
-    void async_pull(cudaStream_t* _stream = 0){
-      HANDLE_ERROR( cudaMemcpyAsync(host_stack_->data(), device_stack_ , 
-				    size_in_byte_ , 
-				    cudaMemcpyDeviceToHost, *_stream ) );
-    }
-
-    void sync_pull(){
-      HANDLE_ERROR( cudaMemcpy(host_stack_->data(), device_stack_ , 
-			       size_in_byte_ , 
-			       cudaMemcpyDeviceToHost ) );
-    }
-
-    void push(cudaStream_t* _stream = 0){
-
-      if(_stream)
-	async_push(_stream);
-      else
-	sync_push();
-      
-    }
-
-    void async_push(cudaStream_t* _stream = 0){
     
-      HANDLE_ERROR( cudaMemcpyAsync(device_stack_ , host_stack_->data(), 
-				    size_in_byte_ , 
-				    cudaMemcpyHostToDevice, *_stream ) );
-    
-      
-    }
-
-    void sync_push(){
-    
-      HANDLE_ERROR( cudaMemcpy(device_stack_ , host_stack_->data(), 
-			       size_in_byte_ , 
-			       cudaMemcpyHostToDevice ) );
-    
-      
+    template <typename T>
+    void push_to_device(cudaStream_t* _stream = 0){
+      T::push(host_stack_, device_stack_ptr_, _stream);
     }
 
     void clear(){
       HANDLE_ERROR( cudaHostUnregister( host_stack_->data()));
-      if(device_stack_)
-	HANDLE_ERROR( cudaFree( device_stack_ ) );
+      if(device_stack_ptr_)
+	HANDLE_ERROR( cudaFree( device_stack_ptr_ ) );
     }
     
     ~stack_on_device(){
