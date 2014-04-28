@@ -6,7 +6,7 @@
 template <typename TransferT, typename SizeT>
 void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _size){
   for(SizeT idx = 0;idx<_size;++idx)
-    _output[idx] = _input[idx]/_output[idx];
+    _output[idx] = ( _output[idx]!= 0.f ) ? _input[idx]/_output[idx] : _output[idx];
 }
 
 
@@ -15,15 +15,17 @@ void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _s
 
 
 template <typename TransferT>
-void computeFinalValues(const TransferT* _psi,TransferT* _integral, const TransferT* _weight, 
+void computeFinalValues(TransferT* _psi,const TransferT* _integral, const TransferT* _weight, 
 			size_t _size,
 			size_t _offset,
 			double _lambda = 0.006,
 			TransferT _minValue = .0001f){
   
   TransferT value = 0.f;
+  TransferT last_value = 0.f;
   TransferT new_value = 0.f;
   for(size_t pixel = _offset;pixel<_size;++pixel){
+    last_value = _psi[pixel];
     value = _psi[pixel]*_integral[pixel];
     if(value>0.f){
       //
@@ -35,9 +37,13 @@ void computeFinalValues(const TransferT* _psi,TransferT* _integral, const Transf
       value = _minValue;
     }
       
-    new_value = std::max(value,_minValue);
-    new_value = _weight[pixel]*(new_value - value) + value;
-    _integral[pixel] = new_value;
+    if(std::isnan(value))
+      new_value = _minValue;
+    else
+      new_value = std::max(value,_minValue);
+
+    new_value = _weight[pixel]*(new_value - last_value) + value;
+    _psi[pixel] = new_value;
   }
 
 }

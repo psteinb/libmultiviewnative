@@ -60,8 +60,25 @@ namespace multiviewnative {
       
       stack_ = _rhs.stack_;
 
+      has_malformed_floats();
     }
 
+    tiff_stack& operator=(const tiff_stack& _rhs){
+      
+      stack_path_ = _rhs.stack_path_;
+
+      std::vector<unsigned> dims(3);
+      for(int i = 0;i<3;++i)
+	dims[i] = _rhs.stack_.shape()[i];
+
+      stack_.resize(dims);
+      stack_ = _rhs.stack_;
+
+      has_malformed_floats();
+
+      return *this;
+    }
+    
     void load(const std::string& _path){
       if(!boost::filesystem::is_regular_file(_path) || _path.empty()){
 	std::stringstream msg("");
@@ -77,12 +94,42 @@ namespace multiviewnative {
       extract_tiff_to_image_stack(stack_tiff,   stack_tdirs  , stack_     );
       TIFFClose(stack_tiff);
       
-      if(stack_size-stack_.num_elements() != 0 && stack_.num_elements()>0)
-	std::cout << "successfully loaded " << _path 
-		  << " [" << stack_.shape()[0]  << "x" << stack_.shape()[1]  << "x" << stack_.shape()[2]  << "]"
-		  <<  "\n";
+      if(stack_size-stack_.num_elements() != 0 && stack_.num_elements()>0){
+	std::stringstream dim_string("");
+	dim_string << "[" << stack_.shape()[0]  << "x" << stack_.shape()[1]  << "x" << stack_.shape()[2] << "]";
+	std::cout << "successfully loaded " << std::setw(20) << dim_string.str() << " stack from "  << _path  <<  "\n";
+      }
+      has_malformed_floats();
     }
     
+    
+    bool has_malformed_floats() const {
+      
+      bool value = false;
+
+      unsigned size = stack_.num_elements();
+      bool is_nan = false;
+      bool is_inf = false;
+      const float* data = stack_.data();
+
+      for(unsigned i = 0;i<size;++i){
+	
+	is_nan = std::isnan(data[i]);
+	is_inf = std::isinf(data[i]);
+	
+	if(is_nan || is_inf){
+	  std::cerr << "encountered malformed pixel in ["<< stack_path_ <<"]: index = " << i 
+		    << " type: "<< ((is_nan) ? "nan" : "inf") << "\n";
+	  value = true;
+	  break;
+	}
+	  
+      }
+
+      return value;
+
+    }
+
     ~tiff_stack(){
 
     }
@@ -299,6 +346,7 @@ namespace multiviewnative {
       for(int i = 0;i<6;++i)
 	views_[i] = _other.views_[i];
     }
+
   };
 
   template <unsigned max_num_psi = 2>

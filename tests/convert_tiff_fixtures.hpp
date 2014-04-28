@@ -31,6 +31,7 @@ namespace multiviewnative {
     _value.weights_dims_ = (int*)_in.image_dims();
 
   }
+  
 
   void fill_workspace(const ReferenceData& _ref, workspace& _space){
     _space.num_views = _ref.views_.size();
@@ -45,6 +46,8 @@ namespace multiviewnative {
     }
 
   }
+
+  
 
 }
 

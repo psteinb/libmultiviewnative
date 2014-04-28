@@ -1,6 +1,6 @@
 # GPU based Multi-View Deconvolution using cuFFT
 
-This package aims at providing an easy-to-use API for calling GPU deconvolution routines from the Fiji/SPIM_Registration plugin. It is written in C++ and offers C-style API of plain methods to call from any client binary or library. 
+This package aims at providing an easy-to-use API for calling GPU deconvolution routines from the Fiji/SPIM_Registration plugin. It is written in C++ and offers a C API of plain methods and C structs to call from any client binary or library. The implementation is based on <http://arxiv.org/abs/1308.0730>.
 
 # Building the Library
 
@@ -45,7 +45,7 @@ $ make install
 
 ## Fiji related
 
-In order to call the GPU methods from Java, simply create a directory called lib/linux64 under the fiji root directory. Create a symlink to libMultiViewNative.so here.
+In order to call the GPU methods from Java, simply create a directory called lib/linux64 under the fiji root directory. Create a symlink to libMultiViewNative.so (compiled for your architecture) here.
 
 ## License
 
@@ -61,5 +61,5 @@ On OS X, CUDA is (at the time of writing) INCOMPATIBLE with the installed llvm b
 
 ## Disclaimer
 
-The library at hand is an evolving project. It is designed as the native implementation of http://fiji.sc/Multi-View_Deconvolution. The ultimate goal is to implement the performance sensitive parts of the Multi-View_Deconvolution in this library.
+The library at hand is an evolving project. It is designed as the native implementation of http://fiji.sc/Multi-View_Deconvolution (cf. <http://arxiv.org/abs/1308.0730>). The ultimate goal is to implement the performance sensitive parts of the Multi-View_Deconvolution in this library.
 
