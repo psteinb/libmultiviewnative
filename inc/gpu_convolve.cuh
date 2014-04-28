@@ -110,6 +110,16 @@ namespace multiviewnative {
        HANDLE_ERROR( cudaMalloc( (void**)&(image_on_device), padded_size_byte ) );
        HANDLE_ERROR( cudaMalloc( (void**)&(kernel_on_device), padded_size_byte ) );
 
+       //add page-lock from memory regions
+       HANDLE_ERROR( cudaHostRegister( padded_image_->data(), 
+				      padded_image_->num_elements()*sizeof(value_type) , 
+				      cudaHostRegisterPortable ) );       
+
+       HANDLE_ERROR( cudaHostRegister( padded_kernel_->data(), 
+				       padded_kernel_->num_elements()*sizeof(value_type) , 
+				       cudaHostRegisterPortable ) );       
+
+       //transfer
        HANDLE_ERROR( cudaMemcpyAsync( image_on_device, padded_image_->data(), 
 				      padded_image_->num_elements()*sizeof(value_type) , 
 				      cudaMemcpyHostToDevice, streams_[0] ) );       
@@ -127,7 +137,11 @@ namespace multiviewnative {
 
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
-     
+
+       //remove page-lock from memory regions
+       HANDLE_ERROR( cudaHostUnregister( padded_image_->data() ) );       
+       HANDLE_ERROR( cudaHostUnregister( padded_kernel_->data() ) );      
+
        HANDLE_ERROR( cudaFree( image_on_device ) );
        HANDLE_ERROR( cudaFree( kernel_on_device ) );
  

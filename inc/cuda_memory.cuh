@@ -26,6 +26,7 @@ namespace multiviewnative {
       size_in_byte_(sizeof(value_type)*_other.num_elements())
     {
       HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_), size_in_byte_ ) );
+      HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
     }
 
     stack_on_device(ImageStackT* _other):
@@ -34,12 +35,16 @@ namespace multiviewnative {
       size_in_byte_(sizeof(value_type)*_other->num_elements())
     {
       HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_), size_in_byte_ ) );
+      HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
     }
 
 
     stack_on_device& operator=(ImageStackT& _rhs){
       this->host_stack_ = &_rhs;
+
       size_in_byte_ = sizeof(value_type)*_rhs.num_elements();
+
+      HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
 
       if(_rhs.num_elements()!=(size_in_byte_/sizeof(value_type))){
 	this->clear();
@@ -64,8 +69,8 @@ namespace multiviewnative {
 
     void sync_pull(){
       HANDLE_ERROR( cudaMemcpy(host_stack_->data(), device_stack_ , 
-				    size_in_byte_ , 
-				    cudaMemcpyDeviceToHost ) );
+			       size_in_byte_ , 
+			       cudaMemcpyDeviceToHost ) );
     }
 
     void push(cudaStream_t* _stream = 0){
@@ -89,13 +94,14 @@ namespace multiviewnative {
     void sync_push(){
     
       HANDLE_ERROR( cudaMemcpy(device_stack_ , host_stack_->data(), 
-				    size_in_byte_ , 
-				    cudaMemcpyHostToDevice ) );
+			       size_in_byte_ , 
+			       cudaMemcpyHostToDevice ) );
     
       
     }
 
     void clear(){
+      HANDLE_ERROR( cudaHostUnregister( host_stack_->data()));
       if(device_stack_)
 	HANDLE_ERROR( cudaFree( device_stack_ ) );
     }
