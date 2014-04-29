@@ -19,6 +19,9 @@ FIND_PACKAGE(FFTW)
 add_executable(test_fftw_convolve test_fftw_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_fftw_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f)
 
+add_executable(test_discrete_convolve test_discrete_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
+target_link_libraries(test_discrete_convolve boost_system boost_filesystem boost_unit_test_framework)
+
 add_executable(test_cpu_symm_convolve test_cpu_symm_convolve.cpp)
 target_link_libraries(test_cpu_symm_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f ${PROJECT_NAME})
 
