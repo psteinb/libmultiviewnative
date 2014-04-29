@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE( by_copy )
 {
   multiviewnative::stack_on_device<multiviewnative::image_stack> simple(image_);
   BOOST_CHECK_MESSAGE(simple.host_stack_ != 0, "stack_on_device has no host memory loaded");
-  BOOST_CHECK_MESSAGE(simple.device_stack_ != 0, "stack_on_device has no device memory loaded");
+  BOOST_CHECK_MESSAGE(simple.device_stack_ptr_ != 0, "stack_on_device has no device memory loaded");
 }
 
 
@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE( by_operator_equal )
 {
   multiviewnative::stack_on_device<multiviewnative::image_stack> simple = (image_);
   BOOST_CHECK_MESSAGE(simple.host_stack_ != 0, "stack_on_device has no host memory loaded");
-  BOOST_CHECK_MESSAGE(simple.device_stack_ != 0, "stack_on_device has no device memory loaded");
+  BOOST_CHECK_MESSAGE(simple.device_stack_ptr_ != 0, "stack_on_device has no device memory loaded");
 }
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -46,16 +46,16 @@ BOOST_AUTO_TEST_CASE( instantiate_add_1 )
   using namespace multiviewnative;
 
   unsigned sum_original = std::accumulate(image_.data(), image_.data() + image_.num_elements(), 0.);
-  multiviewnative::stack_on_device<multiviewnative::image_stack> simple = image_;
+  stack_on_device<image_stack> simple = image_;
   
-  simple.push();
+  simple.push_to_device<synch<image_stack> >();
 
   dim3 blocks = image_.shape()[2];
   dim3 threads = image_.shape()[1]*image_.shape()[0];
   std::cout << "launching add1: " << blocks.x << "-" << threads.x << "\n";
-  add_1<<<blocks,threads>>>(simple.device_stack_, image_.num_elements());
+  add_1<<<blocks,threads>>>(simple.device_stack_ptr_, image_.num_elements());
 
-  simple.pull();
+  simple.pull_from_device<synch<image_stack> >();
 
   unsigned sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(), 0.);
   

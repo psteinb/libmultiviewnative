@@ -20,22 +20,23 @@ namespace multiviewnative {
   };
 
 
-  template <typename ImageStackT> 
   struct asynch {
 
-    typedef typename ImageStackT::element value_type;
-    
-    void push(const ImageStackT* _host_ptr, value_type _device_ptr, cudaStream_t* _stream = 0 ){
+    template <typename ImageStackT>     
+    void push(const ImageStackT* _host_ptr, 
+	      ImageStackT::element* _device_ptr, 
+	      cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpyAsync(_device_ptr , _host_ptr->data(),  _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice, *_stream ) );
     }
 
-    void pull(value_type _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
+    template <typename ImageStackT>     
+    void pull(value_type* _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpyAsync(_host_ptr->data(), _device_ptr , _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost, *_stream ) );
     }
   };
 
-  template <typename ImageStackT>
-  struct stack_on_device  {
+  template <typename IOPolicy, typename ImageStackT>
+  struct stack_on_device : public IOPolicy {
 
     typedef typename ImageStackT::element value_type;
     
@@ -83,14 +84,12 @@ namespace multiviewnative {
       return *this;
     }
     
-    template <typename T>
     void pull_from_device(cudaStream_t* _stream = 0){
-      T::pull(device_stack_ptr_, host_stack_,  _stream);
+      pull(device_stack_ptr_, host_stack_,  _stream);
     }
     
-    template <typename T>
-    void push_to_device(cudaStream_t* _stream = 0){
-      T::push(host_stack_, device_stack_ptr_, _stream);
+    void push_to_device(cudaStream_t* _stream = 0) const {
+      push(host_stack_, device_stack_ptr_, _stream);
     }
 
     void clear(){
@@ -108,4 +107,6 @@ namespace multiviewnative {
 
 
 #endif /* _CUDA_MEMORY_H_ */
+
+
 
