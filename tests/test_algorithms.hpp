@@ -34,6 +34,7 @@ namespace multiviewnative {
 	  kernel_value = 0;   
 	  value = 0;          
 	  
+	  //TODO: adapt loops to storage order for the sake of speed (if so, prefetch line to use SIMD)
 	  for(int kernel_z = 0;kernel_z<int(_kernel.shape()[2]);++kernel_z){
 	    for(int kernel_y = 0;kernel_y<int(_kernel.shape()[1]);++kernel_y){
 	      for(int kernel_x = 0;kernel_x<int(_kernel.shape()[0]);++kernel_x){
@@ -60,6 +61,7 @@ namespace multiviewnative {
       
     typename ImageStackT::element value = 0.f;
 
+    //TODO: adapt loops to storage order for the sake of speed (if so, prefetch line to use SIMD)
     for(int image_z = _offset[2];image_z<int(_image.shape()[2]-_offset[2]);++image_z){
       for(int image_y = _offset[1];image_y<int(_image.shape()[1]-_offset[1]);++image_y){
 	for(int image_x = _offset[0];image_x<int(_image.shape()[0]-_offset[0]);++image_x){
