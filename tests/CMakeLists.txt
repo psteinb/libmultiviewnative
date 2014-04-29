@@ -19,9 +19,11 @@ FIND_PACKAGE(FFTW)
 add_executable(test_fftw_convolve test_fftw_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_fftw_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f)
 
-add_executable(test_cpu_convolve test_cpu_convolve.cpp)
-target_link_libraries(test_cpu_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f ${PROJECT_NAME})
+add_executable(test_cpu_symm_convolve test_cpu_symm_convolve.cpp)
+target_link_libraries(test_cpu_symm_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f ${PROJECT_NAME})
 
+add_executable(test_cpu_asymm_convolve test_cpu_asymm_convolve.cpp)
+target_link_libraries(test_cpu_asymm_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f ${PROJECT_NAME})
 
 IF(CUDA_FOUND)
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
