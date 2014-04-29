@@ -10,36 +10,38 @@ namespace multiviewnative {
 
     typedef typename ImageStackT::element value_type;
     
-    void push(ImageStackT* _host_ptr, value_type _device_ptr, cudaStream_t* _stream = 0 ){
+    void push(ImageStackT* _host_ptr, value_type* _device_ptr, cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpy(_device_ptr , _host_ptr->data(),  _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );
     }
 
-    void pull(value_type _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
+    void pull(value_type* _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpy(_host_ptr->data(), _device_ptr , _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost ) );
     }
   };
 
-
+  template <typename ImageStackT>     
   struct asynch {
 
-    template <typename ImageStackT>     
+    typedef typename ImageStackT::element value_type;
+
     void push(const ImageStackT* _host_ptr, 
-	      ImageStackT::element* _device_ptr, 
+	      value_type* _device_ptr, 
 	      cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpyAsync(_device_ptr , _host_ptr->data(),  _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice, *_stream ) );
     }
 
-    template <typename ImageStackT>     
+    
     void pull(value_type* _device_ptr, ImageStackT* _host_ptr, cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpyAsync(_host_ptr->data(), _device_ptr , _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyDeviceToHost, *_stream ) );
     }
   };
 
-  template <typename IOPolicy, typename ImageStackT>
-  struct stack_on_device : public IOPolicy {
+  template <typename ImageStackT, template <typename> class IOPolicy >
+  struct stack_on_device : public IOPolicy<ImageStackT> {
 
     typedef typename ImageStackT::element value_type;
-    
+    typedef IOPolicy<ImageStackT> io_policy;
+
     ImageStackT* host_stack_;
     value_type* device_stack_ptr_;
     unsigned size_in_byte_;
@@ -85,17 +87,21 @@ namespace multiviewnative {
     }
     
     void pull_from_device(cudaStream_t* _stream = 0){
-      pull(device_stack_ptr_, host_stack_,  _stream);
+      io_policy::pull(device_stack_ptr_, host_stack_,  _stream);
     }
     
-    void push_to_device(cudaStream_t* _stream = 0) const {
-      push(host_stack_, device_stack_ptr_, _stream);
+    void push_to_device(cudaStream_t* _stream = 0) {
+      io_policy::push(host_stack_, device_stack_ptr_, _stream);
     }
 
     void clear(){
-      HANDLE_ERROR( cudaHostUnregister( host_stack_->data()));
+
+      if(host_stack_)
+	HANDLE_ERROR( cudaHostUnregister( host_stack_->data()));
+
       if(device_stack_ptr_)
 	HANDLE_ERROR( cudaFree( device_stack_ptr_ ) );
+
     }
     
     ~stack_on_device(){

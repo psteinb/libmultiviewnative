@@ -27,8 +27,8 @@ IF(CUDA_FOUND)
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
 target_link_libraries(test_gpu_convolve boost_system boost_filesystem boost_unit_test_framework ${PROJECT_NAME})
 
-#CUDA_ADD_EXECUTABLE(test_cuda_memory test_cuda_memory.cu)
-#target_link_libraries(test_cuda_memory boost_system boost_filesystem boost_unit_test_framework )
+CUDA_ADD_EXECUTABLE(test_cuda_memory test_cuda_memory.cu)
+target_link_libraries(test_cuda_memory boost_system boost_filesystem boost_unit_test_framework )
 
 ELSE(CUDA_FOUND)
 WARNING("Skipping GPU based tests, CUDA not found\!")

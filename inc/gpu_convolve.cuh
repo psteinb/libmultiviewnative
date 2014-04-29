@@ -13,9 +13,11 @@
 #include "image_stack_utils.h"
 #include "cuda_kernels.cuh"
 #include "cuda_helpers.cuh"
+#include "cuda_memory.cuh"
 
 namespace multiviewnative {
 
+  typedef multiviewnative::stack_on_device<multiviewnative::image_stack, multiviewnative::asynch> asynch_stack_on_device;
   
   template <typename PaddingT, typename TransferT, typename SizeT>
   struct gpu_convolve : public PaddingT {
@@ -101,20 +103,20 @@ namespace multiviewnative {
        
        //place image and kernel on device
        size_type padded_size_byte = std::accumulate(inplace_extents.begin(), inplace_extents.end(),1,std::multiplies<unsigned>())*sizeof(value_type);
-       multiviewnative::stack_on_device image_on_device(padded_image_);
-       multiviewnative::stack_on_device kernel_on_device(padded_kernel_);
+       asynch_stack_on_device image_on_device(padded_image_);
+       asynch_stack_on_device kernel_on_device(padded_kernel_);
 
        for (int i = 0; i < 2; ++i)
 	 HANDLE_ERROR(cudaStreamCreate(&streams_[i]));
 
-       image_on_device.push_to_device<multiviewnative::asynch>(&streams_[0]);
-       kernel_on_device.push_to_device<multiviewnative::asynch>(&streams_[1]);
+       image_on_device.push_to_device(&streams_[0]);
+       kernel_on_device.push_to_device(&streams_[1]);
        
        this->inplace_on_device<TransformT>(image_on_device.device_stack_ptr_,
 					   kernel_on_device.device_stack_ptr_,
 					   inplace_extents);
        
-       image_on_device.pull_from_device<multiviewnative::asynch>(&streams_[0]);
+       image_on_device.pull_from_device(&streams_[0]);
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
  
