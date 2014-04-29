@@ -50,6 +50,7 @@ public:
     HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,Mode));
     if(_stream)
       HANDLE_CUFFT_ERROR(cufftSetStream(transform_plan_,*_stream));
+
     HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, input_, (cufftComplex *)input_));
 
     clean_up();
@@ -62,6 +63,7 @@ public:
     HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,Mode));
     if(_stream)
       HANDLE_CUFFT_ERROR(cufftSetStream(transform_plan_,*_stream));
+
     HANDLE_CUFFT_ERROR(cufftExecC2R(transform_plan_,(cufftComplex *)input_, input_));
 
     clean_up();

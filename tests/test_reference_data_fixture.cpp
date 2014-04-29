@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE( workspace_data_nonzero )
   BOOST_CHECK_MESSAGE(input.data_, "input data was not created");
 
   for(int i = 0;i<6;i++){
-    BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(), input.data_[i].image_dims_[0]*input.data_[i].image_dims_[1]*input.data_[i].image_dims_[2]);
+    BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(), (unsigned)input.data_[i].image_dims_[0]*input.data_[i].image_dims_[1]*input.data_[i].image_dims_[2]);
 
     BOOST_CHECK_EQUAL_COLLECTIONS(local_ref.views_[i].image()->data(), local_ref.views_[i].image()->data()+64, 
 				  &input.data_[i].image_[0], &input.data_[i].image_[0] + 64);

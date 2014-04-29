@@ -18,6 +18,7 @@
 namespace multiviewnative {
 
   typedef multiviewnative::stack_on_device<multiviewnative::image_stack, multiviewnative::asynch> asynch_stack_on_device;
+  typedef multiviewnative::stack_on_device<multiviewnative::image_stack, multiviewnative::synch> synch_stack_on_device;
   
   template <typename PaddingT, typename TransferT, typename SizeT>
   struct gpu_convolve : public PaddingT {
@@ -64,8 +65,8 @@ namespace multiviewnative {
 
     };
 
-    template <typename TransformT, typename ExtentsT>
-    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device, const ExtentsT& _fft_extents){
+    template <typename TransformT>
+    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device, const unsigned& _fft_num_elements){
             
 
       TransformT image_transform(_image_on_device, &(this->extents_[0]));
@@ -74,22 +75,22 @@ namespace multiviewnative {
       kernel_transform.forward(&streams_[1]);
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());      
-      unsigned fft_num_elements = std::accumulate(_fft_extents.begin(),_fft_extents.end(),1,std::multiplies<size_type>())/2;
+      unsigned eff_fft_num_elements = _fft_num_elements/2;
 
       value_type scale = 1.0 / (transform_size);
 
       unsigned numThreads = 32;
-      unsigned numBlocks = largestDivisor(fft_num_elements,numThreads);
+      unsigned numBlocks = largestDivisor(eff_fft_num_elements,numThreads);
 
-      cudaStreamSynchronize(streams_[0]);
+      
       modulateAndNormalize_kernel<<<numBlocks,numThreads,0,streams_[1]>>>((cufftComplex *)_image_on_device, 
 									   (cufftComplex *)_kernel_on_device, 
-									   fft_num_elements, 
+									   eff_fft_num_elements, 
 									   scale);
       HANDLE_ERROR(cudaPeekAtLastError());
       
       image_transform.backward(&streams_[1]);
-      
+      HANDLE_ERROR(cudaStreamSynchronize(streams_[1]));
     }
 
      template <typename TransformT>
@@ -98,28 +99,27 @@ namespace multiviewnative {
        //extend kernel and image according to inplace requirements (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
        std::vector<unsigned> inplace_extents(this->extents_.size());
        adapt_extents_for_fftw_inplace(padded_image_->storage_order(),this->extents_, inplace_extents);
-       //TODO: depending on the Transform, the inplace extents need to be propagated to the transform 
-       //(inplace transforms by CUFFT in native mode do not follow the same data conventions than fftw)
+       size_type device_memory_elements_required = std::accumulate(inplace_extents.begin(),inplace_extents.end(),1,std::multiplies<size_type>());    
        
-       //place image and kernel on device
-       size_type padded_size_byte = std::accumulate(inplace_extents.begin(), inplace_extents.end(),1,std::multiplies<unsigned>())*sizeof(value_type);
-       asynch_stack_on_device image_on_device(padded_image_);
-       asynch_stack_on_device kernel_on_device(padded_kernel_);
-
+       //place image and kernel on device (add extra space on device for cufft processing)
+       asynch_stack_on_device image_on_device(padded_image_,device_memory_elements_required);
+       asynch_stack_on_device kernel_on_device(padded_kernel_,device_memory_elements_required);
+	 
        for (int i = 0; i < 2; ++i)
 	 HANDLE_ERROR(cudaStreamCreate(&streams_[i]));
 
        image_on_device.push_to_device(&streams_[0]);
        kernel_on_device.push_to_device(&streams_[1]);
-       
+
        this->inplace_on_device<TransformT>(image_on_device.device_stack_ptr_,
 					   kernel_on_device.device_stack_ptr_,
-					   inplace_extents);
+					   device_memory_elements_required );
        
        image_on_device.pull_from_device(&streams_[0]);
+
        //cut-out region of interest
        (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
- 
+
      }
 
     ~gpu_convolve(){

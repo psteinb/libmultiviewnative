@@ -55,7 +55,7 @@ namespace multiviewnative {
     std::set<unsigned> heights;
     unsigned w,h;
     unsigned size_z = _tiff_dirs.size();
-    for(int i = 0;i<size_z;++i)
+    for(unsigned i = 0;i<size_z;++i)
       {
 	w = h = 0;
 	TIFFSetDirectory(_tiff_handle,_tiff_dirs[i]);
@@ -129,8 +129,8 @@ namespace multiviewnative {
   
   void write_image_stack(const image_stack& _stack, const std::string& _dest){
 
-    typedef typename image_stack::element value_type;
-    typedef  image_stack::const_array_view<1>::type		stack_line;
+    typedef image_stack::element value_type;
+    typedef image_stack::const_array_view<1>::type		stack_line;
 
     TIFF *output_image = TIFFOpen(_dest.c_str(), "w");
     if(!output_image){

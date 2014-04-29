@@ -21,9 +21,9 @@ BOOST_AUTO_TEST_CASE( path_and_files_exists_images_have_right_extents )
   BOOST_CHECK_MESSAGE(!empty(), "image under " << path << " was not loaded" );
   BOOST_CHECK_EQUAL(path.size(), stack_path_.size());
   BOOST_CHECK_EQUAL_COLLECTIONS(path.begin(), path.end(), stack_path_.begin(), stack_path_.end());
-  BOOST_CHECK_EQUAL(stack_.shape()[0], 252);
-  BOOST_CHECK_EQUAL(stack_.shape()[1], 212);
-  BOOST_CHECK_EQUAL(stack_.shape()[2], 220);
+  BOOST_CHECK_EQUAL(stack_.shape()[0], 252u);
+  BOOST_CHECK_EQUAL(stack_.shape()[1], 212u);
+  BOOST_CHECK_EQUAL(stack_.shape()[2], 220u);
 }
 
 BOOST_AUTO_TEST_CASE( copy_constructor )
@@ -33,9 +33,9 @@ BOOST_AUTO_TEST_CASE( copy_constructor )
   BOOST_CHECK_MESSAGE(!local.empty(), "image under " << image_view_1.stack_path_ << " was not copied-in" );
   BOOST_CHECK_EQUAL(local.stack_path_.size(), image_view_1.stack_path_.size());
 
-  BOOST_CHECK_EQUAL(local.stack_.shape()[0], 252);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[1], 212);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[2], 220);
+  BOOST_CHECK_EQUAL(local.stack_.shape()[0], 252u);
+  BOOST_CHECK_EQUAL(local.stack_.shape()[1], 212u);
+  BOOST_CHECK_EQUAL(local.stack_.shape()[2], 220u);
 }
 
 BOOST_AUTO_TEST_CASE( assign_constructor )
@@ -45,9 +45,9 @@ BOOST_AUTO_TEST_CASE( assign_constructor )
   BOOST_CHECK_MESSAGE(!local.empty(), "image under " << image_view_1.stack_path_ << " was not assinged-in" );
   BOOST_CHECK_EQUAL(local.stack_path_.size(), image_view_1.stack_path_.size());
 
-  BOOST_CHECK_EQUAL(local.stack_.shape()[0], 252);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[1], 212);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[2], 220);
+  BOOST_CHECK_EQUAL(local.stack_.shape()[0], 252u);
+  BOOST_CHECK_EQUAL(local.stack_.shape()[1], 212u);
+  BOOST_CHECK_EQUAL(local.stack_.shape()[2], 220u);
 
 }
 

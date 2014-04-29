@@ -19,21 +19,21 @@ BOOST_AUTO_TEST_CASE( path_and_files_exists_images_have_right_extents )
   BOOST_CHECK_MESSAGE(fs::is_regular_file(kernel2_path_.str()), " file at " << kernel2_path_.str()<< " does not exist\n");
   BOOST_CHECK_MESSAGE(fs::is_regular_file(weights_path_.str()), " file at " << weights_path_.str()<< " does not exist\n");
 
-  BOOST_CHECK_EQUAL(image()->shape()[0], 252);
-  BOOST_CHECK_EQUAL(image()->shape()[1], 212);
-  BOOST_CHECK_EQUAL(image()->shape()[2], 220);
+  BOOST_CHECK_EQUAL(image()->shape()[0], 252u);
+  BOOST_CHECK_EQUAL(image()->shape()[1], 212u);
+  BOOST_CHECK_EQUAL(image()->shape()[2], 220u);
 
-  BOOST_CHECK_EQUAL(kernel1()->shape()[0], 19);
-  BOOST_CHECK_EQUAL(kernel1()->shape()[1], 19);
-  BOOST_CHECK_EQUAL(kernel1()->shape()[2], 85);
+  BOOST_CHECK_EQUAL(kernel1()->shape()[0], 19u);
+  BOOST_CHECK_EQUAL(kernel1()->shape()[1], 19u);
+  BOOST_CHECK_EQUAL(kernel1()->shape()[2], 85u);
 
-  BOOST_CHECK_EQUAL(kernel2()->shape()[0], 19);
-  BOOST_CHECK_EQUAL(kernel2()->shape()[1], 19);
-  BOOST_CHECK_EQUAL(kernel2()->shape()[2], 85);  
+  BOOST_CHECK_EQUAL(kernel2()->shape()[0], 19u);
+  BOOST_CHECK_EQUAL(kernel2()->shape()[1], 19u);
+  BOOST_CHECK_EQUAL(kernel2()->shape()[2], 85u);  
 
-  BOOST_CHECK_EQUAL(weights()->shape()[0], 252);
-  BOOST_CHECK_EQUAL(weights()->shape()[1], 212);
-  BOOST_CHECK_EQUAL(weights()->shape()[2], 220);
+  BOOST_CHECK_EQUAL(weights()->shape()[0], 252u);
+  BOOST_CHECK_EQUAL(weights()->shape()[1], 212u);
+  BOOST_CHECK_EQUAL(weights()->shape()[2], 220u);
 
 }
 

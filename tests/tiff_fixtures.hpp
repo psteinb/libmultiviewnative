@@ -366,7 +366,7 @@ namespace multiviewnative {
     {
       psi_.reserve(max_num_psi);
 
-      for(int i = 0;i<max_num_psi;++i){
+      for(unsigned i = 0;i<max_num_psi;++i){
 	std::stringstream path("");
 	path << path_to_test_images << "psi_" << i << ".tif";
 	psi_paths_[i] = path.str();
