@@ -157,7 +157,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_FIXTURE_TEST_SUITE( gpu_convolution_works, multiviewnative::default_3D_fixture )
 
-BOOST_AUTO_TEST_CASE( trivial_convolve )
+BOOST_AUTO_TEST_CASE( trivial_convolve_newapi )
 {
   
   float* kernel = new float[kernel_size_];
@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
   delete [] kernel;
 }
 
-BOOST_AUTO_TEST_CASE( identity_convolve )
+BOOST_AUTO_TEST_CASE( identity_convolve_newapi )
 {
   using namespace multiviewnative;
 
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE( identity_convolve )
 
 }
 
-BOOST_AUTO_TEST_CASE( horizontal_convolve )
+BOOST_AUTO_TEST_CASE( horizontal_convolve_newapi )
 {
   using namespace multiviewnative;
 
@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
 
 }
 
-BOOST_AUTO_TEST_CASE( vertical_convolve )
+BOOST_AUTO_TEST_CASE( vertical_convolve_newapi )
 {
   using namespace multiviewnative;
 
@@ -231,7 +231,7 @@ BOOST_AUTO_TEST_CASE( vertical_convolve )
 
 }
 
-BOOST_AUTO_TEST_CASE( all1_convolve )
+BOOST_AUTO_TEST_CASE( all1_convolve_newapi )
 {
   using namespace multiviewnative;
 
