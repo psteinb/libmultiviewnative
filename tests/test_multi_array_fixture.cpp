@@ -137,4 +137,31 @@ BOOST_AUTO_TEST_CASE( convolve_by_depth )
 
   BOOST_CHECK_EQUAL(intermediate, image_folded_by_depth_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
 }
+
+BOOST_AUTO_TEST_CASE( convolve_by_asymm_cross_kernel )
+{
+  
+  float sum_expected = std::accumulate(asymm_cross_kernel_.data(),asymm_cross_kernel_.data() + asymm_cross_kernel_.num_elements(),0.f);
+  float sum_received = std::accumulate(one_folded_by_asymm_cross_kernel_.data(),one_folded_by_asymm_cross_kernel_.data() + one_folded_by_asymm_cross_kernel_.num_elements(),0.f);
+  
+  BOOST_CHECK_EQUAL(sum_expected,sum_received);
+}
+
+BOOST_AUTO_TEST_CASE( convolve_by_asymm_one_kernel )
+{
+  
+  float sum_expected = std::accumulate(asymm_one_kernel_.data(),asymm_one_kernel_.data() + asymm_one_kernel_.num_elements(),0.f);
+  float sum_received = std::accumulate(one_folded_by_asymm_one_kernel_.data(),one_folded_by_asymm_one_kernel_.data() + one_folded_by_asymm_one_kernel_.num_elements(),0.f);
+  
+  BOOST_CHECK_EQUAL(sum_expected,sum_received);
+}
+
+BOOST_AUTO_TEST_CASE( convolve_by_asymm_identity_kernel )
+{
+  
+  float sum_expected = std::accumulate(asymm_identity_kernel_.data(),asymm_identity_kernel_.data() + asymm_identity_kernel_.num_elements(),0.f);
+  float sum_received = std::accumulate(one_folded_by_asymm_identity_kernel_.data(),one_folded_by_asymm_identity_kernel_.data() + one_folded_by_asymm_identity_kernel_.num_elements(),0.f);
+  
+  BOOST_CHECK_EQUAL(sum_expected,sum_received);
+}
 BOOST_AUTO_TEST_SUITE_END()
