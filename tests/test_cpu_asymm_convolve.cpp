@@ -23,7 +23,25 @@ BOOST_AUTO_TEST_CASE( cross_convolve )
 
   BOOST_CHECK_CLOSE(sum_expected, sum_received, .001f);
 
+  
+  multiviewnative::range expected_kernel_pos[3];
 
+  for(int i = 0;i<3;++i)
+    expected_kernel_pos[i] = multiviewnative::range(one_.shape()[i]/2 - asymm_cross_kernel_.shape()[i]/2,
+						    one_.shape()[i]/2 - asymm_cross_kernel_.shape()[i]/2 + asymm_cross_kernel_.shape()[i]);
+
+  multiviewnative::image_stack_view kernel_segment = one_[ boost::indices[expected_kernel_pos[0]][expected_kernel_pos[1]][expected_kernel_pos[2]] ];
+  
+  BOOST_CHECK_EQUAL(kernel_segment.shape()[0], asymm_cross_kernel_.shape()[0]);
+  BOOST_CHECK_EQUAL(kernel_segment.shape()[1], asymm_cross_kernel_.shape()[1]);
+  BOOST_CHECK_EQUAL(kernel_segment.shape()[2], asymm_cross_kernel_.shape()[2]);
+
+  multiviewnative::image_stack result = kernel_segment;
+
+  for(unsigned p = 0;p<result.num_elements();++p)
+    BOOST_CHECK_CLOSE_FRACTION(std::floor(result.data()[p] + .5f),	asymm_cross_kernel_.data()[p], .1f);
+
+  
 }
 
 BOOST_AUTO_TEST_CASE( one_convolve )
@@ -91,153 +109,26 @@ BOOST_AUTO_TEST_CASE( diagonal_convolve )
 
 }
 
-BOOST_AUTO_TEST_CASE( asymm_image_convolve )
+BOOST_AUTO_TEST_CASE( asymm_one_convolve )
 {
   
-  using namespace multiviewnative;
-  image_stack diagonal_kernel(asymm_kernel_dims_);
+  std::vector<int> asymm_dims(3);
+  for(int i = 0;i<3;++i){
+    asymm_dims[i] = asymm_padded_one_.shape()[i];
+  }
+
   
-  inplace_cpu_convolution(one_.data(), &image_dims_[0], 
-			  diagonal_kernel.data(),&asymm_kernel_dims_[0],
+  inplace_cpu_convolution(asymm_padded_one_.data(), &asymm_dims[0], 
+			  asymm_cross_kernel_.data(),&asymm_kernel_dims_[0],
 			  1);
 
-  float sum_expected = std::accumulate(diagonal_kernel.data(),diagonal_kernel.data()+diagonal_kernel.num_elements(),0.f);
-  float sum_received = std::accumulate(one_.data(),one_.data()+one_.num_elements(),0.f);
+  float sum_expected = std::accumulate(asymm_cross_kernel_.data(),asymm_cross_kernel_.data()+asymm_cross_kernel_.num_elements(),0.f);
+  float sum_received = std::accumulate(asymm_padded_one_.data(),asymm_padded_one_.data()+asymm_padded_one_.num_elements(),0.f);
 
   
 
   BOOST_CHECK_CLOSE(sum_expected, sum_received, .001f);
 
-
-}
-BOOST_AUTO_TEST_SUITE_END()
-
-#include "tiff_fixtures.hpp"
-
-using namespace multiviewnative;
-
-static const tiff_stack kernel1_view_0("/dev/shm/libmultiview_data/kernel1_view_0.tif");
-
-BOOST_AUTO_TEST_SUITE( convolution_works_with_kernel1_view_0 )
-
-BOOST_AUTO_TEST_CASE( convolve_with_custom_one )
-{
-
-  tiff_stack local_kernel1(kernel1_view_0);
-  std::vector<int> local_kernel1_dims(3);
-  for(int i = 0;i<3;++i)
-    local_kernel1_dims[i] = local_kernel1.stack_.shape()[i];
-
-  unsigned max_dim = *std::max_element(local_kernel1_dims.begin(), local_kernel1_dims.end());
-  std::vector<int> image_dims(3,3*max_dim);
-  
-  image_stack local_one(image_dims);
-  local_one[image_dims[0]/2][image_dims[1]/2][image_dims[2]/2] = 1.f;
-  
-  inplace_cpu_convolution(local_one.data(), &image_dims[0], 
-			  local_kernel1.stack_.data(),&local_kernel1_dims[0],
-			  1);
-
-  float sum_expected = std::accumulate(local_kernel1.stack_.data(),local_kernel1.stack_.data()+local_kernel1.stack_.num_elements(),0.f);
-  float sum_received = std::accumulate(local_one.data(),local_one.data()+local_one.num_elements(),0.f);
-
-  BOOST_CHECK_CLOSE(sum_expected, sum_received, .001f);
-}
-
-BOOST_AUTO_TEST_CASE( convolve_with_multiple_custom_ones )
-{
-
-  tiff_stack local_kernel1(kernel1_view_0);
-  std::vector<int> local_kernel1_dims(3);
-  for(int i = 0;i<3;++i)
-    local_kernel1_dims[i] = local_kernel1.stack_.shape()[i];
-
-  unsigned max_dim = *std::max_element(local_kernel1_dims.begin(), local_kernel1_dims.end());
-  std::vector<int> image_dims(3,5*max_dim);
-  
-  image_stack local_one(image_dims);
-  local_one[image_dims[0]/2][image_dims[1]/2][image_dims[2]/2] = 1.f;
-
-  local_one[1*image_dims[0]/4][image_dims[1]/2][image_dims[2]/2] = 1.f;
-  local_one[3*image_dims[0]/4][image_dims[1]/2][image_dims[2]/2] = 1.f;
-
-  local_one[image_dims[0]/2][1*image_dims[1]/4][image_dims[2]/2] = 1.f;
-  local_one[image_dims[0]/2][3*image_dims[1]/4][image_dims[2]/2] = 1.f;
-
-  local_one[image_dims[0]/2][image_dims[1]/2][1*image_dims[2]/4] = 1.f;
-  local_one[image_dims[0]/2][image_dims[1]/2][3*image_dims[2]/4] = 1.f;
-  
-  inplace_cpu_convolution(local_one.data(), &image_dims[0], 
-			  local_kernel1.stack_.data(),&local_kernel1_dims[0],
-			  1);
-
-  float sum_expected = std::accumulate(local_kernel1.stack_.data(),local_kernel1.stack_.data()+local_kernel1.stack_.num_elements(),0.f);
-  float sum_received = std::accumulate(local_one.data(),local_one.data()+local_one.num_elements(),0.f);
-
-  BOOST_CHECK_CLOSE(7*sum_expected, sum_received, .01f);
-
-}
-BOOST_AUTO_TEST_SUITE_END()
-
-static const tiff_stack kernel2_view_0("/dev/shm/libmultiview_data/kernel2_view_0.tif");
-
-BOOST_AUTO_TEST_SUITE( convolution_works_with_kernel2_view_0 )
-
-BOOST_AUTO_TEST_CASE( convolve_with_custom_one )
-{
-
-  tiff_stack local_kernel2(kernel2_view_0);
-  std::vector<int> local_kernel2_dims(3);
-  for(int i = 0;i<3;++i)
-    local_kernel2_dims[i] = local_kernel2.stack_.shape()[i];
-
-  unsigned max_dim = *std::max_element(local_kernel2_dims.begin(), local_kernel2_dims.end());
-  std::vector<int> image_dims(3,3*max_dim);
-  
-  image_stack local_one(image_dims);
-  local_one[image_dims[0]/2][image_dims[1]/2][image_dims[2]/2] = 1.f;
-  
-  inplace_cpu_convolution(local_one.data(), &image_dims[0], 
-			  local_kernel2.stack_.data(),&local_kernel2_dims[0],
-			  1);
-
-  float sum_expected = std::accumulate(local_kernel2.stack_.data(),local_kernel2.stack_.data()+local_kernel2.stack_.num_elements(),0.f);
-  float sum_received = std::accumulate(local_one.data(),local_one.data()+local_one.num_elements(),0.f);
-
-  BOOST_CHECK_CLOSE(sum_expected, sum_received, .001f);
-}
-
-BOOST_AUTO_TEST_CASE( convolve_with_multiple_custom_ones )
-{
-
-  tiff_stack local_kernel2(kernel2_view_0);
-  std::vector<int> local_kernel2_dims(3);
-  for(int i = 0;i<3;++i)
-    local_kernel2_dims[i] = local_kernel2.stack_.shape()[i];
-
-  unsigned max_dim = *std::max_element(local_kernel2_dims.begin(), local_kernel2_dims.end());
-  std::vector<int> image_dims(3,5*max_dim);
-  
-  image_stack local_one(image_dims);
-  local_one[image_dims[0]/2][image_dims[1]/2][image_dims[2]/2] = 1.f;
-
-  local_one[1*image_dims[0]/4][image_dims[1]/2][image_dims[2]/2] = 1.f;
-  local_one[3*image_dims[0]/4][image_dims[1]/2][image_dims[2]/2] = 1.f;
-
-  local_one[image_dims[0]/2][1*image_dims[1]/4][image_dims[2]/2] = 1.f;
-  local_one[image_dims[0]/2][3*image_dims[1]/4][image_dims[2]/2] = 1.f;
-
-  local_one[image_dims[0]/2][image_dims[1]/2][1*image_dims[2]/4] = 1.f;
-  local_one[image_dims[0]/2][image_dims[1]/2][3*image_dims[2]/4] = 1.f;
-  
-  inplace_cpu_convolution(local_one.data(), &image_dims[0], 
-			  local_kernel2.stack_.data(),&local_kernel2_dims[0],
-			  1);
-
-  float sum_expected = std::accumulate(local_kernel2.stack_.data(),local_kernel2.stack_.data()+local_kernel2.stack_.num_elements(),0.f);
-  float sum_received = std::accumulate(local_one.data(),local_one.data()+local_one.num_elements(),0.f);
-
-  BOOST_CHECK_CLOSE(7*sum_expected, sum_received, .01f);
 
 }
 BOOST_AUTO_TEST_SUITE_END()

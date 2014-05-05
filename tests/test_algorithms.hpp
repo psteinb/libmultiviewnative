@@ -74,6 +74,26 @@ namespace multiviewnative {
     return value;
   }
 
+  template <typename ValueT, typename DimT>
+  ValueT l2norm(ValueT* _first, ValueT* _second, 
+						const DimT& _size){
+    ValueT l2norm = 0.;
+    for(unsigned p = 0;p<_size;++p)
+      l2norm += (_first[p] - _second[p])*(_first[p] - _second[p]);
+    
+    return l2norm;
+  }
+
+  template <typename ValueT, typename DimT>
+  ValueT l1norm(ValueT* _first, ValueT* _second, 
+						const DimT& _size){
+    ValueT l1norm = 0.;
+    for(unsigned p = 0;p<_size;++p)
+      l1norm += std::fabs(_first[p] - _second[p]);
+    
+    return l1norm;
+  }
+
 }
 #endif /* _TEST_ALGORITHMS_H_ */
 

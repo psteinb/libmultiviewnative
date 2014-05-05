@@ -25,7 +25,8 @@ target_link_libraries(test_discrete_convolve boost_system boost_filesystem boost
 add_executable(test_cpu_symm_convolve test_cpu_symm_convolve.cpp)
 target_link_libraries(test_cpu_symm_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f ${PROJECT_NAME})
 
-
+add_executable(test_cpu_asymm_convolve test_cpu_asymm_convolve.cpp)
+target_link_libraries(test_cpu_asymm_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f tiff ${PROJECT_NAME})
 
 IF(CUDA_FOUND)
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
@@ -56,8 +57,8 @@ target_link_libraries(test_reference_data_fixture boost_system boost_filesystem 
 add_executable(test_cpu_deconvolve test_cpu_deconvolve.cpp)
 target_link_libraries(test_cpu_deconvolve boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
 
-add_executable(test_cpu_asymm_convolve test_cpu_asymm_convolve.cpp)
-target_link_libraries(test_cpu_asymm_convolve boost_system boost_filesystem boost_unit_test_framework fftw3f tiff ${PROJECT_NAME})
+add_executable(test_cpu_asymm_convolve_from_tiffs test_cpu_asymm_convolve_from_tiffs.cpp)
+target_link_libraries(test_cpu_asymm_convolve_from_tiffs boost_system boost_filesystem boost_unit_test_framework fftw3f tiff ${PROJECT_NAME})
 
 ELSE(TIFF_FOUND)
 WARNING("Skipping tests based on reference images, libtiff not found\!")
