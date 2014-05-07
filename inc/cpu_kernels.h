@@ -6,7 +6,7 @@
 template <typename TransferT, typename SizeT>
 void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _size){
   for(SizeT idx = 0;idx<_size;++idx)
-    _output[idx] = ( _output[idx]!= 0.f ) ? _input[idx]/_output[idx] : _output[idx];
+    _output[idx] = _input[idx]/_output[idx] ;
 }
 
 
@@ -23,10 +23,10 @@ void computeFinalValues(TransferT* _psi,const TransferT* _integral, const Transf
   
   TransferT value = 0.f;
   TransferT last_value = 0.f;
-  TransferT new_value = 0.f;
+  TransferT next_value = 0.f;
   for(size_t pixel = _offset;pixel<_size;++pixel){
     last_value = _psi[pixel];
-    value = _psi[pixel]*_integral[pixel];
+    value = last_value*_integral[pixel];
     if(value>0.f){
       //
       // perform Tikhonov regularization if desired
@@ -37,13 +37,13 @@ void computeFinalValues(TransferT* _psi,const TransferT* _integral, const Transf
       value = _minValue;
     }
       
-    if(std::isnan(value))
-      new_value = _minValue;
+    if(std::isnan(value) || std::isinf(value))
+      next_value = _minValue;
     else
-      new_value = std::max(value,_minValue);
+      next_value = std::max(value,_minValue);
 
-    new_value = _weight[pixel]*(new_value - last_value) + value;
-    _psi[pixel] = new_value;
+    next_value = _weight[pixel]*(next_value - last_value) + last_value;
+    _psi[pixel] = next_value;
   }
 
 }

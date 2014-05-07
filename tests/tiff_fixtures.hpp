@@ -17,8 +17,8 @@
 // Explanation of the test images
 // input :
 // image_view_i.tif	.. the input frame stack from view i
-// kernel1_view_i.tif	.. point spread function 1 from view i
-// kernel2_view_i.tif	.. point spread function 2 from view i
+// kernel1_view_i.tif	.. integrating PSF for view i
+// kernel2_view_i.tif	.. conditional pdf of all views for view i
 // weights_view_i.tif	.. the weights from view i
 // results:
 // psi_i.tif		.. the results after the i-th iteration
@@ -357,12 +357,14 @@ namespace multiviewnative {
 
     double lambda_;
     float minValue_;
+    float psi0_avg_;
 
     IterationData():
       psi_(),
       psi_paths_(max_num_psi),
       lambda_(0),
-      minValue_(0)
+      minValue_(0.0001f),
+      psi0_avg_(0)
     {
       psi_.reserve(max_num_psi);
 
@@ -374,13 +376,17 @@ namespace multiviewnative {
 	psi_.push_back(tiff_stack(path.str()));
 
       }
+
+      float sum = std::accumulate(psi_[0].stack_.data(), psi_[0].stack_.data() + psi_[0].stack_.num_elements(), 0.f);
+      psi0_avg_ = sum/psi_[0].stack_.num_elements();
     }
 
     IterationData(const IterationData& _rhs):
       psi_(_rhs.psi_.begin(), _rhs.psi_.end()),
       psi_paths_(_rhs.psi_paths_.begin(), _rhs.psi_paths_.end()),
       lambda_(_rhs.lambda_),
-      minValue_(_rhs.minValue_)
+      minValue_(_rhs.minValue_),
+      psi0_avg_(_rhs.psi0_avg_)
     {
     }
 
@@ -389,6 +395,7 @@ namespace multiviewnative {
       std::copy(_other.psi_paths_.begin(), _other.psi_paths_.end(), psi_paths_.begin());
       lambda_ = (_other.lambda_);
       minValue_ = (_other.minValue_);
+      psi0_avg_ = (_other.psi0_avg_);
     }
 
     image_stack* psi(const int& _index){
@@ -400,7 +407,7 @@ namespace multiviewnative {
     }
   };
   
-  typedef IterationData<2> first_2_iterations;
+  typedef IterationData<3> first_2_iterations;
   typedef IterationData<10> all_iterations;
   
   }

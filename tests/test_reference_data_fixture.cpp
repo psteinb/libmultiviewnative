@@ -5,6 +5,7 @@
 #include "tiff_fixtures.hpp"
 #include "convert_tiff_fixtures.hpp"
 #include <numeric>
+#include "test_algorithms.hpp"
 
 namespace fs = boost::filesystem;
 
@@ -30,7 +31,89 @@ BOOST_AUTO_TEST_CASE( ref_stacks_equal )
 
 }
 
+BOOST_AUTO_TEST_CASE( ref_stacks_equal_views_files )
+{
+  multiviewnative::ReferenceData local_ref(ref);
+  std::stringstream path("");
+  for(int i = 0;i<6;i++){
+    path.str("");
+    path << multiviewnative::path_to_test_images << "image_view_" << i << ".tif";
+    multiviewnative::tiff_stack current(path.str());
 
+    
+    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
+					      local_ref.views_[i].image()->data(),
+					      local_ref.views_[i].image()->num_elements()),
+		      0.,
+		      1e-2
+		      );
+
+  }
+
+}
+
+BOOST_AUTO_TEST_CASE( ref_stacks_equal_kernel1_files )
+{
+  multiviewnative::ReferenceData local_ref(ref);
+  std::stringstream path("");
+  for(int i = 0;i<6;i++){
+    path.str("");
+    path << multiviewnative::path_to_test_images << "kernel1_view_" << i << ".tif";
+    multiviewnative::tiff_stack current(path.str());
+
+    
+    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
+					      local_ref.views_[i].kernel1()->data(),
+					      local_ref.views_[i].kernel1()->num_elements()),
+		      0.,
+		      1e-2
+		      );
+
+  }
+
+}
+
+BOOST_AUTO_TEST_CASE( ref_stacks_equal_kernel2_files )
+{
+  multiviewnative::ReferenceData local_ref(ref);
+  std::stringstream path("");
+  for(int i = 0;i<6;i++){
+    path.str("");
+    path << multiviewnative::path_to_test_images << "kernel2_view_" << i << ".tif";
+    multiviewnative::tiff_stack current(path.str());
+
+    
+    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
+					      local_ref.views_[i].kernel2()->data(),
+					      local_ref.views_[i].kernel2()->num_elements()),
+		      0.,
+		      1e-2
+		      );
+
+  }
+
+}
+
+BOOST_AUTO_TEST_CASE( ref_stacks_equal_weights_files )
+{
+  multiviewnative::ReferenceData local_ref(ref);
+  std::stringstream path("");
+  for(int i = 0;i<6;i++){
+    path.str("");
+    path << multiviewnative::path_to_test_images << "weights_view_" << i << ".tif";
+    multiviewnative::tiff_stack current(path.str());
+
+    
+    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
+					      local_ref.views_[i].weights()->data(),
+					      local_ref.views_[i].weights()->num_elements()),
+		      0.,
+		      1e-2
+		      );
+
+  }
+
+}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( convert_suite )

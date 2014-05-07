@@ -74,8 +74,8 @@ BOOST_AUTO_TEST_CASE( convolve_with_custom_one_discrete )
 			  local_kernel1.stack_.data(),&local_kernel1_dims[0],
 			  1);
 
-  float sum_expected = std::accumulate(local_kernel1.stack_.data(),local_kernel1.stack_.data()+local_kernel1.stack_.num_elements(),0.f);
-  float sum_received = std::accumulate(local_one_fft.data(),local_one_fft.data()+local_one.num_elements(),0.f);
+  // float sum_expected = std::accumulate(local_kernel1.stack_.data(),local_kernel1.stack_.data()+local_kernel1.stack_.num_elements(),0.f);
+  // float sum_received = std::accumulate(local_one_fft.data(),local_one_fft.data()+local_one.num_elements(),0.f);
 
   image_stack local_one_discrete = local_one;
   multiviewnative::convolve(local_one,local_kernel1.stack_,local_one_discrete,offsets_kernel1);

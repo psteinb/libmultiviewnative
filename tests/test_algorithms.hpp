@@ -94,6 +94,21 @@ namespace multiviewnative {
     return l1norm;
   }
 
+  template <typename ValueT, typename DimT>
+  ValueT max_value(ValueT* _data, const DimT& _size){
+
+    ValueT max = *std::max_element(_data, _data + _size);
+    
+    return max;
+  }
+
+  template <typename ValueT, typename DimT>
+  ValueT min_value(ValueT* _data, const DimT& _size){
+
+    ValueT min = *std::min_element(_data, _data + _size);
+    
+    return min;
+  }
 }
 #endif /* _TEST_ALGORITHMS_H_ */
 
