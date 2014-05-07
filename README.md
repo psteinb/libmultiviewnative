@@ -1,6 +1,6 @@
 # GPU based Multi-View Deconvolution using cuFFT
 
-This package aims at providing an easy-to-use API for calling GPU deconvolution routines from the Fiji/SPIM_Registration plugin. It is written in C++ and offers a C API of plain methods and C structs to call from any client binary or library. The implementation is based on <http://arxiv.org/abs/1308.0730>.
+This package aims at providing an easy-to-use API for calling GPU deconvolution routines from the Fiji/SPIM_Registration plugin ( https://github.com/fiji/spimreconstruction ). It is written in C++ and offers a C API of plain methods and C structs to call from any client binary or library. The implementation is based on <http://arxiv.org/abs/1308.0730>.
 
 # Building the Library
 

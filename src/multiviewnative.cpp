@@ -103,9 +103,7 @@ void inplace_cpu_deconvolve_iteration(imageType* psi,
   std::vector<unsigned> kernel1_dim(3);
   std::vector<unsigned> kernel2_dim(3);
 
-  FinalValues<imageType> fv(input_psi.data(), integral.data(), view_access.weights_, 
-			    input_psi.num_elements(),
-			    0, lambda, minValue);
+  FinalValues<imageType> fv(lambda, minValue);
 
   for(unsigned view = 0;view < input.num_views;++view){
 
@@ -128,7 +126,9 @@ void inplace_cpu_deconvolve_iteration(imageType* psi,
     convolver2.inplace<serial_transform>();
 
     //computeFinalValues(input_psi,integral,weights)
-    fv.compute();
+    fv.compute(input_psi.data(), integral.data(), view_access.weights_, 
+	       input_psi.num_elements(),
+	       0 );
     // computeFinalValues(input_psi.data(), integral.data(), view_access.weights_, 
     // 		       input_psi.num_elements(),
     // 		       0, lambda, minValue);

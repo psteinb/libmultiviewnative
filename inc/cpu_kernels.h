@@ -14,30 +14,18 @@ void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _s
 template <typename TransferT>
 struct FinalValues {
 
-  //no ownership is taken
-  TransferT*  psi_        ;
-  const       TransferT*  integral_  ;
-  const       TransferT*  weight_    ;
-  size_t       size_       ;
-  size_t       offset_     ;
   double      lambda_     ;
   TransferT   minValue_   ;
 
-  typedef void (FinalValues::*member_function)();
+  typedef void (FinalValues::*member_function)(TransferT* ,
+					       const TransferT* , 
+					       const TransferT* , 
+					       const size_t& ,
+					       const size_t& );
   member_function callback_;
 
-  FinalValues(TransferT* _psi,
-		     const TransferT* _integral, 
-		     const TransferT* _weight, 
-		     size_t _size,
-		     size_t _offset = 0,
-		     double _lambda = 0.006,
-		     TransferT _minValue = .0001f):
-    psi_       (  _psi       )  ,
-    integral_  (  _integral  )  ,
-    weight_    (  _weight    )  ,
-    size_      (  _size      )  ,
-    offset_    (  _offset    )  ,
+  FinalValues(double _lambda = 0.006,
+	      TransferT _minValue = .0001f):
     lambda_    (  _lambda    )  ,
     minValue_  (  _minValue  )  ,
     callback_   ( &FinalValues::plain )
@@ -49,17 +37,28 @@ struct FinalValues {
   }
 
 
-  void compute() {
-    (this->*callback_)();
+  void compute(TransferT* _psi,
+	       const TransferT* _integral, 
+	       const TransferT* _weight, 
+	       const size_t& _size,
+	       const size_t& _offset = 0) {
+    
+    (this->*callback_)(_psi, _integral, _weight, _size, _offset);
+    
   }
 
-  void plain(){
+  void plain(TransferT* _psi,
+	     const TransferT* _integral, 
+	     const TransferT* _weight, 
+	     const size_t& _size,
+	     const size_t& _offset = 0){
+    
     TransferT value = 0.f;
     TransferT last_value = 0.f;
     TransferT next_value = 0.f;
-    for(size_t pixel = offset_;pixel<size_;++pixel){
-      last_value = psi_[pixel];
-      value = last_value*integral_[pixel];
+    for(size_t pixel = _offset;pixel<_size;++pixel){
+      last_value = _psi[pixel];
+      value = last_value*_integral[pixel];
       if(!(value>0.f)){
 	value = minValue_;
       }
@@ -69,8 +68,8 @@ struct FinalValues {
       else
 	next_value = std::max(value,minValue_);
 
-      next_value = weight_[pixel]*(next_value - last_value) + last_value;
-      psi_[pixel] = next_value;
+      next_value = _weight[pixel]*(next_value - last_value) + last_value;
+      _psi[pixel] = next_value;
     }
 
   }
@@ -78,15 +77,20 @@ struct FinalValues {
   //
   // perform Tikhonov regularization if desired
   //
-  void regularized(){
+  void regularized(TransferT* _psi,
+	     const TransferT* _integral, 
+	     const TransferT* _weight, 
+	     const size_t& _size,
+	     const size_t& _offset = 0){
+
     TransferT value = 0.f;
     TransferT last_value = 0.f;
     TransferT next_value = 0.f;
     TransferT lambda_inv = 1.f / lambda_;
 
-    for(size_t pixel = offset_;pixel<size_;++pixel){
-      last_value = psi_[pixel];
-      value = last_value*integral_[pixel];
+    for(size_t pixel = _offset;pixel<_size;++pixel){
+      last_value = _psi[pixel];
+      value = last_value*_integral[pixel];
       if(value>0.f){
 	value = lambda_inv*(std::sqrt(1. + 2.*lambda_*value ) - 1.)  ;
       }
@@ -99,8 +103,8 @@ struct FinalValues {
       else
 	next_value = std::max(value,minValue_);
 
-      next_value = weight_[pixel]*(next_value - last_value) + last_value;
-      psi_[pixel] = next_value;
+      next_value = _weight[pixel]*(next_value - last_value) + last_value;
+      _psi[pixel] = next_value;
     }
   }
 };
