@@ -14,7 +14,7 @@
 using namespace multiviewnative;
 
 static const ReferenceData reference;
-static const first_2_iterations guesses;
+static const first_5_iterations guesses;
 
 BOOST_AUTO_TEST_SUITE( deconvolve_psi0_as_test_case  )
 
@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE( printf )
 
   //setup
   ReferenceData local_ref(reference);
-  first_2_iterations local_guesses(guesses);
+  first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
   fill_workspace(local_ref, input);
@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_1iteration )
 {
   //setup
   ReferenceData local_ref(reference);
-  first_2_iterations local_guesses(guesses);
+  first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
   fill_workspace(local_ref, input);
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_2iterations )
 {
   //setup
   ReferenceData local_ref(reference);
-  first_2_iterations local_guesses(guesses);
+  first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
   fill_workspace(local_ref, input);
@@ -206,4 +206,52 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_2iterations )
   delete [] input.data_;
 }
 
+BOOST_AUTO_TEST_CASE( reconstruct_anything_4iterations_2threads )
+{
+  //setup
+  ReferenceData local_ref(reference);
+  first_5_iterations local_guesses(guesses);
+  workspace input;
+  input.data_ = 0;
+  fill_workspace(local_ref, input);
+  image_stack input_psi = *local_guesses.psi(0);
+
+  //test
+  for(int i = 0;i < 4;++i){
+    inplace_cpu_deconvolve_iteration(input_psi.data(), input, 2, local_guesses.lambda_, local_guesses.minValue_);
+    std::cout << i << "/4 l2norm = " <<  multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1+i)->data(), input_psi.num_elements()) << "\n";
+  }
+  
+  float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
+  float sum_expected = std::accumulate(local_guesses.psi(5)->data(),local_guesses.psi(5)->data() + local_guesses.psi(5)->num_elements(),0.f);
+
+
+  try{
+    BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
+  }
+  catch (...){
+    write_image_stack(input_psi,"./reconstruct_psi5.tif");
+  }
+
+  //check norms
+  float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(5)->data(), input_psi.num_elements());
+  BOOST_REQUIRE_LT(l2norm, 1e-2);
+
+  //tear-down
+  delete [] input.data_;
+}
+
 BOOST_AUTO_TEST_SUITE_END()
+
+
+
+
+
+
+
+
+
+
+
+
+

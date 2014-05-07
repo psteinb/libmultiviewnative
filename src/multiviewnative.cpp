@@ -87,11 +87,10 @@ void inplace_cpu_convolution(imageType* im,
 
 
 //implements http://arxiv.org/abs/1308.0730 (Eq 70)
-void inplace_cpu_deconvolve_iteration(imageType* psi,
-				      workspace input,
-				      int nthreads, 
-				      double lambda, 
-				      imageType minValue){
+void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
+					     workspace input,
+					     double lambda, 
+					     imageType minValue){
 
   std::vector<unsigned> image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
@@ -129,10 +128,70 @@ void inplace_cpu_deconvolve_iteration(imageType* psi,
     fv.compute(input_psi.data(), integral.data(), view_access.weights_, 
 	       input_psi.num_elements(),
 	       0 );
-    // computeFinalValues(input_psi.data(), integral.data(), view_access.weights_, 
-    // 		       input_psi.num_elements(),
-    // 		       0, lambda, minValue);
     
   }
 
+}
+
+
+void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
+					       workspace input,
+					       int nthreads, 
+					       double lambda, 
+					       imageType minValue){
+
+  std::vector<unsigned> image_dim(3);
+  std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
+
+  multiviewnative::image_stack_ref input_psi(psi, image_dim);
+  multiviewnative::image_stack integral = input_psi;
+
+  view_data view_access;
+  std::vector<unsigned> kernel1_dim(3);
+  std::vector<unsigned> kernel2_dim(3);
+
+  ParallelFinalValues<imageType> fv(lambda, minValue);
+  parallel_transform::set_n_threads(nthreads);
+
+  for(unsigned view = 0;view < input.num_views;++view){
+
+    view_access = input.data_[view];
+
+    std::copy(view_access.image_dims_    ,  view_access.image_dims_    +  3  ,  image_dim  .begin()  );
+    std::copy(view_access.kernel1_dims_  ,  view_access.kernel1_dims_  +  3  ,  kernel1_dim.begin()  );
+    std::copy(view_access.kernel2_dims_  ,  view_access.kernel2_dims_  +  3  ,  kernel2_dim.begin()  );
+
+    integral = input_psi;
+    //convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
+    default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
+    convolver1.inplace<parallel_transform>();
+    
+    //view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
+    computeQuotientMultiCPU(view_access.image_,integral.data(),input_psi.num_elements(), nthreads);
+
+    //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
+    default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
+    convolver2.inplace<parallel_transform>();
+
+    //computeFinalValues(input_psi,integral,weights)
+    fv.compute(input_psi.data(), integral.data(), view_access.weights_, 
+	       input_psi.num_elements(),
+	       0 , nthreads);
+    
+  }
+
+}
+
+
+
+void inplace_cpu_deconvolve_iteration(imageType* psi,
+				      workspace input,
+				      int nthreads, 
+				      double lambda, 
+				      imageType minValue){
+
+  if(nthreads == 1)
+    serial_inplace_cpu_deconvolve_iteration(psi,input,lambda,minValue);
+  else
+    parallel_inplace_cpu_deconvolve_iteration(psi,input,nthreads,lambda,minValue);
 }
