@@ -18,7 +18,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 FIND_PACKAGE(FFTW)
 
 IF(FFTW_FOUND)
-SET(FFTW_LIBS_TO_USE "fftw3f_threads fftw3f fftw3_threads fftw3")
+SET(FFTW_LIBS_TO_USE fftw3f_threads fftw3f fftw3_threads fftw3)
 ENDIF()
 
 find_package(OpenMP)
@@ -35,8 +35,12 @@ IF(FFTW_FOUND)
 MESSAGE(">> Linking against ${FFTW_LIBS_TO_USE}")
 ENDIF()
 
+IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
+  SET(FFTW_LIBS_TO_USE fftw3f_omp fftw3f fftw3_omp fftw3)
+endif()
 
 target_link_libraries(${PROJECT_NAME} ${FFTW_LIBS_TO_USE} boost_thread)
+
 SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${PROJECT_SOURCE_DIR}/inc/multiviewnative.h") 
 INSTALL(TARGETS ${PROJECT_NAME}
   EXPORT multiviewnative-targets 
