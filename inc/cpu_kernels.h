@@ -11,8 +11,99 @@ void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _s
 
 
 
+template <typename TransferT>
+struct FinalValues {
+
+  //no ownership is taken
+  TransferT*  psi_        ;
+  const       TransferT*  integral_  ;
+  const       TransferT*  weight_    ;
+  size_t       size_       ;
+  size_t       offset_     ;
+  double      lambda_     ;
+  TransferT   minValue_   ;
+
+  typedef void (FinalValues::*member_function)();
+  member_function callback_;
+
+  FinalValues(TransferT* _psi,
+		     const TransferT* _integral, 
+		     const TransferT* _weight, 
+		     size_t _size,
+		     size_t _offset = 0,
+		     double _lambda = 0.006,
+		     TransferT _minValue = .0001f):
+    psi_       (  _psi       )  ,
+    integral_  (  _integral  )  ,
+    weight_    (  _weight    )  ,
+    size_      (  _size      )  ,
+    offset_    (  _offset    )  ,
+    lambda_    (  _lambda    )  ,
+    minValue_  (  _minValue  )  ,
+    callback_   ( &FinalValues::plain )
+  {
+
+    if(_lambda>0)
+      callback_   = &FinalValues::regularized ;
+    
+  }
 
 
+  void compute() {
+    (this->*callback_)();
+  }
+
+  void plain(){
+    TransferT value = 0.f;
+    TransferT last_value = 0.f;
+    TransferT next_value = 0.f;
+    for(size_t pixel = offset_;pixel<size_;++pixel){
+      last_value = psi_[pixel];
+      value = last_value*integral_[pixel];
+      if(!(value>0.f)){
+	value = minValue_;
+      }
+      
+      if(std::isnan(value) || std::isinf(value))
+	next_value = minValue_;
+      else
+	next_value = std::max(value,minValue_);
+
+      next_value = weight_[pixel]*(next_value - last_value) + last_value;
+      psi_[pixel] = next_value;
+    }
+
+  }
+
+  //
+  // perform Tikhonov regularization if desired
+  //
+  void regularized(){
+    TransferT value = 0.f;
+    TransferT last_value = 0.f;
+    TransferT next_value = 0.f;
+    TransferT lambda_inv = 1.f / lambda_;
+
+    for(size_t pixel = offset_;pixel<size_;++pixel){
+      last_value = psi_[pixel];
+      value = last_value*integral_[pixel];
+      if(value>0.f){
+	value = lambda_inv*(std::sqrt(1. + 2.*lambda_*value ) - 1.)  ;
+      }
+      else{
+	value = minValue_;
+      }
+      
+      if(std::isnan(value) || std::isinf(value))
+	next_value = minValue_;
+      else
+	next_value = std::max(value,minValue_);
+
+      next_value = weight_[pixel]*(next_value - last_value) + last_value;
+      psi_[pixel] = next_value;
+    }
+  }
+};
 
 template <typename TransferT>
 void computeFinalValues(TransferT* _psi,const TransferT* _integral, const TransferT* _weight, 
