@@ -43,27 +43,76 @@ if( FFTW_ROOT )
   #find libs
   find_library(
     FFTW_LIB
-    NAMES "fftw3"
+    NAMES fftw3 
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "lib" "lib64"
     NO_DEFAULT_PATH
-  )
+    )
+
+
+  find_library(
+    FFTW_OMP_LIB
+    NAMES fftw3_omp
+    PATHS ${FFTW_ROOT}
+    PATH_SUFFIXES "lib" "lib64"
+    NO_DEFAULT_PATH
+    )
+
+  find_library(
+    FFTW_THREADS_LIB
+    NAMES fftw3_threads
+    PATHS ${FFTW_ROOT}
+    PATH_SUFFIXES "lib" "lib64"
+    NO_DEFAULT_PATH
+    )
 
   find_library(
     FFTWF_LIB
-    NAMES "fftw3f"
+    NAMES "fftw3f" 
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "lib" "lib64"
     NO_DEFAULT_PATH
-  )
+    )
+
+  find_library(
+    FFTWF_OMP_LIB
+    NAMES "fftw3f_omp" 
+    PATHS ${FFTW_ROOT}
+    PATH_SUFFIXES "lib" "lib64"
+    NO_DEFAULT_PATH
+    )
+
+  find_library(
+    FFTWF_THREADS_LIB
+    NAMES "fftw3f_threads" 
+    PATHS ${FFTW_ROOT}
+    PATH_SUFFIXES "lib" "lib64"
+    NO_DEFAULT_PATH
+    )
 
   find_library(
     FFTWL_LIB
-    NAMES "fftw3l"
+    NAMES "fftw3l" 
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "lib" "lib64"
     NO_DEFAULT_PATH
-  )
+    )
+
+  find_library(
+    FFTWL_OMP_LIB
+    NAMES "fftw3f_omp" 
+    PATHS ${FFTW_ROOT}
+    PATH_SUFFIXES "lib" "lib64"
+    NO_DEFAULT_PATH
+    )
+
+  find_library(
+    FFTWL_THREADS_LIB
+    NAMES "fftw3f_threads" 
+    PATHS ${FFTW_ROOT}
+    PATH_SUFFIXES "lib" "lib64"
+    NO_DEFAULT_PATH
+    )
 
   #find includes
   find_path(
@@ -72,28 +121,69 @@ if( FFTW_ROOT )
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "include"
     NO_DEFAULT_PATH
-  )
+    )
 
 else()
 
   find_library(
     FFTW_LIB
-    NAMES "fftw3"
+    NAMES fftw3 
+    PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+  )
+
+find_library(
+    FFTW_OMP_LIB
+    NAMES fftw3_omp
+    PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+  )
+
+
+find_library(
+    FFTW_THREADS_LIB
+    NAMES fftw3_threads
     PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
   )
 
   find_library(
     FFTWF_LIB
-    NAMES "fftw3f"
+    NAMES "fftw3f" 
     PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
   )
 
+
+find_library(
+    FFTWF_OMP_LIB
+    NAMES fftw3f_omp
+    PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+  )
+
+
+find_library(
+    FFTWF_THREADS_LIB
+    NAMES fftw3f_threads
+    PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+  )
 
   find_library(
     FFTWL_LIB
-    NAMES "fftw3l"
+    NAMES "fftw3l" 
     PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
   )
+
+
+find_library(
+    FFTWL_OMP_LIB
+    NAMES fftw3l_omp
+    PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+  )
+
+
+find_library(
+    FFTWL_THREADS_LIB
+    NAMES fftw3l_threads
+    PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+  )
+
 
   find_path(
     FFTW_INCLUDES
@@ -103,10 +193,10 @@ else()
 
 endif( FFTW_ROOT )
 
-set(FFTW_LIBRARIES ${FFTW_LIB} ${FFTWF_LIB})
+set(FFTW_LIBRARIES ${FFTW_LIB} ${FFTW_OMP_LIB} ${FFTW_THREADS_LIB} ${FFTWF_LIB} ${FFTWF_OMP_LIB} ${FFTWF_THREADS_LIB})
 
 if(FFTWL_LIB)
-  set(FFTW_LIBRARIES ${FFTW_LIBRARIES} ${FFTWL_LIB})
+  set(FFTW_LIBRARIES ${FFTW_LIBRARIES} ${FFTWL_LIB} ${FFTWL_OMP_LIB} ${FFTWL_THREADS_LIB})
 endif()
 
 set( CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_SAV} )
