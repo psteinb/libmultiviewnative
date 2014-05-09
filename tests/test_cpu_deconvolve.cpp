@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_4iterations_2threads )
   }
   
   float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(5)->data(),local_guesses.psi(5)->data() + local_guesses.psi(5)->num_elements(),0.f);
+  float sum_expected = std::accumulate(local_guesses.psi(4)->data(),local_guesses.psi(4)->data() + local_guesses.psi(4)->num_elements(),0.f);
 
 
   try{
@@ -234,7 +234,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_4iterations_2threads )
   }
 
   //check norms
-  float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(5)->data(), input_psi.num_elements());
+  float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(4)->data(), input_psi.num_elements());
   BOOST_REQUIRE_LT(l2norm, 1e-2);
 
   //tear-down

@@ -5,51 +5,19 @@
 
 template <typename TransferT, typename SizeT>
 void computeQuotient(const TransferT* _input,TransferT* _output, const SizeT& _size){
-  for(SizeT idx = 0;idx<_size;++idx)
-    _output[idx] = _input[idx]/_output[idx] ;
+  for(SizeT idx = 0;idx<_size;++idx){
+    TransferT temp = 1./_output[idx];
+    _output[idx] = _input[idx]*temp ;
+  }
 }
 
 template <typename TransferT>
-struct FinalValues {
-
-  double      lambda_      ;
-  TransferT   minValue_    ;
-
-  typedef void (FinalValues::*member_function)(TransferT* ,
-					       const TransferT* , 
-					       const TransferT* , 
-					       const size_t& ,
-					       const size_t& );
-  member_function callback_;
-
-  FinalValues(const double& _lambda = 0.006,
-	      const TransferT& _minValue = .0001f):
-    lambda_    (  _lambda    )  ,
-    minValue_  (  _minValue  )  ,
-    callback_   ( &FinalValues::plain )
-  {
-
-    if(_lambda>0)
-      callback_   = &FinalValues::regularized ;
-    
-  }
-
-
-  void compute(TransferT* _psi,
-	       const TransferT* _integral, 
-	       const TransferT* _weight, 
-	       const size_t& _size,
-	       const size_t& _offset = 0) {
-    
-    (this->*callback_)(_psi, _integral, _weight, _size, _offset);
-    
-  }
-
-  void plain(TransferT* _psi,
-	     const TransferT* _integral, 
-	     const TransferT* _weight, 
-	     const size_t& _size,
-	     const size_t& _offset = 0){
+void serial_final_values(TransferT* _psi,
+			 const TransferT* _integral, 
+			 const TransferT* _weight, 
+			 const size_t& _size,
+			 const TransferT& _minValue = 0.0001f,
+			 const size_t& _offset = 0){
     
     TransferT value = 0.f;
     TransferT last_value = 0.f;
@@ -58,56 +26,56 @@ struct FinalValues {
       last_value = _psi[pixel];
       value = last_value*_integral[pixel];
       if(!(value>0.f)){
-	value = minValue_;
+	value = _minValue;
       }
       
       if(std::isnan(value) || std::isinf(value))
-	next_value = minValue_;
+	next_value = _minValue;
       else
-	next_value = std::max(value,minValue_);
+	next_value = std::max(value,_minValue);
 
       next_value = _weight[pixel]*(next_value - last_value) + last_value;
       _psi[pixel] = next_value;
     }
 
-  }
+}
 
-  //
-  // perform Tikhonov regularization if desired
-  //
-  void regularized(TransferT* _psi,
-	     const TransferT* _integral, 
-	     const TransferT* _weight, 
-	     const size_t& _size,
-	     const size_t& _offset = 0){
+//
+// perform Tikhonov regularization if desired
+//
+template <typename TransferT>
+void serial_regularized_final_values(TransferT* _psi,
+				     const TransferT* _integral, 
+				     const TransferT* _weight, 
+				     const size_t& _size,
+				     const double& _lambda,
+				     const TransferT& _minValue = 0.0001f,
+				     const size_t& _offset = 0){
 
-    TransferT value = 0.f;
-    TransferT last_value = 0.f;
-    TransferT next_value = 0.f;
-    TransferT lambda_inv = 1.f / lambda_;
+  TransferT value = 0.f;
+  TransferT last_value = 0.f;
+  TransferT next_value = 0.f;
+  TransferT lambda_inv = 1.f / _lambda;
 
-    for(size_t pixel = _offset;pixel<_size;++pixel){
-      last_value = _psi[pixel];
-      value = last_value*_integral[pixel];
-      if(value>0.f){
-	value = lambda_inv*(std::sqrt(1. + 2.*lambda_*value ) - 1.)  ;
-      }
-      else{
-	value = minValue_;
-      }
-      
-      if(std::isnan(value) || std::isinf(value))
-	next_value = minValue_;
-      else
-	next_value = std::max(value,minValue_);
-
-      next_value = _weight[pixel]*(next_value - last_value) + last_value;
-      _psi[pixel] = next_value;
+  for(size_t pixel = _offset;pixel<_size;++pixel){
+    last_value = _psi[pixel];
+    value = last_value*_integral[pixel];
+    if(value>0.f){
+      value = lambda_inv*(std::sqrt(1. + 2.*_lambda*value ) - 1.)  ;
     }
+    else{
+      value = _minValue;
+    }
+      
+    if(std::isnan(value) || std::isinf(value))
+      next_value = _minValue;
+    else
+      next_value = std::max(value,_minValue);
+
+    next_value = _weight[pixel]*(next_value - last_value) + last_value;
+    _psi[pixel] = next_value;
   }
-};
-
-
+}
 
 template <typename TransferT>
 void computeFinalValues(TransferT* _psi,const TransferT* _integral, const TransferT* _weight, 
@@ -146,7 +114,7 @@ void computeFinalValues(TransferT* _psi,const TransferT* _integral, const Transf
 #ifdef _OPENMP //macro that is defined if gcc is called with -fopenmp flag
 #include <omp.h>
 template <typename TransferT, typename SizeT  >
-void computeQuotientMultiCPU(const TransferT* _input,TransferT* _output, const SizeT& _size, const int& _num_threads = -1){
+void parallel_divide(const TransferT* _input,TransferT* _output, const SizeT& _size, const int& _num_threads = -1){
 
   int num_procs = _num_threads > 0 ? _num_threads : omp_get_num_procs();
   SizeT chunk_size = (_size + num_procs -1 )/num_procs;
@@ -157,60 +125,22 @@ void computeQuotientMultiCPU(const TransferT* _input,TransferT* _output, const S
   {
 
   #pragma omp for schedule(dynamic,chunk_size) nowait
-    for(idx = 0;idx<_size;++idx)
-    _output[idx] = _input[idx]/_output[idx];
-
+    for(idx = 0;idx<_size;++idx){
+    TransferT temp = 1./_output[idx];
+    _output[idx] = temp*_input[idx];
+  }
   } 
 
 }
 
-
-template <typename TransferT>
-struct ParallelFinalValues {
-
-  double      lambda_      ;
-  TransferT   minValue_    ;
-  
-  typedef void (ParallelFinalValues::*member_function)(TransferT* ,
-      const TransferT* , 
-      const TransferT* , 
-      const size_t& ,
-      const size_t& ,
-      const int&);
-  
-  member_function callback_;
-
-  ParallelFinalValues(const double& _lambda = 0.006,
-	      const TransferT& _minValue = .0001f):
-    lambda_    (  _lambda    )  ,
-    minValue_  (  _minValue  )  ,
-    callback_   ( &ParallelFinalValues::plain )
-  {
-
-    if(_lambda>0)
-      callback_   = &ParallelFinalValues::regularized ;
-    
-  }
-
-
-  void compute(TransferT* _psi,
+    template <typename TransferT>
+      void parallel_final_values(TransferT* _psi,
       const TransferT* _integral, 
       const TransferT* _weight, 
       const size_t& _size,
-      const size_t& _offset = 0,
-      const int& _num_threads = -1) {
-    
-    
-    (this->*callback_)(_psi, _integral, _weight, _size, _offset, _num_threads);
-    
-  }
-
-  void plain(TransferT* _psi,
-	     const TransferT* _integral, 
-	     const TransferT* _weight, 
-	     const size_t& _size,
-      const size_t& _offset = 0,
-      const int& _num_threads = -1){
+      const int& _num_threads = -1,
+      const TransferT& _minValue = 0.0001f,
+      const size_t& _offset = 0){
     
     
     int num_procs = (_num_threads > 0) ? _num_threads : omp_get_num_procs();
@@ -226,14 +156,14 @@ struct ParallelFinalValues {
 	TransferT last_value = _psi[pixel];
 	TransferT value = last_value*_integral[pixel];
 	if(!(value>0.f)){
-	  value = minValue_;
+	  value = _minValue;
 	}
       
 	TransferT next_value = 0;
 	if(std::isnan(value) || std::isinf(value))
-	  next_value = minValue_;
+	  next_value = _minValue;
 	else
-	  next_value = std::max(value,minValue_);
+	  next_value = std::max(value,_minValue);
 
 	next_value = _weight[pixel]*(next_value - last_value) + last_value;
 	_psi[pixel] = next_value;
@@ -246,14 +176,17 @@ struct ParallelFinalValues {
   //
   // perform Tikhonov regularization if desired
   //
-  void regularized(TransferT* _psi,
-      const TransferT* _integral, 
-      const TransferT* _weight, 
-      const size_t& _size,
-      const size_t& _offset = 0,
-      const int& _num_threads = -1){
+template <typename TransferT>
+  void parallel_regularized_final_values(TransferT* _psi,
+					 const TransferT* _integral, 
+					 const TransferT* _weight, 
+					 const size_t& _size,
+					 double _lambda = 0.006,
+					 const int& _num_threads = -1,
+					 const TransferT& _minValue = 0.0001f,
+					 const size_t& _offset = 0){
 
-    TransferT lambda_inv = 1.f / lambda_;
+    TransferT lambda_inv = 1.f / _lambda;
     int num_procs = (_num_threads > 0) ? _num_threads : omp_get_num_procs();
     size_t chunk_size = ((_size - _offset) + num_procs - 1 )/num_procs;
     omp_set_num_threads(num_procs);
@@ -269,24 +202,24 @@ struct ParallelFinalValues {
 	TransferT last_value = _psi[pixel];
 	TransferT value = last_value*_integral[pixel];
 	if(value>0.f){
-	  value = lambda_inv*(std::sqrt(1. + 2.*lambda_*value ) - 1.)  ;
+	  value = lambda_inv*(std::sqrt(1. + 2.*_lambda*value ) - 1.)  ;
 	}
 	else{
-	  value = minValue_;
+	  value = _minValue;
 	}
       
 	TransferT next_value = 0;
 	if(std::isnan(value) || std::isinf(value))
-	  next_value = minValue_;
+	  next_value = _minValue;
 	else
-	  next_value = std::max(value,minValue_);
+	  next_value = std::max(value,_minValue);
 
 	next_value = _weight[pixel]*(next_value - last_value) + last_value;
 	_psi[pixel] = next_value;
       }
     }
   }
-};
+
 
 
 template <typename TransferT>

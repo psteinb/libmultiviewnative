@@ -102,8 +102,6 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
   std::vector<unsigned> kernel1_dim(3);
   std::vector<unsigned> kernel2_dim(3);
 
-  FinalValues<imageType> fv(lambda, minValue);
-
   for(unsigned view = 0;view < input.num_views;++view){
 
     view_access = input.data_[view];
@@ -125,15 +123,23 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
     convolver2.inplace<serial_transform>();
 
     //computeFinalValues(input_psi,integral,weights)
-    fv.compute(input_psi.data(), integral.data(), view_access.weights_, 
-	       input_psi.num_elements(),
-	       0 );
+    //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
+    //compiler opt & branch prediction seems to suggest this solution 
+    if(lambda>0) 
+      serial_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+			  input_psi.num_elements(),
+			  minValue);
+    else
+      serial_regularized_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+				      input_psi.num_elements(),
+				      lambda ,
+				      minValue );
     
   }
 
 }
 
-
+//implements http://arxiv.org/abs/1308.0730 (Eq 70) using multiple threads
 void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 					       workspace input,
 					       int nthreads, 
@@ -150,7 +156,6 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
   std::vector<unsigned> kernel1_dim(3);
   std::vector<unsigned> kernel2_dim(3);
 
-  ParallelFinalValues<imageType> fv(lambda, minValue);
   parallel_transform::set_n_threads(nthreads);
 
   for(unsigned view = 0;view < input.num_views;++view){
@@ -167,17 +172,26 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
     convolver1.inplace<parallel_transform>();
     
     //view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
-    computeQuotientMultiCPU(view_access.image_,integral.data(),input_psi.num_elements(), nthreads);
+    parallel_divide(view_access.image_,integral.data(),input_psi.num_elements(), nthreads);
 
     //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
     default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
     convolver2.inplace<parallel_transform>();
 
     //computeFinalValues(input_psi,integral,weights)
-    fv.compute(input_psi.data(), integral.data(), view_access.weights_, 
-	       input_psi.num_elements(),
-	       0 , nthreads);
-    
+    //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
+    //compiler opt & branch prediction seems to suggest this solution
+    if(lambda>0) 
+      parallel_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+			    input_psi.num_elements(),
+			    nthreads,
+			    minValue);
+    else
+      parallel_regularized_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+					input_psi.num_elements(),
+					lambda,
+					nthreads,
+					minValue );
   }
 
 }
