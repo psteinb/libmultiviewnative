@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_4iterations_2threads )
     BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
   }
   catch (...){
-    write_image_stack(input_psi,"./reconstruct_psi5.tif");
+    write_image_stack(input_psi,"./reconstruct_psi5_2threads.tif");
   }
 
   //check norms

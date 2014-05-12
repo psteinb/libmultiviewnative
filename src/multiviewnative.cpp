@@ -126,14 +126,14 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
     //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
     //compiler opt & branch prediction seems to suggest this solution 
     if(lambda>0) 
-      serial_final_values(input_psi.data(), integral.data(), view_access.weights_, 
-			  input_psi.num_elements(),
-			  minValue);
-    else
       serial_regularized_final_values(input_psi.data(), integral.data(), view_access.weights_, 
 				      input_psi.num_elements(),
 				      lambda ,
 				      minValue );
+    else
+      serial_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+			  input_psi.num_elements(),
+			  minValue);
     
   }
 
@@ -182,16 +182,16 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
     //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
     //compiler opt & branch prediction seems to suggest this solution
     if(lambda>0) 
-      parallel_final_values(input_psi.data(), integral.data(), view_access.weights_, 
-			    input_psi.num_elements(),
-			    nthreads,
-			    minValue);
-    else
       parallel_regularized_final_values(input_psi.data(), integral.data(), view_access.weights_, 
 					input_psi.num_elements(),
 					lambda,
 					nthreads,
 					minValue );
+    else
+      parallel_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+			    input_psi.num_elements(),
+			    nthreads,
+			    minValue);
   }
 
 }

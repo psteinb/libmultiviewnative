@@ -47,9 +47,11 @@ FUNCTION_PREFIX void inplace_cpu_deconvolve_iteration(imageType* psi,
 
 // GPU convolution
 FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
-// FUNCTION_PREFIX void inplace_gpu_deconvolution(imageType* im,int* imDim,imageType* weights,
-// 					       imageType* kernel1,int* kernel1Dim,imageType* kernel2,int* kernel2Dim,
-// 					       int device, double lambda, imageType minValue);
+FUNCTION_PREFIX void inplace_gpu_deconvolve_iteration(imageType* psi,
+						      workspace input,
+						      int device, 
+						      double lambda, 
+						      imageType minValue);
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -98,38 +98,39 @@ public:
 
   void forward(){
 
-    int success = fftw_init_threads();
-    if(!success){
-      std::cerr << "parallel_inplace_3d_transform::forward\tunable to initialize threads of fftw3\n";
-    }
-
     fftw_plan_with_nthreads(nthreads_);
     inplace_3d_transform<ImageStackT>::forward();
-    
-    fftw_cleanup_threads();
 
   };
 
   void backward(){
     
-    int success = fftw_init_threads();
-    if(!success){
-      std::cerr << "parallel_inplace_3d_transform::backward\tunable to initialize threads of fftw3\n";
-    }
-
     fftw_plan_with_nthreads(nthreads_);
     inplace_3d_transform<ImageStackT>::backward();
-    fftw_cleanup_threads();
 
 
   };
 
-  static void set_n_threads(const int& _nthreads = 0){
+  static void set_n_threads(int _nthreads = 0){
+
+    if(_nthreads<0)
+      _nthreads = int(boost::thread::hardware_concurrency());
+
     if(_nthreads > 0){
       parallel_inplace_3d_transform::nthreads_ = _nthreads;
+      int success = fftw_init_threads();
+      if(!success){
+	std::cerr << "parallel_inplace_3d_transform::set_n_threads\tunable to initialize threads of fftw3\n";
+      }
     }
-    else
-      parallel_inplace_3d_transform::nthreads_ = int(boost::thread::hardware_concurrency());
+         
+  }
+
+  static void clear_threads_data(){
+
+    if(parallel_inplace_3d_transform::_nthreads > 0){
+      fftw_cleanup_threads();
+    }
   }
 };
 

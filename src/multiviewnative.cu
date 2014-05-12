@@ -42,13 +42,95 @@ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* ker
   
 }
 
-void inplace_gpu_deconvolution(imageType* psi,int* psiDim, imageType* weights,
-			       imageType* kernel1,int* kernel1Dim,
-			       imageType* kernel2,int* kernel2Dim,
-			       int device, double lambda, imageType minValue){
+void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
+				      workspace input,
+				      int device, 
+				      double lambda, 
+				      imageType minValue){
+  assert(false && "inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
+}
 
 
-  //assert(false && "not implemented yet");
+void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
+				      workspace input,
+				      int device, 
+				      double lambda, 
+				      imageType minValue){
+  
+  assert(false && "inplace_gpu_deconvolve_iteration_all_on_device not implemented yet");
+
+  //   std::vector<unsigned> image_dim(3);
+  // std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
+
+  // multiviewnative::image_stack_ref input_psi(psi, image_dim);
+  // multiviewnative::image_stack integral = input_psi;
+
+  // view_data view_access;
+  // std::vector<unsigned> kernel1_dim(3);
+  // std::vector<unsigned> kernel2_dim(3);
+
+  // parallel_transform::set_n_threads(nthreads);
+
+  // for(unsigned view = 0;view < input.num_views;++view){
+
+  //   view_access = input.data_[view];
+
+  //   std::copy(view_access.image_dims_    ,  view_access.image_dims_    +  3  ,  image_dim  .begin()  );
+  //   std::copy(view_access.kernel1_dims_  ,  view_access.kernel1_dims_  +  3  ,  kernel1_dim.begin()  );
+  //   std::copy(view_access.kernel2_dims_  ,  view_access.kernel2_dims_  +  3  ,  kernel2_dim.begin()  );
+
+  //   integral = input_psi;
+  //   //convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
+  //   default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
+  //   convolver1.inplace<parallel_transform>();
+    
+  //   //view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
+  //   parallel_divide(view_access.image_,integral.data(),input_psi.num_elements(), nthreads);
+
+  //   //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
+  //   default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
+  //   convolver2.inplace<parallel_transform>();
+
+  //   //computeFinalValues(input_psi,integral,weights)
+  //   //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
+  //   //compiler opt & branch prediction seems to suggest this solution
+  //   if(lambda>0) 
+  //     parallel_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+  // 			    input_psi.num_elements(),
+  // 			    nthreads,
+  // 			    minValue);
+  //   else
+  //     parallel_regularized_final_values(input_psi.data(), integral.data(), view_access.weights_, 
+  // 					input_psi.num_elements(),
+  // 					lambda,
+  // 					nthreads,
+  // 					minValue );
+  // }
+}
+
+
+void inplace_gpu_deconvolve_iteration(imageType* psi,
+				      workspace input,
+				      int device, 
+				      double lambda, 
+				      imageType minValue){
+
+  //decide if the incoming data fills the memory on device too much
+  //we have:
+  // - 2 image stacks per view
+  // - 2 image-sized kernel stacks per view
+  // - 1 psi
+
+  long long device_gmem_byte = getMemDeviceCUDA(device);
+  long long required = ((input.num_views)*4 + 1)*sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
+    
+  //cufft is memory hungry, that is why we only push all stacks to device mem if the total budget does not exceed 1/3 device mem
+  bool all_on_device = required < device_gmem_byte/3L;
+
+  if(all_on_device)
+    inplace_gpu_deconvolve_iteration_all_on_device(psi,input,device,lambda,minValue);
+  else
+    inplace_gpu_deconvolve_iteration_interleaved(psi,input,device,lambda,minValue);
   
 }
 

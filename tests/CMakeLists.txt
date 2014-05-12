@@ -7,7 +7,7 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 ENDIF()
 
-SET(CMAKE_BUILD_TYPE Debug)
+
 
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_multi_array_fixture boost_system boost_filesystem boost_unit_test_framework)
@@ -17,7 +17,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 FIND_PACKAGE(FFTW)
 IF(FFTW_FOUND)
-SET(FFTW_LIBS_TO_USE fftw3f_threads fftw3f fftw3_threads fftw3)
+SET(FFTW_LIBS_TO_USE fftw3f_threads fftw3f fftw3_threads fftw3 m)
 ENDIF()
 
 find_package(OpenMP)
@@ -26,7 +26,7 @@ if (OPENMP_FOUND)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
-  SET(FFTW_LIBS_TO_USE fftw3f_omp fftw3f fftw3_omp fftw3)
+  SET(FFTW_LIBS_TO_USE fftw3f_omp fftw3f fftw3_omp fftw3 m)
 endif()
 endif(OPENMP_FOUND)
 
@@ -76,12 +76,14 @@ target_link_libraries(test_reference_data_fixture boost_system boost_filesystem 
 add_executable(test_cpu_deconvolve test_cpu_deconvolve.cpp)
 target_link_libraries(test_cpu_deconvolve boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
 
+add_executable(test_cpu_asymm_convolve_from_tiffs test_cpu_asymm_convolve_from_tiffs.cpp)
+target_link_libraries(test_cpu_asymm_convolve_from_tiffs boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} tiff ${PROJECT_NAME})
+
+SET(CMAKE_BUILD_TYPE Release)
+
 add_executable(bench_cpu_deconvolve bench_cpu_deconvolve.cpp)
 target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_unit_test_framework tiff ${PROJECT_NAME})
 
-
-add_executable(test_cpu_asymm_convolve_from_tiffs test_cpu_asymm_convolve_from_tiffs.cpp)
-target_link_libraries(test_cpu_asymm_convolve_from_tiffs boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} tiff ${PROJECT_NAME})
 
 ELSE(TIFF_FOUND)
 WARNING("Skipping tests based on reference images, libtiff not found\!")

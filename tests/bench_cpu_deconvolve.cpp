@@ -33,23 +33,35 @@ BOOST_AUTO_TEST_CASE( deconvolve_all_cpus )
   input.data_ = 0;
   fill_workspace(local_ref, input);
   image_stack input_psi = *local_guesses.psi(0);
-
+  cpu_times durations[10];
+  float l2norms[10];
+  float sums_received[10];
+  float sums_expected[10];
   //test
-  cpu_timer timer;
-  for(int i = 0;i < 10;++i){
-    inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency(), local_guesses.lambda_, local_guesses.minValue_);
-  }
-  cpu_times duration = timer.elapsed();
-
-  float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(9)->data(),local_guesses.psi(9)->data() + local_guesses.psi(9)->num_elements(),0.f);
-
-  BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
-
-  //check norms
-  float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(9)->data(), input_psi.num_elements());
   
-  std::cout << boost::thread::hardware_concurrency() << " threads: l2norm " << l2norm << ", rel difference of sums: " << std::fabs(sum_received-sum_expected)*100./sum_expected << " %\n";
+  for(int i = 0;i < 10;++i){
+    std::cout << i << "/" << 10 << " on "<< boost::thread::hardware_concurrency() << " threads\n";
+    cpu_timer timer;
+    inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency(), local_guesses.lambda_, local_guesses.minValue_);
+    durations[i] = timer.elapsed();
+    l2norms[i] = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1+i)->data(), input_psi.num_elements());
+    sums_received[i] = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
+    sums_expected[i] = std::accumulate(local_guesses.psi(1+i)->data(),local_guesses.psi(1+i)->data() + local_guesses.psi(1+i)->num_elements(),0.f);
+    std::cout << boost::thread::hardware_concurrency() << " threads: l2norm " << l2norms[i] << ", rel difference of sums: " << std::fabs(sums_received[i]-sums_expected[i])*100./sums_expected[i] << " % ("<< double(durations[i].system + durations[i].user)/1e6 <<" ms )\n";
+  }
+  
+
+  BOOST_REQUIRE_CLOSE(sums_expected[9], sums_received[9], 0.001);
+  //check norms
+  
+  double time_ms = 0.f;
+
+  for(int i = 0;i<10;++i){
+    time_ms += double(durations[i].system + durations[i].user)/1e6;
+  }
+  double mega_pixels_per_sec = input_psi.num_elements()/(time_ms);
+  
+  std::cout << boost::thread::hardware_concurrency() << " threads: total time " << time_ms << " ms, throughput " << mega_pixels_per_sec << " Mpixel/s\n";
   //tear-down
   delete [] input.data_;
 }
