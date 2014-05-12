@@ -20,9 +20,9 @@
 #include "padd_utils.h"
 #include "image_stack_utils.h"
 
-typedef multiviewnative::zero_padd<multiviewnative::image_stack> padding;
+typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_padding;
 typedef multiviewnative::inplace_3d_transform_on_device<imageType> device_transform;
-typedef multiviewnative::gpu_convolve<padding,imageType,unsigned> device_convolve;
+typedef multiviewnative::gpu_convolve<wrap_around_padding,imageType,unsigned> device_convolve;
 
 void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
 
@@ -30,11 +30,13 @@ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* ker
   
   unsigned image_dim[3];
   unsigned kernel_dim[3];
-
   std::copy(imDim, imDim + 3, &image_dim[0]);
   std::copy(kernelDim, kernelDim + 3, &kernel_dim[0]);
   
   device_convolve convolver(im, image_dim, kernel, kernel_dim);
+
+  if(device < 0)
+    device = selectDeviceWithHighestComputeCapability();
 
   convolver.set_device(device);
 
@@ -44,93 +46,133 @@ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* ker
 
 void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 				      workspace input,
-				      int device, 
-				      double lambda, 
-				      imageType minValue){
-  assert(false && "inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
+				      int device){
+  
+  throw std::runtime_error("inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
+
+  HANDLE_ERROR( cudaSetDevice( device ) );
+
+  std::vector<multiviewnative::wrap_around_padding> padding(input.num_views_);
+
+  //this needs to be delete later!
+  std::vector<multiviewnative::image_stack*> padded_views  (input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_kernel1(input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_kernel2(input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_weights(input.num_views_);
+  std::vector<size_t> device_memory_elements_required(input.num_views_);
+
+  std::vector<unsigned> image_dim(3);
+  std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
+  std::vector<unsigned> kernel_dim(3);
+  std::vector<unsigned> cufft_inplace_extents(this->extents_.size());  
+
+  
+  for(int v = 0;v<input.num_views_;++v){
+
+    padding[v] = multiviewnative::wrap_around_padding(input.data_[v].image_dims_, input.data_[v].kernel1_dims_);
+    std::copy(input.data_[0].kernel1_dims_, input.data_[0].kernel1_dims_ + 3, &kernel_dim[0]);
+
+    
+    padded_view   [v] = new multiviewnative::image_stack( image_dim );
+    padded_weights[v] = new multiviewnative::image_stack( image_dim );
+    padded_kernel1[v] = new multiviewnative::image_stack( kernel_dim );
+    padded_kernel2[v] = new multiviewnative::image_stack( kernel_dim );
+    
+    multiviewnative::image_stack_ref view(input.data_[v].image_, image_dim);
+    multiviewnative::image_stack_ref weights(input.data_[v].weights_, image_dim);
+    multiviewnative::image_stack_ref kernel1(input.data_[v].kernel1_, kernel_dim);
+    multiviewnative::image_stack_ref kernel2(input.data_[v].kernel2_, kernel_dim);
+
+    padding[v].insert_at_offsets(view, *padded_view[v]);
+    padding[v].insert_at_offsets(weights, *padded_weights[v]);
+
+    padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
+    padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
+
+    adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
+    device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_type>());
+
+  }
+
+  
+    
+  multiviewnative::image_stack_ref input_psi(psi, image_dim);
+  multiviewnative::image_stack padded_input(padding[0].extents_);
+  padding[0].insert_at_offsets(input_psi, padded_input);
+  multiviewnative::asynch_stack_on_device padded_input_on_device(padded_input , padded_views[0].size_in_byte_/sizeof(imageType));
+
+  multiviewnative::device_memory_ports<imageType,6> device_memory;
+  device_memory.setup_all(device_memory_elements_required[0]);
+  device_memory.onto_device<multiviewnative::psi>(padded_input.data());
+
+  for(int iteration = 0; iteration < input.num_iterations_;++iteration){
+
+    int v = 0;
+    device_memory.onto_device<  multiviewnative::kernel1  >(  padded_kernel1[v].data()  );
+    device_memory.onto_device<  multiviewnative::kernel2  >(  padded_kernel2[v].data()  );
+    device_memory.onto_device<  multiviewnative::weights  >(  padded_weights[v].data()  );
+    device_memory.onto_device<  multiviewnative::view     >(  padded_view[v].data()     );
+
+    for(;v<input.num_views_;++v){
+      inplace_convolve_on_device<device_transform>(device_memory.at<multiviewnative::psi>(), 
+						   device_memory.at<multiviewnative::kernel1>(), 
+						   &padding[v].extents_[0],
+						   ,
+						   device_memory.streams_of<multiviewnative::psi,multiviewnative::kernel1>(device_memory_elements_required[v]));
+
+      computeQuotient
+
+    }
+
+  }
+
+  //clean-up
+  for(int v = 0;v<input.num_views_;++v){
+
+    delete padded_views  [v];
+    delete padded_kernel1[v];
+    delete padded_kernel2[v];
+    delete padded_weights[v];
+
+  }
+  
+  
 }
 
 
 void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 				      workspace input,
-				      int device, 
-				      double lambda, 
-				      imageType minValue){
+				      int device){
   
-  assert(false && "inplace_gpu_deconvolve_iteration_all_on_device not implemented yet");
+  throw std::runtime_error("inplace_gpu_deconvolve_iteration_all_on_device not implemented yet");
 
-  //   std::vector<unsigned> image_dim(3);
-  // std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
 
-  // multiviewnative::image_stack_ref input_psi(psi, image_dim);
-  // multiviewnative::image_stack integral = input_psi;
-
-  // view_data view_access;
-  // std::vector<unsigned> kernel1_dim(3);
-  // std::vector<unsigned> kernel2_dim(3);
-
-  // parallel_transform::set_n_threads(nthreads);
-
-  // for(unsigned view = 0;view < input.num_views;++view){
-
-  //   view_access = input.data_[view];
-
-  //   std::copy(view_access.image_dims_    ,  view_access.image_dims_    +  3  ,  image_dim  .begin()  );
-  //   std::copy(view_access.kernel1_dims_  ,  view_access.kernel1_dims_  +  3  ,  kernel1_dim.begin()  );
-  //   std::copy(view_access.kernel2_dims_  ,  view_access.kernel2_dims_  +  3  ,  kernel2_dim.begin()  );
-
-  //   integral = input_psi;
-  //   //convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
-  //   default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
-  //   convolver1.inplace<parallel_transform>();
-    
-  //   //view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
-  //   parallel_divide(view_access.image_,integral.data(),input_psi.num_elements(), nthreads);
-
-  //   //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
-  //   default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
-  //   convolver2.inplace<parallel_transform>();
-
-  //   //computeFinalValues(input_psi,integral,weights)
-  //   //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
-  //   //compiler opt & branch prediction seems to suggest this solution
-  //   if(lambda>0) 
-  //     parallel_final_values(input_psi.data(), integral.data(), view_access.weights_, 
-  // 			    input_psi.num_elements(),
-  // 			    nthreads,
-  // 			    minValue);
-  //   else
-  //     parallel_regularized_final_values(input_psi.data(), integral.data(), view_access.weights_, 
-  // 					input_psi.num_elements(),
-  // 					lambda,
-  // 					nthreads,
-  // 					minValue );
-  // }
 }
 
 
-void inplace_gpu_deconvolve_iteration(imageType* psi,
-				      workspace input,
-				      int device, 
-				      double lambda, 
-				      imageType minValue){
+void inplace_gpu_deconvolve(imageType* psi,
+			    workspace input,
+			    int device){
+
+  if(device < 0)
+    device = selectDeviceWithHighestComputeCapability();
 
   //decide if the incoming data fills the memory on device too much
   //we have:
   // - 2 image stacks per view
   // - 2 image-sized kernel stacks per view
   // - 1 psi
-
   long long device_gmem_byte = getMemDeviceCUDA(device);
   long long required = ((input.num_views)*4 + 1)*sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
-    
+  
+
   //cufft is memory hungry, that is why we only push all stacks to device mem if the total budget does not exceed 1/3 device mem
   bool all_on_device = required < device_gmem_byte/3L;
 
   if(all_on_device)
-    inplace_gpu_deconvolve_iteration_all_on_device(psi,input,device,lambda,minValue);
+    inplace_gpu_deconvolve_iteration_all_on_device(psi,input,device);
   else
-    inplace_gpu_deconvolve_iteration_interleaved(psi,input,device,lambda,minValue);
+    inplace_gpu_deconvolve_iteration_interleaved(psi,input,device);
   
 }
 

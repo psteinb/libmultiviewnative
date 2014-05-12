@@ -31,18 +31,20 @@ BOOST_AUTO_TEST_CASE( deconvolve_all_cpus )
   all_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input);
+  fill_workspace(local_ref, input, local_guesses.lambda_, local_guesses.minValue_);
+  input.num_iterations_ = 9;
+
   image_stack input_psi = *local_guesses.psi(0);
-  cpu_times durations[10];
-  float l2norms[10];
-  float sums_received[10];
-  float sums_expected[10];
+  cpu_times durations[input.num_iterations_];
+  float l2norms[input.num_iterations_];
+  float sums_received[input.num_iterations_];
+  float sums_expected[input.num_iterations_];
   //test
   
-  for(int i = 0;i < 10;++i){
-    std::cout << i << "/" << 10 << " on "<< boost::thread::hardware_concurrency() << " threads\n";
+  for(int i = 0;i < input.num_iterations_;++i){
+    std::cout << i << "/" << input.num_iterations_ << " on "<< boost::thread::hardware_concurrency() << " threads\n";
     cpu_timer timer;
-    inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency(), local_guesses.lambda_, local_guesses.minValue_);
+    inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency());
     durations[i] = timer.elapsed();
     l2norms[i] = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1+i)->data(), input_psi.num_elements());
     sums_received[i] = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
@@ -56,7 +58,7 @@ BOOST_AUTO_TEST_CASE( deconvolve_all_cpus )
   
   double time_ms = 0.f;
 
-  for(int i = 0;i<10;++i){
+  for(int i = 0;i<input.num_iterations_;++i){
     time_ms += double(durations[i].system + durations[i].user)/1e6;
   }
   double mega_pixels_per_sec = input_psi.num_elements()/(time_ms);

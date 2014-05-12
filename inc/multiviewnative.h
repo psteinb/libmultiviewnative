@@ -10,7 +10,7 @@ typedef float imageType;
 #define FUNCTION_PREFIX extern "C"
 #endif
 
-//helper structs because Java clients are using JNA
+//helper structs because Java clients are using JNA and we want to keep the API function signatures short
 struct view_data {
 
   imageType  *  image_    ;
@@ -28,8 +28,11 @@ struct view_data {
 
 struct workspace {
 
-  view_data  *      data_      ;
-  unsigned   short  num_views  ;
+  view_data  *      data_      		;
+  unsigned   short  num_views_ 		;
+  double	    lambda_    		;
+  float 	    minValue_  		;
+  int		    num_iterations_	;
 
 };
 
@@ -41,17 +44,17 @@ FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,
 
 FUNCTION_PREFIX void inplace_cpu_deconvolve_iteration(imageType* psi,
 						      workspace input,
-						      int nthreads, 
-						      double lambda, 
-						      imageType minValue);
+						      int nthreads);
+
+FUNCTION_PREFIX void inplace_cpu_deconvolve(imageType* psi,
+					    workspace input,
+					    int nthreads);
 
 // GPU convolution
 FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
-FUNCTION_PREFIX void inplace_gpu_deconvolve_iteration(imageType* psi,
-						      workspace input,
-						      int device, 
-						      double lambda, 
-						      imageType minValue);
+FUNCTION_PREFIX void inplace_gpu_deconvolve(imageType* psi,
+					    workspace input,					    
+					    int device);
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

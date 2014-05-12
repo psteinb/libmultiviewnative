@@ -33,7 +33,7 @@ namespace multiviewnative {
   }
   
 
-  void fill_workspace(const ReferenceData& _ref, workspace& _space){
+  void fill_workspace(const ReferenceData& _ref, workspace& _space, const double& _lambda, const float& _minValue){
     _space.num_views = _ref.views_.size();
 
     if(_space.data_ != 0)
@@ -44,6 +44,9 @@ namespace multiviewnative {
     for(unsigned num = 0;num<_space.num_views;++num){
       fill(_ref.views_[num], _space.data_[num]);
     }
+
+    _space.lambda_ = _lambda;
+    _space.minValue_ = _minValue;
 
   }
 

@@ -200,12 +200,26 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 
 void inplace_cpu_deconvolve_iteration(imageType* psi,
 				      workspace input,
-				      int nthreads, 
-				      double lambda, 
-				      imageType minValue){
+				      int nthreads){
 
   if(nthreads == 1)
-    serial_inplace_cpu_deconvolve_iteration(psi,input,lambda,minValue);
+    serial_inplace_cpu_deconvolve_iteration(psi,input,input.lambda_,input.minValue_);
   else
-    parallel_inplace_cpu_deconvolve_iteration(psi,input,nthreads,lambda,minValue);
+    parallel_inplace_cpu_deconvolve_iteration(psi,input,nthreads,input.lambda_,input.minValue_);
+}
+
+void inplace_cpu_deconvolve(imageType* psi,
+			    workspace input,
+			    int nthreads){
+
+
+  if(nthreads == 1)
+    for(int it = 0;it<input.num_iterations_;++it){
+      serial_inplace_cpu_deconvolve_iteration(psi,input,input.lambda_,input.minValue_);
+    }
+  else
+    for(int it = 0;it<input.num_iterations_;++it){
+      parallel_inplace_cpu_deconvolve_iteration(psi,input,nthreads,input.lambda_,input.minValue_);
+    }
+
 }

@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE( printf )
   workspace input;
   input.data_ = 0;
   fill_workspace(local_ref, input);
-
+  
   image_stack input_psi = *local_guesses.psi(0);
 
   //convolve
@@ -145,12 +145,11 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_1iteration )
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input);
-
+  fill_workspace(local_ref, input,local_guesses.lambda_,local_guesses.minValue_);
   image_stack input_psi = *local_guesses.psi(0);
 
   //test
-  inplace_cpu_deconvolve_iteration(input_psi.data(), input, 1, local_guesses.lambda_, local_guesses.minValue_);
+  inplace_cpu_deconvolve_iteration(input_psi.data(), input, 1);
   float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
   float sum_expected = std::accumulate(local_guesses.psi(1)->data(),local_guesses.psi(1)->data() + local_guesses.psi(1)->num_elements(),0.f);
 
@@ -180,12 +179,12 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_2iterations )
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input);
+  fill_workspace(local_ref, input,local_guesses.lambda_,local_guesses.minValue_);
   image_stack input_psi = *local_guesses.psi(0);
 
   //test
-  inplace_cpu_deconvolve_iteration(input_psi.data(), input, 1, local_guesses.lambda_, local_guesses.minValue_);
-  inplace_cpu_deconvolve_iteration(input_psi.data(), input, 1, local_guesses.lambda_, local_guesses.minValue_);
+  inplace_cpu_deconvolve_iteration(input_psi.data(), input, 1);
+  inplace_cpu_deconvolve_iteration(input_psi.data(), input, 1);
 
   float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
   float sum_expected = std::accumulate(local_guesses.psi(2)->data(),local_guesses.psi(2)->data() + local_guesses.psi(2)->num_elements(),0.f);
@@ -213,12 +212,12 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_4iterations_2threads )
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input);
+  fill_workspace(local_ref, input, local_guesses.lambda_, local_guesses.minValue_);
   image_stack input_psi = *local_guesses.psi(0);
 
   //test
   for(int i = 0;i < 4;++i){
-    inplace_cpu_deconvolve_iteration(input_psi.data(), input, 2, local_guesses.lambda_, local_guesses.minValue_);
+    inplace_cpu_deconvolve_iteration(input_psi.data(), input, 2);
     std::cout << i << "/4 l2norm = " <<  multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1+i)->data(), input_psi.num_elements()) << "\n";
   }
   

@@ -2,10 +2,11 @@
 #define _CUDA_MEMORY_H_
 
 #include "cuda_helpers.cuh"
+#include "boost/static_assert.hpp"
 
 namespace multiviewnative {
 
-  template <typename ImageStackT> 
+  template <typename ValueT> 
   struct synch {
 
     typedef typename ImageStackT::element value_type;
@@ -113,6 +114,124 @@ namespace multiviewnative {
     
     ~stack_on_device(){
       this->clear();
+    }
+  };
+
+  enum      port_id  {
+    psi       =        0,
+    view      =        1,
+    kernel1   =        2,
+    kernel2   =        3,
+    weights   =        4,
+    integral  =        5
+  };
+
+
+
+  template<typename ValueT, unsigned num_items = 4>
+  struct device_memory_ports {
+    
+    typedef ValueT value_type;
+
+    std::vector< value_type* > device_ptr_;
+    std::vector< size_t > device_size_in_byte_;
+    std::vector< cudaStream_t > device_streams_;
+
+    device_memory_ports():
+      device_ptr_(num_items),
+      device_size_in_byte_(num_items),
+      device_streams_(num_items){
+      
+      for (int i = 0; i < num_items; ++i){
+	device_ptr_[i] = 0;
+	device_size_in_byte_[i] = 0;
+      	HANDLE_ERROR(cudaStreamCreate(&device_streams[i]));
+      }
+      
+    }
+
+    template<typename AsynchImageStackT>
+    device_memory_ports(AsynchImageStackT* _stack_array):
+      device_ptr_(num_items),
+      device_size_in_byte_(num_items),
+      device_streams_(num_items){
+      
+      for (int i = 0; i < num_items; ++i){
+      	HANDLE_ERROR(cudaStreamCreate(&device_streams[i]));
+	device_ptr_[i] = _stack_array[i].device_stack_ptr_;
+	device_size_in_byte_[i] = _stack_array[i].size_in_byte_;
+      }
+      
+    }
+
+    ~device_memory_ports(){
+      for (int i = 0; i < num_items; ++i){
+	HANDLE_ERROR(cudaStreamDestroy(device_streams[i]));
+	if(device_ptr_[num])
+	  HANDLE_ERROR( cudaFree( device_ptr_[num] ) );
+      }
+    }
+
+    template<unsigned num>
+    void setup(const size_t& _size_on_dev ){
+      boost::static_assert(num < num_items, "device_memory_ports::setup \t trying to setup memory region that is not under control");
+      device_size_in_byte_[num] = _size_on_dev;
+      HANDLE_ERROR( cudaMalloc( (void**)&(device_ptr_[num]), device_size_in_byte_[num] ) );
+
+    }
+
+    
+    void setup_all(const size_t& _size_on_dev ){
+      
+      for (int i = 0; i < num_items; ++i){
+	device_size_in_byte_[num] = _size_on_dev;
+	if(device_ptr_[num])
+	  HANDLE_ERROR( cudaFree( device_ptr_[num] ) );
+	HANDLE_ERROR( cudaMalloc( (void**)&(device_ptr_[num]), device_size_in_byte_[num] ) );
+      }
+
+    }
+
+    template<unsigned num>
+    void onto_device(value_type* _host_ptr){
+      boost::static_assert(num < num_items, "device_memory_ports::onto_device(value_type*) \t trying to setup memory region that is not under control");
+      if(device_ptr_[num])
+	HANDLE_ERROR( cudaMemcpyAsync(device_ptr_[num] , 
+				      _host_ptr, 
+				      device_size_in_byte_[num]  , 
+				      cudaMemcpyHostToDevice, 
+				      device_streams[num] ) );
+      else
+	std::cerr << "device_memory_ports::onto_device(value_type*)\t device pointer " << num << " unitialized (nothing to transfer)\n" ;
+    }
+
+    template<unsigned num, typename ImageStackT>
+    void onto_device(const ImageStackT* _stack){
+      boost::static_assert(num < num_items, "device_memory_ports::onto_device(const ImageStackT*) \t trying to setup memory region that is not under control");
+      if(device_ptr_[num])
+	HANDLE_ERROR( cudaMemcpyAsync(device_ptr_[num] , 
+				      _stack->data(), 
+				      device_size_in_byte_[num]  , 
+				      cudaMemcpyHostToDevice, 
+				      device_streams[num] ) );
+      else
+	std::cerr << "device_memory_ports::onto_device(const ImageStackT*)\t device pointer " << num << " unitialized (nothing to transfer)\n" ;
+    }
+
+    template<unsigned first, unsigned second>
+    std::vector<cudaStream_t*> streams_of(){
+      boost::static_assert(first < num_items && second && num_items, "device_memory_ports::streams_of(const ImageStackT*) \t trying to setup memory region that is not under control");
+      std::vector<cudaStream_t*> temp(2);
+      temp[0] = &device_streams[first];
+      temp[1] = &device_streams[second];
+      
+      return temp;
+    }
+
+    template<unsigned num>
+    value_type* at(){
+      boost::static_assert(num < num_items, "device_memory_ports::at() \t trying to access device pointer that does not exist");
+      return device_ptr_[num];
     }
   };
 
