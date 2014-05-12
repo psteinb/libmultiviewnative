@@ -66,15 +66,18 @@ namespace multiviewnative {
     };
 
     template <typename TransformT>
-    void inplace_on_device(value_type* _image_on_device, value_type* _kernel_on_device, const unsigned& _fft_num_elements){
+    void inplace_on_device(value_type* _image_on_device, 
+			   value_type* _kernel_on_device, 
+			   size_type*   _extents,
+			   const unsigned& _fft_num_elements){
             
 
-      TransformT image_transform(_image_on_device, &(this->extents_[0]));
-      TransformT kernel_transform(_kernel_on_device, &(this->extents_[0]));
+      TransformT image_transform(_image_on_device, _extents);
+      TransformT kernel_transform(_kernel_on_device, _extents);
       image_transform.forward(&streams_[0]);
       kernel_transform.forward(&streams_[1]);
 
-      size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());      
+      size_type transform_size = std::accumulate(_extents,_extents + 3,1,std::multiplies<size_type>());      
       unsigned eff_fft_num_elements = _fft_num_elements/2;
 
       value_type scale = 1.0 / (transform_size);
@@ -113,6 +116,7 @@ namespace multiviewnative {
 
        this->inplace_on_device<TransformT>(image_on_device.device_stack_ptr_,
 					   kernel_on_device.device_stack_ptr_,
+					   &this->extents_[0],
 					   device_memory_elements_required );
        
        image_on_device.pull_from_device(&streams_[0]);

@@ -97,17 +97,14 @@ public:
   }
 
   void forward(){
-
-    fftw_plan_with_nthreads(nthreads_);
+    
     inplace_3d_transform<ImageStackT>::forward();
 
   };
 
   void backward(){
     
-    fftw_plan_with_nthreads(nthreads_);
     inplace_3d_transform<ImageStackT>::backward();
-
 
   };
 
@@ -122,6 +119,7 @@ public:
       if(!success){
 	std::cerr << "parallel_inplace_3d_transform::set_n_threads\tunable to initialize threads of fftw3\n";
       }
+      fftw_plan_with_nthreads(nthreads_);
     }
          
   }
