@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE( workspace_data_nonzero )
 
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input);
+  fill_workspace(local_ref, input, 0.006, 0.0001f);
 
   BOOST_CHECK_MESSAGE(input.data_, "input data was not created");
 

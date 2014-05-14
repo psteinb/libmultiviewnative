@@ -99,17 +99,17 @@ public:
       for(int y_index = 0;y_index<int(asymm_cross_kernel_.shape()[1]);++y_index){
     	for(int x_index = 0;x_index<int(asymm_cross_kernel_.shape()[0]);++x_index){
 	  
-	  if(z_index == asymm_cross_kernel_.shape()[2]/2 && y_index == asymm_cross_kernel_.shape()[1]/2){
+	  if(z_index == (int)asymm_cross_kernel_.shape()[2]/2 && y_index == (int)asymm_cross_kernel_.shape()[1]/2){
 	    asymm_cross_kernel_[x_index][y_index][z_index] = x_index + 1;
 	    asymm_one_kernel_[x_index][y_index][z_index] = 1;
 	  }
 	  
-	  if(x_index == asymm_cross_kernel_.shape()[0]/2 && y_index == asymm_cross_kernel_.shape()[1]/2){
+	  if(x_index == (int)asymm_cross_kernel_.shape()[0]/2 && y_index == (int)asymm_cross_kernel_.shape()[1]/2){
 	    asymm_cross_kernel_[x_index][y_index][z_index] = z_index + 101;
 	    asymm_one_kernel_[x_index][y_index][z_index] = 1;
 	  }
 	  
-	  if(x_index == asymm_cross_kernel_.shape()[0]/2 && z_index == asymm_cross_kernel_.shape()[2]/2){
+	  if(x_index == (int)asymm_cross_kernel_.shape()[0]/2 && z_index == (int)asymm_cross_kernel_.shape()[2]/2){
 	    asymm_cross_kernel_[x_index][y_index][z_index] = y_index + 11;
 	    asymm_one_kernel_[x_index][y_index][z_index] = 1;
 	  }

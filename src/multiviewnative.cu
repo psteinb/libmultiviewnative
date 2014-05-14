@@ -48,14 +48,14 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 				      workspace input,
 				      int device){
   
-  throw std::runtime_error("inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
+  // throw std::runtime_error("inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
 
   HANDLE_ERROR( cudaSetDevice( device ) );
 
-  std::vector<multiviewnative::wrap_around_padding> padding(input.num_views_);
+  std::vector<wrap_around_padding> padding(input.num_views_);
 
   //this needs to be delete later!
-  std::vector<multiviewnative::image_stack*> padded_views  (input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_view   (input.num_views_);
   std::vector<multiviewnative::image_stack*> padded_kernel1(input.num_views_);
   std::vector<multiviewnative::image_stack*> padded_kernel2(input.num_views_);
   std::vector<multiviewnative::image_stack*> padded_weights(input.num_views_);
@@ -63,16 +63,15 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
   std::vector<unsigned> image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
-  std::vector<unsigned> kernel_dim(3);
-  std::vector<unsigned> cufft_inplace_extents(this->extents_.size());  
+  std::vector<unsigned> kernel_dim(image_dim.size());
+  std::vector<unsigned> cufft_inplace_extents(kernel_dim.size());  
 
   
   for(int v = 0;v<input.num_views_;++v){
 
-    padding[v] = multiviewnative::wrap_around_padding(input.data_[v].image_dims_, input.data_[v].kernel1_dims_);
+    padding[v] = wrap_around_padding(input.data_[v].image_dims_, input.data_[v].kernel1_dims_);
     std::copy(input.data_[0].kernel1_dims_, input.data_[0].kernel1_dims_ + 3, &kernel_dim[0]);
 
-    
     padded_view   [v] = new multiviewnative::image_stack( image_dim );
     padded_weights[v] = new multiviewnative::image_stack( image_dim );
     padded_kernel1[v] = new multiviewnative::image_stack( kernel_dim );
@@ -85,51 +84,110 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
     padding[v].insert_at_offsets(view, *padded_view[v]);
     padding[v].insert_at_offsets(weights, *padded_weights[v]);
-
     padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
     padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
 
-    adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
-    device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_type>());
+    multiviewnative::adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
+    device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_t>());
+
+    HANDLE_ERROR( cudaHostRegister(padded_view[v]->data()   , sizeof(imageType)*padded_view[v]->num_elements() , cudaHostRegisterPortable) );
+    HANDLE_ERROR( cudaHostRegister(padded_weights[v]->data(), sizeof(imageType)*padded_weights[v]->num_elements() , cudaHostRegisterPortable) );
+    HANDLE_ERROR( cudaHostRegister(padded_kernel1[v]->data(), sizeof(imageType)*padded_kernel1[v]->num_elements() , cudaHostRegisterPortable) );
+    HANDLE_ERROR( cudaHostRegister(padded_kernel2[v]->data(), sizeof(imageType)*padded_kernel2[v]->num_elements() , cudaHostRegisterPortable) );
 
   }
 
   
     
   multiviewnative::image_stack_ref input_psi(psi, image_dim);
-  multiviewnative::image_stack padded_input(padding[0].extents_);
-  padding[0].insert_at_offsets(input_psi, padded_input);
-  multiviewnative::asynch_stack_on_device padded_input_on_device(padded_input , padded_views[0].size_in_byte_/sizeof(imageType));
+  multiviewnative::image_stack padded_psi(padding[0].extents_);
+  wrap_around_padding input_psi_padder =   padding[0];
+  input_psi_padder.insert_at_offsets(input_psi, padded_psi);
 
   multiviewnative::device_memory_ports<imageType,6> device_memory;
-  device_memory.setup_all(device_memory_elements_required[0]);
-  device_memory.onto_device<multiviewnative::psi>(padded_input.data());
+  unsigned long max_device_memory_elements_required = *std::max_element(device_memory_elements_required.begin(), device_memory_elements_required.end());
+  device_memory.create_all_ports(max_device_memory_elements_required);
+  device_memory.add_stream_for<multiviewnative::kernel1>();
+  device_memory.add_stream_for<multiviewnative::kernel2>();
+  device_memory.add_stream_for<multiviewnative::weights>();
+  device_memory.add_stream_for<multiviewnative::view   >();
+
+  unsigned long imageType_in_byte = sizeof(imageType);
+  device_memory.send<multiviewnative::psi>(padded_psi.data(), padded_psi.num_elements()*imageType_in_byte);
+
+  std::vector<cudaStream_t*> streams_convolve1(2);
+  std::vector<cudaStream_t*> streams_convolve2(2);
+  device_memory.streams_of_two<multiviewnative::integral,multiviewnative::kernel1>(streams_convolve1);
+  device_memory.streams_of_two<multiviewnative::integral,multiviewnative::kernel2>(streams_convolve2);
+  
+  dim3 threads(128);
+  dim3 blocks(largestDivisor(padded_view[0]->num_elements(), size_t(threads.x)));
 
   for(int iteration = 0; iteration < input.num_iterations_;++iteration){
 
-    int v = 0;
-    device_memory.onto_device<  multiviewnative::kernel1  >(  padded_kernel1[v].data()  );
-    device_memory.onto_device<  multiviewnative::kernel2  >(  padded_kernel2[v].data()  );
-    device_memory.onto_device<  multiviewnative::weights  >(  padded_weights[v].data()  );
-    device_memory.onto_device<  multiviewnative::view     >(  padded_view[v].data()     );
+    for(int v = 0;v<input.num_views_;++v){
 
-    for(;v<input.num_views_;++v){
-      inplace_convolve_on_device<device_transform>(device_memory.at<multiviewnative::psi>(), 
-						   device_memory.at<multiviewnative::kernel1>(), 
-						   &padding[v].extents_[0],
-						   ,
-						   device_memory.streams_of<multiviewnative::psi,multiviewnative::kernel1>(device_memory_elements_required[v]));
+      device_memory.send<  multiviewnative::kernel1  >(  padded_kernel1[0]->data() , padded_kernel1[0]->num_elements()*imageType_in_byte );
+      device_memory.send<  multiviewnative::kernel2  >(  padded_kernel2[0]->data() , padded_kernel2[0]->num_elements()*imageType_in_byte );
+      device_memory.send<  multiviewnative::weights  >(  padded_weights[0]->data() , padded_weights[0]->num_elements()*imageType_in_byte );
+      device_memory.send<  multiviewnative::view     >(  padded_view[0]->data()    , padded_view[0]   ->num_elements()*imageType_in_byte    );
 
-      computeQuotient
+      device_memory.sync<multiviewnative::psi,multiviewnative::integral>();
 
+      multiviewnative::inplace_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
+								    device_memory.at<multiviewnative::kernel1>(), 
+								    &padding[v].extents_[0],
+								    device_memory_elements_required[v],
+								    streams_convolve1);
+
+      device_divide<<<blocks,threads, 0, *device_memory.stream<multiviewnative::view>()>>>(device_memory.at<multiviewnative::view>(), 
+											   device_memory.at<multiviewnative::integral>(),
+											  padded_view[v]->num_elements() );
+
+      multiviewnative::inplace_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
+								    device_memory.at<multiviewnative::kernel2>(), 
+								    &padding[v].extents_[0],
+								    device_memory_elements_required[v],
+								    streams_convolve2);
+
+      if(input.lambda_>0)
+	device_regularized_final_values<<< blocks,
+	  threads, 
+	  0, 
+	  *device_memory.stream<multiviewnative::weights>() >>>(device_memory.at<multiviewnative::psi>(),
+							       device_memory.at<multiviewnative::integral>(),
+							       device_memory.at<multiviewnative::weights>(),
+							       input.lambda_,
+							       input.minValue_,
+							       padded_view[v]->num_elements()
+							       );
+      else
+	device_final_values<<< blocks,
+	  threads, 
+	  0, 
+	  *device_memory.stream<multiviewnative::weights>() >>>(device_memory.at<multiviewnative::psi>(),
+							       device_memory.at<multiviewnative::integral>(),
+							       device_memory.at<multiviewnative::weights>(),
+							       input.minValue_,
+							       padded_view[v]->num_elements()
+							       );
+            
     }
 
   }
 
+  device_memory.receive<multiviewnative::psi>(padded_psi.data(), padded_psi.num_elements()*imageType_in_byte);
+  input_psi = padded_psi[ boost::indices[multiviewnative::range(input_psi_padder.offsets_[0], input_psi_padder.offsets_[0]+input_psi.shape()[0])][multiviewnative::range(input_psi_padder.offsets_[1], input_psi_padder.offsets_[1]+input_psi.shape()[1])][multiviewnative::range(input_psi_padder.offsets_[2], input_psi_padder.offsets_[2]+input_psi.shape()[2])] ];
+
   //clean-up
   for(int v = 0;v<input.num_views_;++v){
 
-    delete padded_views  [v];
+    HANDLE_ERROR( cudaHostUnregister( padded_view[v]->data()    ));
+    HANDLE_ERROR( cudaHostUnregister( padded_weights[v]->data() ));
+    HANDLE_ERROR( cudaHostUnregister( padded_kernel1[v]->data() ));
+    HANDLE_ERROR( cudaHostUnregister( padded_kernel2[v]->data() ));
+
+    delete padded_view   [v];
     delete padded_kernel1[v];
     delete padded_kernel2[v];
     delete padded_weights[v];
@@ -163,7 +221,7 @@ void inplace_gpu_deconvolve(imageType* psi,
   // - 2 image-sized kernel stacks per view
   // - 1 psi
   long long device_gmem_byte = getMemDeviceCUDA(device);
-  long long required = ((input.num_views)*4 + 1)*sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
+  long long required = ((input.num_views_)*4 + 1)*sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
   
 
   //cufft is memory hungry, that is why we only push all stacks to device mem if the total budget does not exceed 1/3 device mem
@@ -413,9 +471,9 @@ void compute_final_values(imageType* _image,
 
 
   if(_lambda>0.)
-    device_finalValues_tikhonov<<<blocks,threads>>>(d_image, d_integral, d_weight, _minValue, (float)_lambda, _size);
+    device_regularized_final_values<<<blocks,threads>>>(d_image, d_integral, d_weight, _lambda, _minValue, _size);
   else
-    device_finalValues_plain<<<blocks,threads>>>(d_image, d_integral, d_weight, _minValue, _size);
+    device_final_values<<<blocks,threads>>>(d_image, d_integral, d_weight, _minValue, _size);
   
   HANDLE_ERROR(cudaMemcpy(_image , d_image , sizeInByte, cudaMemcpyDeviceToHost));
 
@@ -503,7 +561,7 @@ void iterate_fft_plain(imageType* _input,
 				      d_kernel_,_kernel_dims,
 				      gpu_device);
   //computeFinalValues(input,integral,weights)
-  device_finalValues_plain<<<blocks,threads,0,weights_stream>>>(d_initial_,d_image_,d_weights_,.0001f,inputSize);
+  device_final_values<<<blocks,threads,0,weights_stream>>>(d_initial_,d_image_,d_weights_,.0001f,inputSize);
   
   
   HANDLE_ERROR(cudaMemcpyAsync(_output , d_initial_ , inputInByte , cudaMemcpyDeviceToHost, weights_stream));

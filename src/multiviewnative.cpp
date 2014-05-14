@@ -102,7 +102,7 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
   std::vector<unsigned> kernel1_dim(3);
   std::vector<unsigned> kernel2_dim(3);
 
-  for(unsigned view = 0;view < input.num_views;++view){
+  for(unsigned view = 0;view < input.num_views_;++view){
 
     view_access = input.data_[view];
 
@@ -158,7 +158,7 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 
   parallel_transform::set_n_threads(nthreads);
 
-  for(unsigned view = 0;view < input.num_views;++view){
+  for(unsigned view = 0;view < input.num_views_;++view){
 
     view_access = input.data_[view];
 

@@ -12,83 +12,106 @@ template <typename TransferT>
 __global__ void device_divide(const TransferT * _input, TransferT * _output, unsigned int _size){
   
   const size_t pixel_x = size_t(blockIdx.x)*size_t(blockDim.x) + threadIdx.x;
-  const size_t pixel_y = size_t(blockIdx.y)*size_t(blockDim.y) + threadIdx.y;
-  const size_t pixel_index = pixel_y*size_t(gridDim.x)*size_t(blockDim.x) + pixel_x;
 
-  float temp_out = 0;
-  float temp_in = 0;
+  TransferT temp_out = 0;
+  TransferT temp_in = 0;
   
-  if(pixel_index<_size){
-    //to exploit instruction level parallelism
-    temp_out = _output[pixel_index];
-    temp_in = _input[pixel_index];
-    //floating point operation payload
-    _output[pixel_index] = temp_in/temp_out;
+  for(size_t i = pixel_x;i < _size;i += blockDim.x * gridDim.x){
+
+    temp_out = 1.f/_output[i];
+    temp_in = _input[i];
+
+    _output[i] = temp_in*temp_out;
   }
   
 }
-
-__global__ void device_divide_3D(cudaPitchedPtr _image , 
-				 cudaPitchedPtr _output,
-				 uint3 _image_dims){
-
-  const size_t image_size = _image_dims.x*_image_dims.y*_image_dims.z;
-
-  const unsigned int pixel_x = blockIdx.x*blockDim.x + threadIdx.x;
-  const unsigned int pixel_y = blockIdx.y*blockDim.y + threadIdx.y;
-  const unsigned int pixel_z = blockIdx.z*blockDim.z + threadIdx.z;
-  
-  const unsigned int pixel_index = pixel_z*(_image_dims.x*_image_dims.y) + pixel_y*(_image_dims.x) + pixel_x;
-  
-  char* input_devPtr = (char*)_image.ptr;
-  char* output_devPtr = (char*)_output.ptr;
-
-  float* input_row = (float*)(input_devPtr + pixel_z*(_image_dims.x*_image_dims.y) + pixel_y*(_image_dims.x));
-  float* output_row = (float*)(output_devPtr + pixel_z*(_image_dims.x*_image_dims.y) + pixel_y*(_image_dims.x));
-  
-  float input = 0;
-  float output = 0;
-
-  if(pixel_index<image_size){
-    input = input_row[pixel_x];
-    output = output_row[pixel_x];
-    output_row[pixel_x] = input/output;
-  }
-}
-
 
 template <typename TransferT>
-__global__ void device_finalValues_plain(TransferT * __restrict__ _image, 
+__global__ void device_final_values(TransferT * __restrict__ _psi, 
 					 const TransferT * __restrict__ _integral, 
 					 const TransferT * __restrict__ _weight, 
 					 TransferT _minValue,
 					 size_t _size){
   
   const size_t pixel_x = size_t(blockIdx.x)*size_t(blockDim.x) + threadIdx.x;
-  const size_t pixel_y = size_t(blockIdx.y)*size_t(blockDim.y) + threadIdx.y;
-  const size_t pixel_index = pixel_y*size_t(gridDim.x)*size_t(blockDim.x) + pixel_x;
-// const size_t pixel_index = size_t(blockIdx.x)*size_t(blockDim.x) + threadIdx.x;
 
-  float temp_image = 0;
-  
-  float temp_weight = 0;;
-  float new_value ;
-  if(pixel_index<_size){
-    //to exploit instruction level parallelism
-    temp_image = _image[pixel_index];
-    temp_image *= _integral[pixel_index];
-    temp_weight = _weight[pixel_index];
+  float temp_integral = 0;
+  float temp_weight = 0;
+  float value = 0;
+  float last_value = 0;
+  float next_value = 0;
 
-    if(!(temp_image>0.f))
-      temp_image = _minValue;
+  for(size_t i = pixel_x;i < _size;i += blockDim.x * gridDim.x){
+    
+    last_value = _psi[i];
+    temp_integral = _integral[i];
+    
+    value = last_value*temp_integral;
 
-    new_value = cmax(_minValue,temp_image);
-    new_value = temp_weight*(new_value - temp_image) + temp_image;
+    if(!(value>0.f)){
+      value = _minValue;
+    }
 
-    _image[pixel_index] = new_value;
+    if(isnan(value) || isinf(value))
+	next_value = _minValue;
+    else
+	next_value = cmax(value,_minValue);
+
+    temp_weight = _weight[i];
+    
+    next_value = temp_weight*(next_value - last_value) + last_value;
+
+    _psi[i] = next_value;
   }
   
 }
+
+
+template <typename TransferT>
+__global__ void device_regularized_final_values(TransferT * __restrict__ _psi, 
+						const TransferT * __restrict__ _integral, 
+						const TransferT * __restrict__ _weight, 
+						double _lambda,
+						TransferT _minValue,
+						size_t _size){
+  
+  const size_t pixel_x = size_t(blockIdx.x)*size_t(blockDim.x) + threadIdx.x;
+
+  float temp_integral = 0;
+  float temp_weight = 0;
+  float value = 0;
+  float last_value = 0;
+  float next_value = 0;
+  TransferT lambda_inv = 1.f / _lambda;
+ 
+  for(size_t i = pixel_x;i < _size;i += blockDim.x * gridDim.x){
+    
+    last_value = _psi[i];
+    temp_integral = _integral[i];
+    
+    value = last_value*temp_integral;
+
+    if(!(value>0.f)){
+      value = _minValue;
+    }
+    else{
+      value = lambda_inv*(sqrtf(1. + 2.f*_lambda*value ) - 1.)  ;
+    }
+
+    if(isnan(value) || isinf(value))
+	next_value = _minValue;
+    else
+	next_value = cmax(value,_minValue);
+
+    temp_weight = _weight[i];
+    
+    next_value = temp_weight*(next_value - last_value) + last_value;
+
+    _psi[i] = next_value;
+  }
+  
+}
+
 
 template <typename TransferT>
 __global__ void device_finalValues_plain_3D(cudaPitchedPtr _image , 

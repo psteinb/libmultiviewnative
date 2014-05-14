@@ -34,6 +34,20 @@ struct zero_padd {
   std::vector<size_type> extents_;
   std::vector<size_type> offsets_;
 
+  zero_padd():
+    extents_(ImageStackT::dimensionality,0),
+    offsets_(ImageStackT::dimensionality,0)
+  {
+
+  }
+
+  zero_padd(const zero_padd& _other):
+    extents_(_other.extents_),
+    offsets_(_other.offsets_)
+  {
+
+  }
+
   template <typename DimT>
   zero_padd(DimT* _image, DimT* _kernel):
     extents_(ImageStackT::dimensionality,0),
@@ -43,6 +57,14 @@ struct zero_padd {
 		   extents_.begin(), add_minus_1<DimT,size_type>());
     
     std::transform(_kernel, _kernel + ImageStackT::dimensionality, offsets_.begin(), minus_1_div_2<DimT,size_type>());
+  }
+
+  zero_padd& operator=(const zero_padd& _other){
+    if(this != &_other){
+      extents_ = _other.extents_;
+      offsets_ = _other.offsets_;
+    }
+    return *this;
   }
 
   template <typename ImageStackRefT>
@@ -83,7 +105,7 @@ struct zero_padd {
     return &extents_[0];
   }
 
-  ~zero_padd(){
+  virtual ~zero_padd(){
   };
 };
 
