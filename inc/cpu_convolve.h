@@ -14,19 +14,22 @@
 
 namespace multiviewnative {
 
+
+
   template <typename PaddingT, typename TransferT, typename SizeT>
   struct cpu_convolve : public PaddingT {
 
     typedef TransferT value_type;
     typedef SizeT size_type;
+    typedef boost::multi_array<value_type,3, fftw_allocator<value_type> >    fftw_image_stack;
 
     static const int num_dims = 3;
 
     image_stack_ref* image_;
-    image_stack* padded_image_;
+    fftw_image_stack* padded_image_;
 
     image_stack_ref* kernel_;
-    image_stack* padded_kernel_;
+    fftw_image_stack* padded_kernel_;
     
     cpu_convolve(value_type* _image_stack_arr, size_type* _image_extents_arr,
 		 value_type* _kernel_stack_arr, size_type* _kernel_extents_arr, 
@@ -53,8 +56,8 @@ namespace multiviewnative {
       this->image_ = new multiviewnative::image_stack_ref(_image_stack_arr, image_shape, local_order);
       this->kernel_ = new multiviewnative::image_stack_ref(_kernel_stack_arr, kernel_shape, local_order);
       
-      this->padded_image_ = new multiviewnative::image_stack(this->extents_, local_order);
-      this->padded_kernel_ = new multiviewnative::image_stack(this->extents_, local_order);
+      this->padded_image_ = new fftw_image_stack(this->extents_, local_order);
+      this->padded_kernel_ = new fftw_image_stack(this->extents_, local_order);
       
       this->insert_at_offsets(*image_,*padded_image_);
       this->wrapped_insert_at_offsets(*kernel_,*padded_kernel_);

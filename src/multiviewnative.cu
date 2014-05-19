@@ -48,7 +48,9 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 				      workspace input,
 				      int device){
   
-  // throw std::runtime_error("inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
+  //
+  // TODO: nvidia_samples/0_Simple/simpleMultiCopy/simpleMultiCopy.cu
+  // 
 
   HANDLE_ERROR( cudaSetDevice( device ) );
 
@@ -124,59 +126,70 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   dim3 blocks(largestDivisor(padded_view[0]->num_elements(), size_t(threads.x)));
 
   for(int iteration = 0; iteration < input.num_iterations_;++iteration){
-
+    
+    device_memory.send<  multiviewnative::kernel1  >(  padded_kernel1[0]->data() , padded_kernel1[0]->num_elements()*imageType_in_byte );
+    
     for(int v = 0;v<input.num_views_;++v){
-
-      device_memory.send<  multiviewnative::kernel1  >(  padded_kernel1[0]->data() , padded_kernel1[0]->num_elements()*imageType_in_byte );
-      device_memory.send<  multiviewnative::kernel2  >(  padded_kernel2[0]->data() , padded_kernel2[0]->num_elements()*imageType_in_byte );
-      device_memory.send<  multiviewnative::weights  >(  padded_weights[0]->data() , padded_weights[0]->num_elements()*imageType_in_byte );
-      device_memory.send<  multiviewnative::view     >(  padded_view[0]->data()    , padded_view[0]   ->num_elements()*imageType_in_byte    );
-
+      
+      //integral = psi;
       device_memory.sync<multiviewnative::psi,multiviewnative::integral>();
 
-      multiviewnative::inplace_asynch_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
-									   device_memory.at<multiviewnative::kernel1>(), 
-									   &padding[v].extents_[0],
-									   device_memory_elements_required[v],
-									   streams_convolve1);
+      //integral = integral * kernel1
+      multiviewnative::inplace_convolve_on_device<device_transform>(device_memory.sync_at<multiviewnative::integral>(), 
+								    device_memory.sync_at<multiviewnative::kernel1>(), 
+								    &padding[v].extents_[0],
+								    device_memory_elements_required[v]);
 
-      device_divide<<<blocks,threads, 0, *device_memory.stream<multiviewnative::view>()>>>(device_memory.at<multiviewnative::view>(), 
-											   device_memory.at<multiviewnative::integral>(),
-											  padded_view[v]->num_elements() );
+      if(v+1 < input.num_views_)
+	device_memory.send<  multiviewnative::kernel1  >(  padded_kernel1[v+1]->data() , padded_kernel1[v+1]->num_elements()*imageType_in_byte );
 
-      multiviewnative::inplace_asynch_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
-									   device_memory.at<multiviewnative::kernel2>(), 
-									   &padding[v].extents_[0],
-									   device_memory_elements_required[v],
-									   streams_convolve2);
+      //integral = view / integral
+      device_divide<<<blocks,threads>>>(device_memory.sync_at<multiviewnative::view>(), 
+					device_memory.sync_at<multiviewnative::integral>(),
+					padded_view[v]->num_elements() );
 
-      if(input.lambda_>0)
+      if(v+1 < input.num_views_)
+	device_memory.send<  multiviewnative::view  >(  padded_view[v+1]->data() , padded_view[v+1]->num_elements()*imageType_in_byte );
+      
+      //integral = integral * kernel2
+      multiviewnative::inplace_convolve_on_device<device_transform>(device_memory.sync_at<multiviewnative::integral>(), 
+								    device_memory.sync_at<multiviewnative::kernel2>(), 
+								    &padding[v].extents_[0],
+								    device_memory_elements_required[v]);
+      
+      //psi = integral*magic*weights
+      if(v+1 < input.num_views_)
+	device_memory.send<  multiviewnative::kernel2  >(  padded_kernel2[v+1]->data() , padded_kernel2[v+1]->num_elements()*imageType_in_byte );
+      
+      if(input.lambda_>0){
 	device_regularized_final_values<<< blocks,
-	  threads, 
-	  0, 
-	  *device_memory.stream<multiviewnative::weights>() >>>(device_memory.at<multiviewnative::psi>(),
-							       device_memory.at<multiviewnative::integral>(),
-							       device_memory.at<multiviewnative::weights>(),
-							       input.lambda_,
-							       input.minValue_,
-							       padded_view[v]->num_elements()
-							       );
-      else
+	  threads>>>(device_memory.at<multiviewnative::psi>(),
+		     device_memory.at<multiviewnative::integral>(),
+		     device_memory.sync_at<multiviewnative::weights>(),
+		     input.lambda_,
+		     input.minValue_,
+		     padded_view[v]->num_elements()
+		     );
+
+	
+      }
+      else{
 	device_final_values<<< blocks,
-	  threads, 
-	  0, 
-	  *device_memory.stream<multiviewnative::weights>() >>>(device_memory.at<multiviewnative::psi>(),
-							       device_memory.at<multiviewnative::integral>(),
-							       device_memory.at<multiviewnative::weights>(),
-							       input.minValue_,
-							       padded_view[v]->num_elements()
-							       );
-            
+	  threads>>>(device_memory.at<multiviewnative::psi>(),
+		     device_memory.at<multiviewnative::integral>(),
+		     device_memory.sync_at<multiviewnative::weights>(),
+		     input.minValue_,
+		     padded_view[v]->num_elements()
+		     );
+      }
+      
+      if(v+1 < input.num_views_)
+	device_memory.send<  multiviewnative::weights  >(  padded_weights[v+1]->data() , padded_weights[v+1]->num_elements()*imageType_in_byte );
     }
 
   }
 
-  device_memory.receive<multiviewnative::psi>(padded_psi.data(), padded_psi.num_elements()*imageType_in_byte);
+  device_memory.sync_receive(multiviewnative::psi, padded_psi.data(), padded_psi.num_elements()*imageType_in_byte);
   input_psi = padded_psi[ boost::indices[multiviewnative::range(input_psi_padder.offsets_[0], input_psi_padder.offsets_[0]+input_psi.shape()[0])][multiviewnative::range(input_psi_padder.offsets_[1], input_psi_padder.offsets_[1]+input_psi.shape()[1])][multiviewnative::range(input_psi_padder.offsets_[2], input_psi_padder.offsets_[2]+input_psi.shape()[2])] ];
 
   //clean-up
@@ -221,7 +234,9 @@ void inplace_gpu_deconvolve(imageType* psi,
   // - 2 image-sized kernel stacks per view
   // - 1 psi
   long long device_gmem_byte = getMemDeviceCUDA(device);
-  long long required = ((input.num_views_)*4 + 1)*sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
+  long long required = sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
+  long long total = ((input.num_views_)*4 + 1)*required;//total input data for iteration
+  total += 3*required;//for cufft
   
 
   //cufft is memory hungry, that is why we only push all stacks to device mem if the total budget does not exceed 1/3 device mem

@@ -67,8 +67,8 @@ struct zero_padd {
     return *this;
   }
 
-  template <typename ImageStackRefT>
-  void insert_at_offsets(const ImageStackRefT& _source, ImageStackT& _target ) {
+  template <typename ImageStackRefT, typename OtherStackT>
+  void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 
     
     image_stack_view subview_padded_image =  _target[ boost::indices[range(offsets_[0], offsets_[0]+_source.shape()[0])][range(offsets_[1], offsets_[1]+_source.shape()[1])][range(offsets_[2], offsets_[2]+_source.shape()[2])] ];
@@ -76,8 +76,8 @@ struct zero_padd {
 
   }
   
-  template <typename ImageStackRefT>
-  void wrapped_insert_at_offsets(const ImageStackRefT& _source, ImageStackT& _target ) {
+  template <typename ImageStackRefT, typename OtherStackT>
+  void wrapped_insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 
     typedef typename boost::make_signed<size_type>::type signed_size_type;
 

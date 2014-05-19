@@ -3,6 +3,67 @@
 
 #include "fftw3.h"
 
+
+//motivated by https://gitorious.org/cpp-bricks/fftw/source/023d40c478bcf45d7f7bea0c1e9a02ff68214875
+
+template <typename T>
+struct fftw_c_api{
+};
+
+template <>
+struct fftw_c_api<float>{
+
+  static void *malloc(size_t n)
+   { return fftwf_malloc(n); }
+
+  static void free(void *p)
+   { fftwf_free(p); }
+
+};
+
+template <>
+struct fftw_c_api<double>{
+
+  static void *malloc(size_t n)
+   { return fftw_malloc(n); }
+
+  static void free(void *p)
+   { fftw_free(p); }
+
+};
+
+
+template <typename Tp>
+class fftw_allocator
+{
+public:
+  typedef size_t     size_type;
+  typedef ptrdiff_t  difference_type;
+  typedef Tp*        pointer;
+  typedef const Tp*  const_pointer;
+  typedef Tp&        reference;
+  typedef const Tp&  const_reference;
+  typedef Tp         value_type;
+ 
+  template<typename Tp1> struct rebind { typedef fftw_allocator<Tp1> other; };
+ 
+  fftw_allocator() throw() { }
+  fftw_allocator(const fftw_allocator&) throw() { }
+  template<typename Tp1> fftw_allocator(const fftw_allocator<Tp1>&) throw() { }
+  ~fftw_allocator() throw() { }
+ 
+  pointer allocate(size_type n, const void* = 0)
+  { return static_cast<Tp*>(fftw_c_api<Tp>::malloc(n * sizeof(Tp))); }
+ 
+  void deallocate(pointer p, size_type) { fftw_c_api<Tp>::free(p); }
+ 
+  size_type max_size() const { return size_t(-1) / sizeof(Tp); }
+ 
+  void construct(pointer p) { ::new((void *)p) Tp(); }
+  void construct(pointer p, const Tp& val) { ::new((void *)p) Tp(val); }
+  void destroy(pointer p) { p->~Tp(); }
+};
+
 template <typename PrecisionType>
 struct fftw_api_definitions {
   //not defined and will throw a compiler error

@@ -364,7 +364,35 @@ namespace multiviewnative {
 	std::cerr << "device_memory_ports::receive(const int&, value_type*)\t port_index "<< _port_index<<" out of bounds (max: "<< num_ports <<")\n";
       }
     }
+    
+    void sync_receive(const int& _port_index, value_type* _host_ptr, unsigned long _size_in_byte = 0){
 
+      if(!_size_in_byte)
+	_size_in_byte = device_size_in_byte_[_port_index];
+
+      if(_size_in_byte > device_size_in_byte_[_port_index]){
+	std::cerr << "device_memory_ports::receive(const int&, value_type*, unsigned long)\t size given exceeds allocated size (given: " << _size_in_byte << " B, allocated: "<< device_size_in_byte_[_port_index] <<" B)\n" ;
+	_size_in_byte = device_size_in_byte_[_port_index];
+      }
+
+
+      if(_port_index < num_ports){
+	if(device_ptr_[_port_index]){
+	  HANDLE_ERROR( cudaStreamSynchronize(ports_[_port_index]));
+	  HANDLE_ERROR( cudaMemcpy(_host_ptr,
+				   device_ptr_[_port_index] , 
+				   _size_in_byte  , 
+				   cudaMemcpyDeviceToHost) );
+	
+	}
+	else
+	  std::cerr << "device_memory_ports::receive(const int&, value_type*)\t device pointer " << _port_index << " unitialized (nothing to transfer)\n" ;
+      }
+      else{
+	std::cerr << "device_memory_ports::receive(const int&, value_type*)\t port_index "<< _port_index<<" out of bounds (max: "<< num_ports <<")\n";
+      }
+    }
+    
     
     template <int port_index>
     cudaStream_t* stream(){
@@ -416,6 +444,23 @@ namespace multiviewnative {
     value_type* at(const unsigned& _num){
       if(_num < num_ports)
 	return  device_ptr_[_num];
+      else
+	return 0;
+    }
+
+    template <int num>
+    value_type* sync_at(){
+      BOOST_STATIC_ASSERT_MSG(num < num_ports, "device_memory_ports::at() \t trying to access device pointer that does not exist");
+      HANDLE_ERROR(cudaStreamSynchronize(ports_[num]));
+      return device_ptr_[num];
+    }
+
+    
+    value_type* sync_at(const unsigned& _num){
+      if(_num < num_ports){
+	HANDLE_ERROR(cudaStreamSynchronize(ports_[_num]));
+	return  device_ptr_[_num];
+      }
       else
 	return 0;
     }
