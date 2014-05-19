@@ -22,10 +22,9 @@ BOOST_AUTO_TEST_SUITE( deconvolve_psi0_as_test_case  )
 BOOST_AUTO_TEST_CASE( printf )
 {
 
-  typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_padding;
-  typedef multiviewnative::inplace_3d_transform<multiviewnative::image_stack> serial_transform;
-  typedef multiviewnative::parallel_inplace_3d_transform<multiviewnative::image_stack> parallel_transform;
-  typedef multiviewnative::cpu_convolve<wrap_around_padding,imageType, unsigned> default_convolution;
+  //typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_padding;
+  typedef multiviewnative::cpu_convolve<> default_convolution;
+  typedef multiviewnative::cpu_convolve<multiviewnative::parallel_inplace_3d_transform> parallel_convolution;
 
   //setup
   ReferenceData local_ref(reference);
@@ -70,7 +69,7 @@ BOOST_AUTO_TEST_CASE( printf )
 		<< multiviewnative::max_value(view_access.kernel1_, kernel1_dim[0]*kernel1_dim[1]*kernel1_dim[2]) << "\n\n";
       
     default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
-    convolver1.inplace<serial_transform>();
+    convolver1.inplace();
 
     filename.str("");filename << "convolve_kernel1_" << view << "_outcome.tif";
     write_image_stack(integral,filename.str().c_str());
@@ -100,7 +99,7 @@ BOOST_AUTO_TEST_CASE( printf )
     write_image_stack(integral,filename.str().c_str());
     //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
     default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
-    convolver2.inplace<serial_transform>();
+    convolver2.inplace();
     filename.str("");filename<< "convolve_kernel2_" << view << "_outcome.tif";
     write_image_stack(integral,filename.str().c_str());
 

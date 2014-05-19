@@ -30,7 +30,8 @@ struct zero_padd {
   typedef typename ImageStackT::value_type value_type;
   typedef typename ImageStackT::size_type size_type;
   typedef typename ImageStackT::template array_view<ImageStackT::dimensionality>::type image_stack_view;
-
+  typedef  boost::multi_array_types::index_range	range;
+  
   std::vector<size_type> extents_;
   std::vector<size_type> offsets_;
 

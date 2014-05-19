@@ -7,22 +7,28 @@
 #include <iomanip> 
 #include <vector>
 
-
+#include "padd_utils.h"
 #include "boost/multi_array.hpp"
 #include "fft_utils.h"
 #include "image_stack_utils.h"
 
 namespace multiviewnative {
 
+  typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_padding;
+    
 
-
-  template <typename PaddingT, typename TransferT, typename SizeT>
+  template <template<class> class TransformT = multiviewnative::inplace_3d_transform, 
+	    typename PaddingT = wrap_around_padding, 
+	    typename TransferT = float, 
+	    typename SizeT = unsigned>
   struct cpu_convolve : public PaddingT {
 
     typedef TransferT value_type;
     typedef SizeT size_type;
+    typedef PaddingT padding_policy;
     typedef boost::multi_array<value_type,3, fftw_allocator<value_type> >    fftw_image_stack;
-
+    typedef TransformT<fftw_image_stack> transform_policy;
+    
     static const int num_dims = 3;
 
     image_stack_ref* image_;
@@ -64,13 +70,12 @@ namespace multiviewnative {
 
     };
 
-    template <typename TransformT>
     void inplace(){
       
-      typedef typename TransformT::complex_type complex_type;
+      typedef typename TransformT<fftw_image_stack>::complex_type complex_type;
 
-      TransformT image_transform(padded_image_);
-      TransformT kernel_transform(padded_kernel_);
+      TransformT<fftw_image_stack> image_transform(padded_image_);
+      TransformT<fftw_image_stack> kernel_transform(padded_kernel_);
       
       image_transform.forward();
       kernel_transform.forward();
