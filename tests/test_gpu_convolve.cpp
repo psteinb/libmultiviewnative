@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE( identity_convolve )
   
   using namespace multiviewnative;
 
-  float sum_expected = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum_expected = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
 
   zero_padd<image_stack> padder(image_.shape(), identity_kernel_.shape());
   image_stack padded_image(padder.extents_, image_.storage_order());
@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE( identity_convolve )
   			  identity_kernel_.data(),&kernel_dims_[0],
   			  selectDeviceWithHighestComputeCapability());
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
 
 
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
 {
   using namespace multiviewnative;
 
-  float sum_expected = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_folded_by_horizontal_.num_elements(),0.f);
+  float sum_expected = std::accumulate(image_folded_by_horizontal_.data(), image_folded_by_horizontal_.data() + image_folded_by_horizontal_.num_elements(),0.f);
 
   zero_padd<image_stack> padder(image_.shape(), horizont_kernel_.shape());
   image_stack padded_image(padder.extents_, image_.storage_order());
@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
 
   image_ = padded_image[ boost::indices[range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
   
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
 
     BOOST_REQUIRE_CLOSE(sum, sum_expected, .00001);
  
@@ -91,11 +91,11 @@ BOOST_AUTO_TEST_CASE( vertical_convolve )
 			      selectDeviceWithHighestComputeCapability());
 
 
-  float sum_expected = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_folded_by_vertical_.num_elements(),0.f);
+  float sum_expected = std::accumulate(image_folded_by_vertical_.data(), image_folded_by_vertical_.data() + image_folded_by_vertical_.num_elements(),0.f);
 
   image_ = padded_image[ boost::indices[multiviewnative::range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][multiviewnative::range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][multiviewnative::range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
 
 
@@ -117,11 +117,11 @@ BOOST_AUTO_TEST_CASE( depth_convolve )
 			      selectDeviceWithHighestComputeCapability());
 
 
-  float sum_expected = std::accumulate(image_folded_by_depth_.origin(), image_folded_by_depth_.origin() + image_folded_by_depth_.num_elements(),0.f);
+  float sum_expected = std::accumulate(image_folded_by_depth_.data(), image_folded_by_depth_.data() + image_folded_by_depth_.num_elements(),0.f);
 
   image_ = padded_image[ boost::indices[multiviewnative::range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][multiviewnative::range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][multiviewnative::range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
 
 
@@ -143,11 +143,11 @@ BOOST_AUTO_TEST_CASE( all1_convolve )
 			      selectDeviceWithHighestComputeCapability());
 
 
-  float sum_expected = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_folded_by_all1_.num_elements(),0.f);
+  float sum_expected = std::accumulate(image_folded_by_all1_.data(), image_folded_by_all1_.data() + image_folded_by_all1_.num_elements(),0.f);
 
   image_ = padded_image[ boost::indices[multiviewnative::range(padder.offsets()[0], padder.offsets()[0]+image_dims_[0])][multiviewnative::range(padder.offsets()[1], padder.offsets()[1]+image_dims_[1])][multiviewnative::range(padder.offsets()[2], padder.offsets()[2]+image_dims_[2])] ];
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_expected, .00001);
 
 
@@ -159,9 +159,13 @@ BOOST_FIXTURE_TEST_SUITE( gpu_convolution_works, multiviewnative::default_3D_fix
 
 BOOST_AUTO_TEST_CASE( trivial_convolve_newapi )
 {
+  using namespace multiviewnative;
   
   float* kernel = new float[kernel_size_];
   std::fill(kernel, kernel+kernel_size_,0.f);
+
+  image_stack expected = image_;
+  std::fill(expected.data(), expected.data() + expected.num_elements(),0.f);
 
   inplace_gpu_convolution(image_.data(), &image_dims_[0], 
 			  kernel,&kernel_dims_[0],
@@ -169,7 +173,13 @@ BOOST_AUTO_TEST_CASE( trivial_convolve_newapi )
 
 
   float sum = std::accumulate(image_.data(), image_.data() + image_size_,0.f);
-  BOOST_CHECK_CLOSE(sum, 0.f, .00001);
+  try{
+    BOOST_REQUIRE_CLOSE(sum, 0.f, .00001);
+  }
+  catch(...){
+    std::cout << "expected:\n" << expected << "\n"
+	      << "received:\n" << image_ << "\n";
+  }
 
   delete [] kernel;
 }
@@ -179,16 +189,23 @@ BOOST_AUTO_TEST_CASE( identity_convolve_newapi )
   using namespace multiviewnative;
 
   
-
-  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  image_stack expected = image_;
+  float sum_original = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   inplace_gpu_convolution(image_.data(), &image_dims_[0], 
   			  identity_kernel_.data(),&kernel_dims_[0],
   			  selectDeviceWithHighestComputeCapability());
 
   
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
+  try{
+    BOOST_REQUIRE_CLOSE(sum, sum_original, .00001);
+  }
+  catch(...){
+    std::cout << boost::unit_test::framework::current_test_case().p_name << "\n"
+	      << "expected:\n" << expected << "\n"
+	      << "received:\n" << image_ << "\n";
+  }
 
 
 }
@@ -199,16 +216,23 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve_newapi )
 
   
 
-  float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_.num_elements(),0.f);
+  float sum_original = std::accumulate(image_folded_by_horizontal_.data(), image_folded_by_horizontal_.data() + image_.num_elements(),0.f);
   inplace_gpu_convolution(image_.data(), &image_dims_[0], 
   			  horizont_kernel_.data(),&kernel_dims_[0],
   			  selectDeviceWithHighestComputeCapability());
 
   
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
-
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
+  //BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+  try{
+    BOOST_REQUIRE_CLOSE(sum, sum_original, .00001);
+  }
+  catch(...){
+    std::cout << boost::unit_test::framework::current_test_case().p_name << "\n"
+	      << "expected:\n" << image_folded_by_horizontal_ << "\n"
+	      << "received:\n" << image_ << "\n";
+  }
 
 }
 
@@ -218,16 +242,23 @@ BOOST_AUTO_TEST_CASE( vertical_convolve_newapi )
 
   
 
-  float sum_original = std::accumulate(image_folded_by_vertical_.origin(), image_folded_by_vertical_.origin() + image_.num_elements(),0.f);
+  float sum_original = std::accumulate(image_folded_by_vertical_.data(), image_folded_by_vertical_.data() + image_.num_elements(),0.f);
   inplace_gpu_convolution(image_.data(), &image_dims_[0], 
   			  vertical_kernel_.data(),&kernel_dims_[0],
   			  selectDeviceWithHighestComputeCapability());
 
   
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
-
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
+  // BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+ try{
+    BOOST_REQUIRE_CLOSE(sum, sum_original, .00001);
+  }
+  catch(...){
+    std::cout << boost::unit_test::framework::current_test_case().p_name << "\n" 
+	      << "expected:\n" << image_folded_by_vertical_ << "\n"
+	      << "received:\n" << image_ << "\n";
+  }
 
 }
 
@@ -237,15 +268,23 @@ BOOST_AUTO_TEST_CASE( all1_convolve_newapi )
 
   
 
-  float sum_original = std::accumulate(image_folded_by_all1_.origin(), image_folded_by_all1_.origin() + image_.num_elements(),0.f);
+  float sum_original = std::accumulate(image_folded_by_all1_.data(), image_folded_by_all1_.data() + image_.num_elements(),0.f);
   inplace_gpu_convolution(image_.data(), &image_dims_[0], 
   			  all1_kernel_.data(),&kernel_dims_[0],
   			  selectDeviceWithHighestComputeCapability());
 
   
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
+  // BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+try{
+    BOOST_REQUIRE_CLOSE(sum, sum_original, .00001);
+  }
+  catch(...){
+    std::cout << boost::unit_test::framework::current_test_case().p_name << "\n"
+	      << "expected:\n" << image_folded_by_all1_ << "\n"
+	      << "received:\n" << image_ << "\n";
+  }
 
 
 }

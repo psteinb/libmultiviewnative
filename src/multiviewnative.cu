@@ -134,21 +134,21 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
       device_memory.sync<multiviewnative::psi,multiviewnative::integral>();
 
-      multiviewnative::inplace_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
-								    device_memory.at<multiviewnative::kernel1>(), 
-								    &padding[v].extents_[0],
-								    device_memory_elements_required[v],
-								    streams_convolve1);
+      multiviewnative::inplace_asynch_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
+									   device_memory.at<multiviewnative::kernel1>(), 
+									   &padding[v].extents_[0],
+									   device_memory_elements_required[v],
+									   streams_convolve1);
 
       device_divide<<<blocks,threads, 0, *device_memory.stream<multiviewnative::view>()>>>(device_memory.at<multiviewnative::view>(), 
 											   device_memory.at<multiviewnative::integral>(),
 											  padded_view[v]->num_elements() );
 
-      multiviewnative::inplace_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
-								    device_memory.at<multiviewnative::kernel2>(), 
-								    &padding[v].extents_[0],
-								    device_memory_elements_required[v],
-								    streams_convolve2);
+      multiviewnative::inplace_asynch_convolve_on_device<device_transform>(device_memory.at<multiviewnative::integral>(), 
+									   device_memory.at<multiviewnative::kernel2>(), 
+									   &padding[v].extents_[0],
+									   device_memory_elements_required[v],
+									   streams_convolve2);
 
       if(input.lambda_>0)
 	device_regularized_final_values<<< blocks,

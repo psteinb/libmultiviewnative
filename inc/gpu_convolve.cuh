@@ -21,7 +21,7 @@ namespace multiviewnative {
   typedef multiviewnative::stack_on_device<multiviewnative::image_stack, multiviewnative::synch> synch_stack_on_device;
   
   template <typename TransformT, typename TransferT, typename DimT>
-  void inplace_convolve_on_device(TransferT* _image_on_device, 
+  void inplace_asynch_convolve_on_device(TransferT* _image_on_device, 
 				  TransferT* _kernel_on_device, 
 				  DimT*   _extents,
 				  const unsigned& _fft_num_elements,
@@ -41,17 +41,47 @@ namespace multiviewnative {
     unsigned numThreads = 128;
     unsigned numBlocks = largestDivisor(eff_fft_num_elements,numThreads);
 
-    
-    modulateAndNormalize_kernel<<<numBlocks,numThreads,0,*_streams[1]>>>((cufftComplex *)_image_on_device, 
-									(cufftComplex *)_kernel_on_device, 
-									eff_fft_num_elements, 
-									scale);
+    HANDLE_ERROR(cudaStreamSynchronize(*_streams[1]));
+    HANDLE_ERROR(cudaStreamSynchronize(*_streams[0]));    
+    modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_image_on_device, 
+							  (cufftComplex *)_kernel_on_device, 
+							  eff_fft_num_elements, 
+							  scale);
     HANDLE_ERROR(cudaPeekAtLastError());
       
-    image_transform.backward(_streams[1]);
-    HANDLE_ERROR(cudaStreamSynchronize(*_streams[1]));
+    image_transform.backward(_streams[0]);
+
   }
 
+  template <typename TransformT, typename TransferT, typename DimT>
+  void inplace_convolve_on_device(TransferT* _image_on_device, 
+				  TransferT* _kernel_on_device, 
+				  DimT*   _extents,
+				  const unsigned& _fft_num_elements){
+            
+
+    TransformT image_transform(_image_on_device, _extents);
+    TransformT kernel_transform(_kernel_on_device, _extents);
+    image_transform.forward();
+    kernel_transform.forward();
+
+    DimT transform_size = std::accumulate(_extents,_extents + 3,1,std::multiplies<DimT>());      
+    unsigned eff_fft_num_elements = _fft_num_elements/2;
+
+    TransferT scale = 1.0 / (transform_size);
+
+    unsigned numThreads = 128;
+    unsigned numBlocks = largestDivisor(eff_fft_num_elements,numThreads);
+
+    
+    modulateAndNormalize_kernel<<<numBlocks,numThreads>>>((cufftComplex *)_image_on_device, 
+							  (cufftComplex *)_kernel_on_device, 
+							  eff_fft_num_elements, 
+							  scale);
+    HANDLE_ERROR(cudaPeekAtLastError());
+      
+    image_transform.backward();
+  }
 
   template <typename PaddingT, typename TransferT, typename SizeT>
   struct gpu_convolve : public PaddingT {
@@ -94,8 +124,6 @@ namespace multiviewnative {
       this->insert_at_offsets(*image_,*padded_image_);
       this->wrapped_insert_at_offsets(*kernel_,*padded_kernel_);
 
-      
-
     };
 
     
@@ -107,7 +135,7 @@ namespace multiviewnative {
       adapt_extents_for_fftw_inplace(padded_image_->storage_order(),this->extents_, inplace_extents);
       size_type device_memory_elements_required = std::accumulate(inplace_extents.begin(),inplace_extents.end(),1,std::multiplies<size_type>());    
        
-      //place image and kernel on device (add extra space on device for cufft processing)
+	//place image and kernel on device (add extra space on device for cufft processing)
       // asynch_stack_on_device image_on_device(padded_image_,device_memory_elements_required);
       // asynch_stack_on_device kernel_on_device(padded_kernel_,device_memory_elements_required);
 	 
@@ -116,31 +144,38 @@ namespace multiviewnative {
 
       // image_on_device.push_to_device(&streams_[0]);
       // kernel_on_device.push_to_device(&streams_[1]);
+      unsigned long padded_size_byte = padded_image_->num_elements()*sizeof(value_type);
+      unsigned long inplace_size_byte = device_memory_elements_required *sizeof(value_type);
+      
       multiviewnative::device_memory_ports<value_type,2> device_ports;
-      device_ports.create_all_ports(device_memory_elements_required);
+      device_ports.create_all_ports(inplace_size_byte);
       static const int image_id = 0;
       static const int kernel_id = 1;
 
       device_ports.template add_stream_for<image_id>();
       device_ports.add_stream_for(kernel_id);
 
-      HANDLE_ERROR( cudaHostRegister(padded_image_->data()   , sizeof(value_type)*padded_image_->num_elements() , cudaHostRegisterPortable) );
-      HANDLE_ERROR( cudaHostRegister(padded_kernel_->data()   , sizeof(value_type)*padded_kernel_->num_elements() , cudaHostRegisterPortable) );
+      HANDLE_ERROR( cudaHostRegister(padded_image_->data()   , padded_size_byte , cudaHostRegisterPortable) );
+      HANDLE_ERROR( cudaHostRegister(padded_kernel_->data()   , padded_size_byte , cudaHostRegisterPortable) );
+
+      HANDLE_ERROR( cudaMemcpy(device_ports.at(image_id ), padded_image_->data()   , padded_size_byte , cudaMemcpyHostToDevice) );
+      HANDLE_ERROR( cudaMemcpy(device_ports.at(kernel_id ), padded_kernel_->data()   , padded_size_byte , cudaMemcpyHostToDevice) );
       
-      device_ports.template send<0>(  padded_image_->data()  );
-      device_ports.template send<1>(  padded_kernel_->data()  );
-      std::vector<cudaStream_t*> wave(2);
-      device_ports.template streams_of_two<image_id,kernel_id>(wave);
+      // device_ports.template send<image_id >(  padded_image_->data() ,  padded_size_byte);
+      // device_ports.template send<kernel_id>(  padded_kernel_->data() , padded_size_byte);
+      // std::vector<cudaStream_t*> wave(2);
+      // device_ports.template streams_of_two<image_id,kernel_id>(wave);
 
-      multiviewnative::inplace_convolve_on_device<TransformT>(device_ports.at(0) ,
-							      device_ports.at(1) ,
+      multiviewnative::inplace_convolve_on_device<TransformT>(device_ports.at(image_id ) ,
+							      device_ports.at(kernel_id) ,
 							      &PaddingT::extents_[0] ,
-							      device_memory_elements_required , 
-							      wave
+							      device_memory_elements_required // , 
+							      // wave
 							      );
-       
-      device_ports.template receive<0>(  padded_image_->data()  );
 
+      // device_ports.template sync_stream<0>();
+      // device_ports.template receive<0>(  padded_image_->data() , padded_size_byte );
+      HANDLE_ERROR( cudaMemcpy(padded_image_->data()   , device_ports.at(image_id ), padded_size_byte , cudaMemcpyDeviceToHost) );
       
       
       //cut-out region of interest

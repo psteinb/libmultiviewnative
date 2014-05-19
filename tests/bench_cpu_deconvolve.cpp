@@ -1,5 +1,7 @@
 #define BOOST_TEST_DYN_LINK 
 #define BOOST_TEST_MODULE CPU_DECONVOLVE
+#include <sstream>
+
 #include "boost/test/unit_test.hpp"
 #include "tiff_fixtures.hpp"
 #include "multiviewnative.h"
@@ -50,6 +52,9 @@ BOOST_AUTO_TEST_CASE( deconvolve_all_cpus )
     sums_received[i] = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
     sums_expected[i] = std::accumulate(local_guesses.psi(1+i)->data(),local_guesses.psi(1+i)->data() + local_guesses.psi(1+i)->num_elements(),0.f);
     std::cout << boost::thread::hardware_concurrency() << " threads: l2norm " << l2norms[i] << ", rel difference of sums: " << std::fabs(sums_received[i]-sums_expected[i])*100./sums_expected[i] << " % ("<< double(durations[i].system + durations[i].user)/1e6 <<" ms )\n";
+    std::stringstream outfname("./cpu_deconvolve_psi_");
+    outfname << i+1 << ".tif";
+    write_image_stack(input_psi,outfname.str().c_str());
   }
   
 

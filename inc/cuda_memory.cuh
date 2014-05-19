@@ -376,7 +376,14 @@ namespace multiviewnative {
 
     }
 
-    
+    template <int port_index>
+    void sync_stream(){
+      BOOST_STATIC_ASSERT_MSG(port_index < num_ports, "device_memory_ports::sync_stream<int>() \t invalid port number");
+      if(ports_.count(port_index))
+	HANDLE_ERROR(cudaStreamSynchronize(ports_[port_index]));
+
+    }
+
     cudaStream_t* stream(const unsigned& _num){
       
       if(_num < num_ports && ports_.count(_num))
