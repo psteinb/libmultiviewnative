@@ -58,38 +58,32 @@ BOOST_AUTO_TEST_CASE( printf )
 
     integral = input_psi; //copy psi to integral
     
-    filename.str("");filename << "convolve_kernel1_" << view << "_input.tif";
-    write_image_stack(integral,filename.str().c_str());
-    
-    //inplace convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
-    if(log_level < 4)
+    if(log_level < 4){
+      filename.str("");filename << "convolve_kernel1_" << view << "_input.tif";
+      write_image_stack(integral,filename.str().c_str());
       std::cout << "\nconvolve1: min/max integral " << multiviewnative::min_value(integral.data(), integral.num_elements()) << "/"
 		<< multiviewnative::max_value(integral.data(), integral.num_elements()) 
 		<< "\t min/max kernel1 " << multiviewnative::min_value(view_access.kernel1_, kernel1_dim[0]*kernel1_dim[1]*kernel1_dim[2]) << "/"
 		<< multiviewnative::max_value(view_access.kernel1_, kernel1_dim[0]*kernel1_dim[1]*kernel1_dim[2]) << "\n\n";
-      
+    }
+    
     default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
     convolver1.inplace();
-
-    filename.str("");filename << "convolve_kernel1_" << view << "_outcome.tif";
-    write_image_stack(integral,filename.str().c_str());
-
-    if(log_level < 4)
+    
+    if(log_level < 4){
       std::cout << "\ncomputeQuotient: min/max view " << multiviewnative::min_value(view_access.image_, integral.num_elements()) << "/"
 		<< multiviewnative::max_value(view_access.image_, integral.num_elements()) 
 		<< "\t min/max integral " << multiviewnative::min_value(integral.data(), integral.num_elements()) << "/"
 		<< multiviewnative::max_value(integral.data(), integral.num_elements()) << "\n\n";
-
-
-    filename.str("");filename << "computeQuotient_" << view << "_input.tif";
-    write_image_stack(integral,filename.str().c_str());
+      filename.str("");filename << "computeQuotient_" << view << "_input.tif";
+      write_image_stack(integral,filename.str().c_str());
+    }
+    
     //view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
     computeQuotient(view_access.image_,integral.data(),integral.num_elements());
 
-    filename.str("");filename << "computeQuotient_" << view << "_outcome.tif";
-    write_image_stack(integral,filename.str().c_str());
-
-    if(log_level < 4)
+    if(log_level < 4){
+    
       std::cout << "\nconvolve2: min/max integral " << multiviewnative::min_value(integral.data(), integral.num_elements()) << "/"
 		<< multiviewnative::max_value(integral.data(), integral.num_elements()) 
 		<< "\t min/max kernel2 " << multiviewnative::min_value(view_access.kernel2_, kernel2_dim[0]*kernel2_dim[1]*kernel2_dim[2]) << "/"
@@ -97,13 +91,13 @@ BOOST_AUTO_TEST_CASE( printf )
 
     filename.str("");filename<< "convolve_kernel2_" << view << "_input.tif";
     write_image_stack(integral,filename.str().c_str());
+    }
+    
     //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
     default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
     convolver2.inplace();
-    filename.str("");filename<< "convolve_kernel2_" << view << "_outcome.tif";
-    write_image_stack(integral,filename.str().c_str());
-
-    if(log_level < 4)
+    
+    if(log_level < 4){
       std::cout << "\ncomputeFinalValues: "
 	
 		<< "min/max input_psi " << multiviewnative::min_value(input_psi.data(), input_psi.num_elements()) << "/"
@@ -119,15 +113,18 @@ BOOST_AUTO_TEST_CASE( printf )
 
     filename.str("");filename<< "computeFinal_" << view << "_input.tif";
     write_image_stack(input_psi,filename.str().c_str());
+    }
     //computeFinalValues(input_psi,integral,weights)
     computeFinalValues(input_psi.data(), integral.data(), view_access.weights_, 
 		       input_psi.num_elements(),
 		       0, local_guesses.lambda_, local_guesses.minValue_);
-    filename.str("");filename << "computeFinal_" << view << "_outcome.tif";
-    write_image_stack(input_psi,filename.str().c_str());
     
-    if(log_level < 4)
+    if(log_level < 4){
+      filename.str("");filename << "computeFinal_" << view << "_outcome.tif";
+      write_image_stack(input_psi,filename.str().c_str());
+    
       std::cout << "l2norm to psi1: " <<  multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1)->data(), input_psi.num_elements()) << "\n";
+    }
   }
 
   //check norms
