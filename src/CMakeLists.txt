@@ -13,12 +13,12 @@ ENDIF()
 # build and link
 CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp image_stack_utils.cpp SHARED)
 CUDA_ADD_CUFFT_TO_TARGET(${PROJECT_NAME})
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
-FIND_PACKAGE(FFTW)
+FIND_PACKAGE(FFTW REQUIRED)
 
 IF(FFTW_FOUND)
-SET(FFTW_LIBS_TO_USE fftw3f_threads fftw3f fftw3_threads fftw3 m)
+  SET(FFTW_LIBS_TO_USE ${FFTWF_THREADS_LIB} ${FFTWF_LIB} ${FFTW_THREADS_LIB} ${FFTW_LIB} m)
 ENDIF()
 
 find_package(OpenMP)
@@ -27,13 +27,9 @@ if (OPENMP_FOUND)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
-  SET(FFTW_LIBS_TO_USE fftw3f_omp fftw3f fftw3_omp fftw3 m)
+  SET(FFTW_LIBS_TO_USE ${FFTWF_OMP_LIB} ${FFTWF_LIB} ${FFTW_OMP_LIB} ${FFTW_LIB} m)
 endif()
 endif(OPENMP_FOUND)
-
-IF(FFTW_FOUND)
-MESSAGE(">> Linking against ${FFTW_LIBS_TO_USE}")
-ENDIF()
 
 target_link_libraries(${PROJECT_NAME} ${FFTW_LIBS_TO_USE} boost_thread)
 

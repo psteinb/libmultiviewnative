@@ -44,7 +44,11 @@ BOOST_AUTO_TEST_CASE( deconvolve_all_cpus )
   //test
   
   for(int i = 0;i < input.num_iterations_;++i){
-    std::cout << i << "/" << input.num_iterations_ << " on "<< boost::thread::hardware_concurrency() << " threads\n";
+    std::cout << i << "/" << input.num_iterations_ 
+	      << " on "<< boost::thread::hardware_concurrency() 
+	      << " threads, lambda = "<< input.lambda_
+	      << ", minValue = " << input.minValue_
+	      <<"\n";
     cpu_timer timer;
     inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency());
     durations[i] = timer.elapsed();
@@ -52,8 +56,61 @@ BOOST_AUTO_TEST_CASE( deconvolve_all_cpus )
     sums_received[i] = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
     sums_expected[i] = std::accumulate(local_guesses.psi(1+i)->data(),local_guesses.psi(1+i)->data() + local_guesses.psi(1+i)->num_elements(),0.f);
     std::cout << boost::thread::hardware_concurrency() << " threads: l2norm " << l2norms[i] << ", rel difference of sums: " << std::fabs(sums_received[i]-sums_expected[i])*100./sums_expected[i] << " % ("<< double(durations[i].system + durations[i].user)/1e6 <<" ms )\n";
-    std::stringstream outfname("./cpu_deconvolve_psi_");
-    outfname << i+1 << ".tif";
+    std::stringstream outfname("");
+    outfname << "./" << boost::unit_test::framework::current_test_case().p_name << "_psi_" << i+1 << ".tif";
+    write_image_stack(input_psi,outfname.str().c_str());
+  }
+  
+
+  BOOST_REQUIRE_CLOSE(sums_expected[9], sums_received[9], 0.001);
+  //check norms
+  
+  double time_ms = 0.f;
+
+  for(int i = 0;i<input.num_iterations_;++i){
+    time_ms += double(durations[i].system + durations[i].user)/1e6;
+  }
+  double mega_pixels_per_sec = input_psi.num_elements()/(time_ms);
+  
+  std::cout << boost::thread::hardware_concurrency() << " threads: total time " << time_ms << " ms, throughput " << mega_pixels_per_sec << " Mpixel/s\n";
+  //tear-down
+  delete [] input.data_;
+}
+
+BOOST_AUTO_TEST_CASE( deconvolve_all_cpus_lambda_6 )
+{
+  //setup
+  ReferenceData local_ref(reference);
+  all_iterations local_guesses(guesses);
+  local_guesses.lambda_ = 0.006;
+  local_guesses.minValue_ = .001;
+  workspace input;
+  input.data_ = 0;
+  fill_workspace(local_ref, input, local_guesses.lambda_, local_guesses.minValue_);
+  input.num_iterations_ = 9;
+
+  image_stack input_psi = *local_guesses.psi(0);
+  cpu_times durations[input.num_iterations_];
+  float l2norms[input.num_iterations_];
+  float sums_received[input.num_iterations_];
+  float sums_expected[input.num_iterations_];
+  //test
+  
+  for(int i = 0;i < input.num_iterations_;++i){
+    std::cout << i << "/" << input.num_iterations_ 
+	      << " on "<< boost::thread::hardware_concurrency() 
+	      << " threads, lambda = "<< input.lambda_
+	      << ", minValue = " << input.minValue_
+	      <<"\n";
+    cpu_timer timer;
+    inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency());
+    durations[i] = timer.elapsed();
+    l2norms[i] = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1+i)->data(), input_psi.num_elements());
+    sums_received[i] = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
+    sums_expected[i] = std::accumulate(local_guesses.psi(1+i)->data(),local_guesses.psi(1+i)->data() + local_guesses.psi(1+i)->num_elements(),0.f);
+    std::cout << boost::thread::hardware_concurrency() << " threads: l2norm " << l2norms[i] << ", rel difference of sums: " << std::fabs(sums_received[i]-sums_expected[i])*100./sums_expected[i] << " % ("<< double(durations[i].system + durations[i].user)/1e6 <<" ms )\n";
+    std::stringstream outfname("");
+    outfname << "./" << boost::unit_test::framework::current_test_case().p_name << "_psi_" << i+1 << ".tif";
     write_image_stack(input_psi,outfname.str().c_str());
   }
   
