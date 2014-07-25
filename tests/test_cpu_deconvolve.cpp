@@ -172,6 +172,18 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_1iteration )
   catch (...){
     std::cout << "l2norm\t" << l2norm << "\nl1norm\t" << multiviewnative::l1norm(input_psi.data(), local_guesses.psi(1)->data(), input_psi.num_elements()) << "\n";
   }
+
+  image_stack central_input_image = input_psi[ boost::indices[range(input_psi.shape()[0]*.2, input_psi.shape()[0]*.8)][range(input_psi.shape()[1]*.2, input_psi.shape()[1]*.8)][range(input_psi.shape()[2]*.2, input_psi.shape()[2]*.8) ] ];
+  image_stack central_local_guess_1 = (*local_guesses.psi(1))[ boost::indices[range(input_psi.shape()[0]*.2, input_psi.shape()[0]*.8)][range(input_psi.shape()[1]*.2, input_psi.shape()[1]*.8)][range(input_psi.shape()[2]*.2, input_psi.shape()[2]*.8) ] ];
+
+  l2norm = multiviewnative::l2norm(central_input_psi.data(), central_local_guess_1.data(), central_input_psi.num_elements());
+  try{
+    BOOST_REQUIRE_LT(l2norm, 1e-2);
+  }
+  catch (...){
+    std::cout << "central norms: [.2w,.8w]x[.2h,.8h]x[.2d,.8d]"
+	      << "l2norm\t" << l2norm << "\nl1norm\t" << multiviewnative::l1norm(central_input_psi.data(), central_local_guess_1.data(), central_input_psi.num_elements()) << "\n";
+  }
   //tear-down
   delete [] input.data_;
 }
@@ -204,12 +216,23 @@ BOOST_AUTO_TEST_CASE( reconstruct_anything_2iterations )
   //check norms
   float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(2)->data(), input_psi.num_elements());
   BOOST_REQUIRE_LT(l2norm, 1e-2);
+  
+  image_stack central_input_image = input_psi[ boost::indices[range(input_psi.shape()[0]*.2, input_psi.shape()[0]*.8)][range(input_psi.shape()[1]*.2, input_psi.shape()[1]*.8)][range(input_psi.shape()[2]*.2, input_psi.shape()[2]*.8) ] ];
+  image_stack central_local_guess_1 = (*local_guesses.psi(1))[ boost::indices[range(input_psi.shape()[0]*.2, input_psi.shape()[0]*.8)][range(input_psi.shape()[1]*.2, input_psi.shape()[1]*.8)][range(input_psi.shape()[2]*.2, input_psi.shape()[2]*.8) ] ];
 
+  l2norm = multiviewnative::l2norm(central_input_psi.data(), central_local_guess_1.data(), central_input_psi.num_elements());
+  try{
+    BOOST_REQUIRE_LT(l2norm, 1e-2);
+  }
+  catch (...){
+    std::cout << "central norms: [.2w,.8w]x[.2h,.8h]x[.2d,.8d]"
+	      << "l2norm\t" << l2norm << "\nl1norm\t" << multiviewnative::l1norm(central_input_psi.data(), central_local_guess_1.data(), central_input_psi.num_elements()) << "\n";
+  }
   //tear-down
   delete [] input.data_;
 }
 
-BOOST_AUTO_TEST_CASE( reconstruct_anything_4iterations_2threads )
+BOOST_AUTO_TEST_CASE( threaded_reconstruct_anything_4iterations )
 {
   //setup
   ReferenceData local_ref(reference);
