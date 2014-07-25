@@ -355,13 +355,18 @@ namespace multiviewnative {
     std::vector<tiff_stack> psi_;
     std::vector<std::string> psi_paths_;
 
+    std::string path_to_images;
+    std::string iteration_basename_before_id;
+
     double lambda_;
     float minValue_;
     float psi0_avg_;
 
-    IterationData():
+    IterationData(std::string _basename="psi_"):
       psi_(),
       psi_paths_(max_num_psi),
+      path_to_images(path_to_test_images),
+      iteration_basename_before_id(_basename),
       lambda_(0),
       minValue_(0.0001f),
       psi0_avg_(0)
@@ -370,7 +375,7 @@ namespace multiviewnative {
 
       for(unsigned i = 0;i<max_num_psi;++i){
 	std::stringstream path("");
-	path << path_to_test_images << "psi_" << i << ".tif";
+	path << path_to_images << iteration_basename_before_id << i << ".tif";
 	psi_paths_[i] = path.str();
 
 	psi_.push_back(tiff_stack(path.str()));
