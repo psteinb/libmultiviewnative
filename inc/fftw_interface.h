@@ -76,28 +76,43 @@ struct fftw_api_definitions<float> {
   typedef fftwf_complex complex_type;
   typedef float real_type;
 
-  typedef void (*execute_plan_ftr)(const plan_type);
-  static execute_plan_ftr execute_plan;
+  typedef void (*execute_plan_fptr)(const plan_type);
+  static execute_plan_fptr execute_plan;
 
-  typedef void (*destroy_plan_ftr)(plan_type);
-  static destroy_plan_ftr destroy_plan;
+  typedef void (*destroy_plan_fptr)(plan_type);
+  static destroy_plan_fptr destroy_plan;
 
-  typedef plan_type (*dft_r2c_3d_ftr)(int , int , int ,
+  typedef plan_type (*dft_r2c_3d_fptr)(int , int , int ,
 				      float*, complex_type*,
 				      unsigned);
-  typedef plan_type (*dft_c2r_3d_ftr)(int , int , int ,
+  typedef plan_type (*dft_c2r_3d_fptr)(int , int , int ,
 				      complex_type*,float*, 
 				      unsigned);
 
-  static  dft_c2r_3d_ftr dft_c2r_3d;
-  static  dft_r2c_3d_ftr dft_r2c_3d;
+  static  dft_c2r_3d_fptr dft_c2r_3d;
+  static  dft_r2c_3d_fptr dft_r2c_3d;
 
+  typedef int (*init_threads_fptr)(void);
+  static init_threads_fptr init_threads ;
+
+  typedef void (*plan_with_threads_fptr)(int);
+  static plan_with_threads_fptr plan_with_threads ;
+
+  typedef void (*cleanup_threads_fptr)(void);
+  static cleanup_threads_fptr cleanup_threads ;
+  
+  // int fftw_init_threads(void);
+  // void fftw_plan_with_nthreads(int nthreads);
+  // void fftw_cleanup_threads(void);
 };
 
-fftw_api_definitions<float>::execute_plan_ftr  fftw_api_definitions<float>::execute_plan  =  fftwf_execute;
-fftw_api_definitions<float>::destroy_plan_ftr  fftw_api_definitions<float>::destroy_plan  =  fftwf_destroy_plan;
-fftw_api_definitions<float>::dft_c2r_3d_ftr    fftw_api_definitions<float>::dft_c2r_3d    =  fftwf_plan_dft_c2r_3d;
-fftw_api_definitions<float>::dft_r2c_3d_ftr    fftw_api_definitions<float>::dft_r2c_3d    =  fftwf_plan_dft_r2c_3d;
+fftw_api_definitions<float>::execute_plan_fptr  fftw_api_definitions<float>::execute_plan  =  fftwf_execute;
+fftw_api_definitions<float>::destroy_plan_fptr  fftw_api_definitions<float>::destroy_plan  =  fftwf_destroy_plan;
+fftw_api_definitions<float>::dft_c2r_3d_fptr    fftw_api_definitions<float>::dft_c2r_3d    =  fftwf_plan_dft_c2r_3d;
+fftw_api_definitions<float>::dft_r2c_3d_fptr    fftw_api_definitions<float>::dft_r2c_3d    =  fftwf_plan_dft_r2c_3d;
+fftw_api_definitions<float>::init_threads_fptr    fftw_api_definitions<float>::init_threads    =  fftwf_init_threads;
+fftw_api_definitions<float>::plan_with_threads_fptr    fftw_api_definitions<float>::plan_with_threads    =  fftwf_plan_with_nthreads;
+fftw_api_definitions<float>::cleanup_threads_fptr    fftw_api_definitions<float>::cleanup_threads    =  fftwf_cleanup_threads;
 
 template <>
 struct fftw_api_definitions<double> {
@@ -106,28 +121,40 @@ struct fftw_api_definitions<double> {
   typedef fftw_complex complex_type;
   typedef double real_type;
 
-  typedef void (*execute_plan_ftr)(const plan_type);
-  static execute_plan_ftr execute_plan;
+  typedef void (*execute_plan_fptr)(const plan_type);
+  static execute_plan_fptr execute_plan;
 
-  typedef void (*destroy_plan_ftr)(plan_type);
-  static destroy_plan_ftr destroy_plan;
+  typedef void (*destroy_plan_fptr)(plan_type);
+  static destroy_plan_fptr destroy_plan;
 
-  typedef plan_type (*dft_r2c_3d_ftr)(int , int , int ,
+  typedef plan_type (*dft_r2c_3d_fptr)(int , int , int ,
 				      double*, complex_type*,
 				      unsigned);
-  typedef plan_type (*dft_c2r_3d_ftr)(int , int , int ,
+  typedef plan_type (*dft_c2r_3d_fptr)(int , int , int ,
 				      complex_type*,double*, 
 				      unsigned);
 
-  static  dft_c2r_3d_ftr dft_c2r_3d;
-  static  dft_r2c_3d_ftr dft_r2c_3d;
+  static  dft_c2r_3d_fptr dft_c2r_3d;
+  static  dft_r2c_3d_fptr dft_r2c_3d;
+
+  typedef int (*init_threads_fptr)(void);
+  static init_threads_fptr init_threads;
+
+  typedef void (*plan_with_threads_fptr)(int);
+  static plan_with_threads_fptr plan_with_threads;
+
+  typedef void (*cleanup_threads_fptr)(void);
+  static cleanup_threads_fptr cleanup_threads;
 
 };
 
-fftw_api_definitions<double>::execute_plan_ftr  fftw_api_definitions<double>::execute_plan  =  fftw_execute;
-fftw_api_definitions<double>::destroy_plan_ftr  fftw_api_definitions<double>::destroy_plan  =  fftw_destroy_plan;
-fftw_api_definitions<double>::dft_c2r_3d_ftr    fftw_api_definitions<double>::dft_c2r_3d    =  fftw_plan_dft_c2r_3d;
-fftw_api_definitions<double>::dft_r2c_3d_ftr    fftw_api_definitions<double>::dft_r2c_3d    =  fftw_plan_dft_r2c_3d;
+fftw_api_definitions<double>::execute_plan_fptr  fftw_api_definitions<double>::execute_plan  =  fftw_execute;
+fftw_api_definitions<double>::destroy_plan_fptr  fftw_api_definitions<double>::destroy_plan  =  fftw_destroy_plan;
+fftw_api_definitions<double>::dft_c2r_3d_fptr    fftw_api_definitions<double>::dft_c2r_3d    =  fftw_plan_dft_c2r_3d;
+fftw_api_definitions<double>::dft_r2c_3d_fptr    fftw_api_definitions<double>::dft_r2c_3d    =  fftw_plan_dft_r2c_3d;
+fftw_api_definitions<double>::init_threads_fptr    fftw_api_definitions<double>::init_threads    =  fftw_init_threads;
+fftw_api_definitions<double>::plan_with_threads_fptr    fftw_api_definitions<double>::plan_with_threads    =  fftw_plan_with_nthreads;
+fftw_api_definitions<double>::cleanup_threads_fptr    fftw_api_definitions<double>::cleanup_threads    =  fftw_cleanup_threads;
 
 
 

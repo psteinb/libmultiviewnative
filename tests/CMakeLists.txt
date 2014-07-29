@@ -17,7 +17,8 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 FIND_PACKAGE(FFTW)
 IF(FFTW_FOUND)
-SET(FFTW_LIBS_TO_USE ${FFTWF_THREADS_LIB} ${FFTWF_LIB} ${FFTW_THREADS_LIB} ${FFTW_LIB} m)
+SET(FFTW_LIBS_TO_USE ${FFTWF_THREADS_LIB} ${FFTWF_LIB} # ${FFTW_THREADS_LIB} ${FFTW_LIB}
+  m)
 ENDIF()
 
 find_package(OpenMP)
@@ -26,7 +27,8 @@ if (OPENMP_FOUND)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
-  SET(FFTW_LIBS_TO_USE ${FFTWF_OMP_LIB} ${FFTWF_LIB} ${FFTW_OMP_LIB} ${FFTW_LIB} m)
+  SET(FFTW_LIBS_TO_USE ${FFTWF_OMP_LIB} ${FFTWF_LIB} # ${FFTW_OMP_LIB} ${FFTW_LIB}
+    m)
 endif()
 endif(OPENMP_FOUND)
 
@@ -78,11 +80,13 @@ target_link_libraries(test_reference_data_fixture boost_system boost_filesystem 
 
 add_executable(test_cpu_deconvolve test_cpu_deconvolve.cpp)
 target_link_libraries(test_cpu_deconvolve boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
+find_package(OpenMP)
+if (OPENMP_FOUND)
+  set_target_properties(test_cpu_deconvolve PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+endif (OPENMP_FOUND)
 
 add_executable(test_cpu_asymm_convolve_from_tiffs test_cpu_asymm_convolve_from_tiffs.cpp)
 target_link_libraries(test_cpu_asymm_convolve_from_tiffs boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} tiff ${PROJECT_NAME})
-
-SET(CMAKE_BUILD_TYPE Release)
 
 add_executable(bench_cpu_deconvolve bench_cpu_deconvolve.cpp)
 target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_unit_test_framework tiff ${PROJECT_NAME})

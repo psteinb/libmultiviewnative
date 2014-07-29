@@ -367,7 +367,7 @@ namespace multiviewnative {
       psi_paths_(max_num_psi),
       path_to_images(path_to_test_images),
       iteration_basename_before_id(_basename),
-      lambda_(0),
+      lambda_(0.0060f),//default from plugin
       minValue_(0.0001f),
       psi0_avg_(0)
     {

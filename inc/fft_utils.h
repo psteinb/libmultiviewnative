@@ -115,11 +115,14 @@ public:
 
     if(_nthreads > 0){
       parallel_inplace_3d_transform::nthreads_ = _nthreads;
-      int success = fftw_init_threads();
+      int success = 0;
+      success = fftw_api_definitions<typename ImageStackT::element>::init_threads();
       if(!success){
 	std::cerr << "parallel_inplace_3d_transform::set_n_threads\tunable to initialize threads of fftw3\n";
       }
-      fftw_plan_with_nthreads(nthreads_);
+      
+      fftw_api_definitions<typename ImageStackT::element>::plan_with_threads(_nthreads);
+      
     }
          
   }
@@ -127,7 +130,8 @@ public:
   static void clear_threads_data(){
 
     if(parallel_inplace_3d_transform::_nthreads > 0){
-      fftw_cleanup_threads();
+      fftw_api_definitions<typename ImageStackT::element>::cleanup_threads();
+
     }
   }
 };
