@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( printf )
   //check norms
   float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1)->data(), input_psi.num_elements());
   try{
-    BOOST_REQUIRE_LT(l2norm, 1e-2);
+    BOOST_REQUIRE_LT(l2norm, 10);
   }
   catch (...){
     std::cout << "l2norm\t" << l2norm << "\nl1norm\t" << multiviewnative::l1norm(input_psi.data(), local_guesses.psi(1)->data(), input_psi.num_elements()) << "\n";
@@ -156,20 +156,11 @@ BOOST_AUTO_TEST_CASE( reconstruct_1iteration )
 
   //test
   inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency());
-  float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(1)->data(),local_guesses.psi(1)->data() + local_guesses.psi(1)->num_elements(),0.f);
-
-  try{
-    BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
-  }
-  catch (...){
-    write_image_stack(input_psi,"./reconstruct_psi1.tif");
-  }
 
   //check norms
   float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(1)->data(), input_psi.num_elements());
   try{
-    BOOST_REQUIRE_LT(l2norm, 1e-2);
+    BOOST_REQUIRE_LT(l2norm, 10);
   }
   catch (...){
     std::cout << "l2norm\t" << l2norm << "\nl1norm\t" << multiviewnative::l1norm(input_psi.data(), local_guesses.psi(1)->data(), input_psi.num_elements()) << "\n";
@@ -182,7 +173,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_1iteration )
   l2norm = multiviewnative::l2norm_within_limits(input_psi, *local_guesses.psi(1), bottom_ratio ,upper_ratio);
   std::cout << "central norms: ["<< bottom_ratio << "w,"<< upper_ratio << "w]x["<< bottom_ratio << "h,"<< upper_ratio << "h]x["<< bottom_ratio << "d,"<< upper_ratio << "d]\n"
 	    << "l2norm\t" << l2norm << "\n";
-  BOOST_REQUIRE_LT(l2norm, 1e-2);
+  BOOST_REQUIRE_LT(l2norm, 1e-6);
   //tear-down
   delete [] input.data_;
 }
@@ -215,15 +206,11 @@ BOOST_AUTO_TEST_CASE( reconstruct_1iteration_16k_cube_of_25 )
   //test
   const unsigned cube_size= 25*25*25;
   inplace_cpu_deconvolve_iteration(input_psi.data() + num_elements_middle, input, boost::thread::hardware_concurrency());
-  float sum_received = std::accumulate(input_psi.data()+num_elements_middle,input_psi.data() + num_elements_middle + cube_size,0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(1)->data()+num_elements_middle,local_guesses.psi(1)->data() + num_elements_middle + cube_size,0.f);
-
-  BOOST_CHECK_CLOSE(sum_expected, sum_received, 0.001);
 
   //check norms
   float l2norm = multiviewnative::l2norm(input_psi.data() + num_elements_middle, local_guesses.psi(1)->data()+num_elements_middle, cube_size);
   try{
-    BOOST_REQUIRE_LT(l2norm, 1e-2);
+    BOOST_REQUIRE_LT(l2norm, 2);
   }
   catch (...){
     std::cout << "l2norm\t" << l2norm << "\n";
@@ -247,20 +234,9 @@ BOOST_AUTO_TEST_CASE( reconstruct_2iterations )
   inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency());
   inplace_cpu_deconvolve_iteration(input_psi.data(), input, boost::thread::hardware_concurrency());
 
-  float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(2)->data(),local_guesses.psi(2)->data() + local_guesses.psi(2)->num_elements(),0.f);
-
-
-  try{
-    BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
-  }
-  catch (...){
-    write_image_stack(input_psi,"./reconstruct_psi2.tif");
-  }
-
   //check norms
   float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(2)->data(), input_psi.num_elements());
-  BOOST_CHECK_LT(l2norm, 1e-2);
+  BOOST_CHECK_LT(l2norm, 20);
 
   const float bottom_ratio = .25;
   const float upper_ratio = .75;
@@ -269,7 +245,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_2iterations )
   std::cout << "central norms: ["<< bottom_ratio << "w,"<< upper_ratio << "w]x["<< bottom_ratio << "h,"<< upper_ratio << "h]x["<< bottom_ratio << "d,"<< upper_ratio << "d]\n"
 	    << "l2norm\t" << l2norm << "\n";
 
-  BOOST_CHECK_LT(l2norm, 1e-2);
+  BOOST_CHECK_LT(l2norm, 1e-5);
   //tear-down
   delete [] input.data_;
 }
@@ -299,20 +275,10 @@ BOOST_AUTO_TEST_CASE( threaded_reconstruct_4iterations )
     std::cout << "central bulk ["<< bottom_ratio << ","<< upper_ratio << "]*dims: l2norm = " << l2norm << "\n";
   }
   
-  float sum_received = std::accumulate(input_psi.data(),input_psi.data() + input_psi.num_elements(),0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(4)->data(),local_guesses.psi(4)->data() + local_guesses.psi(4)->num_elements(),0.f);
-
-
-  try{
-    BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
-  }
-  catch (...){
-    write_image_stack(input_psi,"./reconstruct_psi5_2threads.tif");
-  }
 
   //check norms
   float l2norm = multiviewnative::l2norm(input_psi.data(), local_guesses.psi(4)->data(), input_psi.num_elements());
-  BOOST_REQUIRE_LT(l2norm, 1e-2);
+  BOOST_REQUIRE_LT(l2norm, 1e-5);
 
   //tear-down
   delete [] input.data_;

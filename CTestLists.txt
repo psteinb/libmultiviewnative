@@ -5,5 +5,13 @@
 #  TESTS
 #  Independent_suite)
 
-add_test(NAME multi_array_fixture COMMAND multi_array_fixture)
-add_test(NAME cpu_convolve COMMAND cpu_convolve)
+
+add_test(NAME discrete_convolve COMMAND test_discrete_convolve)
+add_test(NAME fftw_convolve COMMAND test_fftw_convolve)
+add_test(NAME multi_array_fixture COMMAND test_multi_array_fixture)
+add_test(NAME cpu_asymm_convolve COMMAND test_cpu_asymm_convolve)
+add_test(NAME cpu_symm_convolve COMMAND test_cpu_symm_convolve)
+
+add_test(NAME gpu_convolve COMMAND test_gpu_convolve)
+add_test(NAME cuda_memory COMMAND test_cuda_memory)
+
