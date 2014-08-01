@@ -35,28 +35,16 @@ BOOST_AUTO_TEST_CASE( compare_to_cpu )
   inplace_gpu_deconvolve(gpu_input_psi.data(), input, -1);
   inplace_cpu_deconvolve_iteration(cpu_input_psi.data(), input, 2);
 
-  float sum_received = std::accumulate(gpu_input_psi.data(),gpu_input_psi.data() + gpu_input_psi.num_elements(),0.f);
-  float sum_expected = std::accumulate(local_guesses.psi(1)->data(),local_guesses.psi(1)->data() + local_guesses.psi(1)->num_elements(),0.f);
-
-  try{
-    BOOST_REQUIRE_CLOSE(sum_expected, sum_received, 0.001);
-  }
-  catch (...){
-    write_image_stack(gpu_input_psi,"./reconstruct_gpu_psi1.tif");
-  }
-
   //check norms
   float l2norm_to_guesses = multiviewnative::l2norm(gpu_input_psi.data(), local_guesses.psi(1)->data(), gpu_input_psi.num_elements());
   float l2norm_to_cpu = multiviewnative::l2norm(gpu_input_psi.data(), cpu_input_psi.data(), gpu_input_psi.num_elements());
   try{
     BOOST_REQUIRE_LT(l2norm_to_cpu, 1e-2);
-    BOOST_REQUIRE_LT(l2norm_to_guesses, 100);
+    BOOST_REQUIRE_LT(l2norm_to_guesses, 10);
   }
   catch (...){
     std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\nl2norm_to_cpu\t" << l2norm_to_cpu << "\n";
   }
-
-  BOOST_CHECK_LT(l2norm_to_guesses, 1e-2);
 
   //tear-down
   delete [] input.data_;
