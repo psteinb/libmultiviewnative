@@ -45,8 +45,24 @@ BOOST_AUTO_TEST_CASE( compare_to_cpu )
   catch (...){
     std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\nl2norm_to_cpu\t" << l2norm_to_cpu << "\n";
   }
-
+  
+  const float bottom_ratio = .25;
+  const float upper_ratio = .75;
+  l2norm_to_guesses = multiviewnative::l2norm_within_limits(gpu_input_psi, *local_guesses.psi(1), bottom_ratio,upper_ratio);  
+  l2norm_to_cpu = multiviewnative::l2norm_within_limits(gpu_input_psi, cpu_input_psi, bottom_ratio,upper_ratio);  
   //tear-down
+  try{
+    BOOST_REQUIRE_LT(l2norm_to_cpu, 1e-4);
+    BOOST_REQUIRE_LT(l2norm_to_guesses, 1e-4);
+  }
+  catch (...){
+    unsigned prec = std::cout.precision();
+    std::cout.precision(2);
+    std::cout << "["<< bottom_ratio << ", "<< upper_ratio <<"] ";
+    std::cout.precision(prec);
+    std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\nl2norm_to_cpu\t" << l2norm_to_cpu << "\n";
+  }
+
   delete [] input.data_;
 
 
