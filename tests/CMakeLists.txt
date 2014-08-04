@@ -12,6 +12,10 @@ ENDIF()
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_multi_array_fixture boost_system boost_filesystem boost_unit_test_framework)
 
+add_executable(test_image_stack test_image_stack.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
+target_link_libraries(test_image_stack boost_system boost_filesystem boost_unit_test_framework)
+
+
 #not sure if this line is correct (appending versus setting)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -23,13 +27,16 @@ ENDIF()
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_C_FLAGS ${OpenMP_C_FLAGS})
+    set (CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS})
+    message(">> tests: added ${OpenMP_C_FLAGS} and ${OpenMP_CXX_FLAGS} to compiler flags")
 
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
   SET(FFTW_LIBS_TO_USE ${FFTWF_OMP_LIB} ${FFTWF_LIB} # ${FFTW_OMP_LIB} ${FFTW_LIB}
     m)
 endif()
+else(OPENMP_FOUND)
+  warning(">> OpenMP not found, expect related error/warning messages")
 endif(OPENMP_FOUND)
 
 IF(FFTW_FOUND)

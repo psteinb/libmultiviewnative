@@ -48,6 +48,9 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 				      workspace input,
 				      int device){
   
+  
+  throw std::runtime_error("inplace_gpu_deconvolve_iteration_interleaved not implemented yet");
+
   //
   // TODO: nvidia_samples/0_Simple/simpleMultiCopy/simpleMultiCopy.cu
   // 
@@ -56,7 +59,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
   std::vector<wrap_around_padding> padding(input.num_views_);
 
-  //this needs to be delete later!
+  //this needs to be deleted later!
   std::vector<multiviewnative::image_stack*> padded_view   (input.num_views_);
   std::vector<multiviewnative::image_stack*> padded_kernel1(input.num_views_);
   std::vector<multiviewnative::image_stack*> padded_kernel2(input.num_views_);
@@ -74,10 +77,10 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     padding[v] = wrap_around_padding(input.data_[v].image_dims_, input.data_[v].kernel1_dims_);
     std::copy(input.data_[0].kernel1_dims_, input.data_[0].kernel1_dims_ + 3, &kernel_dim[0]);
 
-    padded_view   [v] = new multiviewnative::image_stack( image_dim );
-    padded_weights[v] = new multiviewnative::image_stack( image_dim );
-    padded_kernel1[v] = new multiviewnative::image_stack( kernel_dim );
-    padded_kernel2[v] = new multiviewnative::image_stack( kernel_dim );
+    padded_view   [v] = new multiviewnative::image_stack( padding[v].extents_ );
+    padded_weights[v] = new multiviewnative::image_stack( padding[v].extents_ );
+    padded_kernel1[v] = new multiviewnative::image_stack( padding[v].extents_ );
+    padded_kernel2[v] = new multiviewnative::image_stack( padding[v].extents_ );
     
     multiviewnative::image_stack_ref view(input.data_[v].image_, image_dim);
     multiviewnative::image_stack_ref weights(input.data_[v].weights_, image_dim);
@@ -214,10 +217,159 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 				      workspace input,
 				      int device){
+    HANDLE_ERROR( cudaSetDevice( device ) );
+
+  std::vector<wrap_around_padding> padding(input.num_views_);
+
+  std::vector<multiviewnative::image_stack*> padded_view   (input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_kernel1(input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_kernel2(input.num_views_);
+  std::vector<multiviewnative::image_stack*> padded_weights(input.num_views_);
+  std::vector<size_t> device_memory_elements_required(input.num_views_);
+
+  std::vector<unsigned> image_dim(3);
+  std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
+  std::vector<unsigned> kernel_dim(image_dim.size());
+  std::vector<unsigned> cufft_inplace_extents(kernel_dim.size());  
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // PREPARE THE DATA (INCL PADDING)
+  //
+  for(int v = 0;v<input.num_views_;++v){
+
+    padding[v] = wrap_around_padding(input.data_[v].image_dims_, input.data_[v].kernel1_dims_);
+    std::copy(input.data_[0].kernel1_dims_, input.data_[0].kernel1_dims_ + 3, &kernel_dim[0]);
+
+    padded_view   [v] = new multiviewnative::image_stack( padding[v].extents_ );
+    padded_weights[v] = new multiviewnative::image_stack( padding[v].extents_ );
+    padded_kernel1[v] = new multiviewnative::image_stack( padding[v].extents_ );
+    padded_kernel2[v] = new multiviewnative::image_stack( padding[v].extents_ );
+    
+    multiviewnative::image_stack_cref view(input.data_[v].image_, image_dim);
+    multiviewnative::image_stack_cref weights(input.data_[v].weights_, image_dim);
+    multiviewnative::image_stack_cref kernel1(input.data_[v].kernel1_, kernel_dim);
+    multiviewnative::image_stack_cref kernel2(input.data_[v].kernel2_, kernel_dim);
+
+    padding[v].insert_at_offsets(view, *padded_view[v]);
+    padding[v].insert_at_offsets(weights, *padded_weights[v]);
+    padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
+    padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
+
+    multiviewnative::adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
+    device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_t>());
+
+    // HANDLE_ERROR( cudaHostRegister(padded_view[v]->data()   , sizeof(imageType)*padded_view[v]->num_elements() , cudaHostRegisterPortable) );
+    // HANDLE_ERROR( cudaHostRegister(padded_weights[v]->data(), sizeof(imageType)*padded_weights[v]->num_elements() , cudaHostRegisterPortable) );
+    // HANDLE_ERROR( cudaHostRegister(padded_kernel1[v]->data(), sizeof(imageType)*padded_kernel1[v]->num_elements() , cudaHostRegisterPortable) );
+    // HANDLE_ERROR( cudaHostRegister(padded_kernel2[v]->data(), sizeof(imageType)*padded_kernel2[v]->num_elements() , cudaHostRegisterPortable) );
+
+  }
   
-  throw std::runtime_error("inplace_gpu_deconvolve_iteration_all_on_device not implemented yet");
+  multiviewnative::image_stack_ref input_psi(psi, image_dim);
+  multiviewnative::image_stack padded_psi(padding[0].extents_);
+  wrap_around_padding input_psi_padder =   padding[0];
+  input_psi_padder.insert_at_offsets(input_psi, padded_psi);
+  unsigned long max_device_memory_elements_required = *std::max_element(device_memory_elements_required.begin(), device_memory_elements_required.end());
 
+  dim3 threads(128);
+  dim3 blocks(largestDivisor(padded_view[0]->num_elements(), size_t(threads.x)));
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // ITERATE
+  //
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_running_psi(padded_psi,max_device_memory_elements_required);
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_integral(max_device_memory_elements_required);
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_view(max_device_memory_elements_required);
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_kernel1(max_device_memory_elements_required);
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_kernel2(max_device_memory_elements_required);
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_weights(max_device_memory_elements_required);
 
+  unsigned long long current_gmem_usage_byte = 6*max_device_memory_elements_required;
+  if(current_gmem_usage_byte>.25*getAvailableGMemOnCurrentDevice()){
+    std::cout << "current gmem footprint ("<< current_gmem_usage_byte/float(1<<20) <<" MB) exceeds available memory threshold: (free) "
+	      << getAvailableGMemOnCurrentDevice()/float(1<<20) << " MB, threshold: "
+	      << .25*getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+  }
+  for(int iteration = 0; iteration < input.num_iterations_;++iteration){
+
+    for(int v = 0;v<input.num_views_;++v){
+      std::cout << "start        [" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      d_integral = d_running_psi;HANDLE_LAST_ERROR();
+      d_kernel1.push_to_device(*padded_kernel1[v]);HANDLE_LAST_ERROR();
+      //integral = integral * kernel1
+      std::cout << "1st conv     [" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      multiviewnative::inplace_convolve_on_device<device_transform>(d_integral.data(), 
+								    d_kernel1.data(), 
+								    &padding[v].extents_[0],
+								    device_memory_elements_required[v]);
+      HANDLE_LAST_ERROR();
+      std::cout << "device_devide[" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      
+      d_view.push_to_device(*padded_view[v]);HANDLE_LAST_ERROR();
+      device_divide<<<blocks,threads>>>(d_view.data(), 
+					d_integral.data(),
+					padded_view[v]->num_elements() );
+      HANDLE_LAST_ERROR();
+      d_kernel2.push_to_device(*padded_kernel2[v]);HANDLE_LAST_ERROR();
+      std::cout << "2nd conv     [" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      multiviewnative::inplace_convolve_on_device<device_transform>(d_integral.data(), 
+								    d_kernel2.data(), 
+								    &padding[v].extents_[0],
+								    device_memory_elements_required[v]);
+      HANDLE_LAST_ERROR();
+      d_weights.push_to_device(*padded_weights[v]);
+      HANDLE_LAST_ERROR();
+      std::cout << "regularisatio[" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      if(input.lambda_>0){
+	device_regularized_final_values<<< blocks,
+	  threads>>>(d_running_psi.data(),
+		     d_integral.data(),
+		     d_weights.data(),
+		     input.lambda_,
+		     input.minValue_,
+		     padded_view[v]->num_elements()
+		     );
+
+	
+      }
+      else{
+	device_final_values<<< blocks,
+	  threads>>>(d_running_psi.data(),
+		     d_integral.data(),
+		     d_weights.data(),
+		     input.minValue_,
+		     padded_view[v]->num_elements()
+		     );
+      }
+      HANDLE_LAST_ERROR();
+    }
+
+  }
+
+  d_running_psi.pull_from_device(padded_psi);
+
+  input_psi = padded_psi[ boost::indices[multiviewnative::range(input_psi_padder.offsets_[0], input_psi_padder.offsets_[0]+input_psi.shape()[0])][multiviewnative::range(input_psi_padder.offsets_[1], input_psi_padder.offsets_[1]+input_psi.shape()[1])][multiviewnative::range(input_psi_padder.offsets_[2], input_psi_padder.offsets_[2]+input_psi.shape()[2])] ];
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // CLEAN-UP
+  //
+  for(int v = 0;v<input.num_views_;++v){
+
+    HANDLE_ERROR( cudaHostUnregister( padded_view[v]->data()    ));
+    HANDLE_ERROR( cudaHostUnregister( padded_weights[v]->data() ));
+    HANDLE_ERROR( cudaHostUnregister( padded_kernel1[v]->data() ));
+    HANDLE_ERROR( cudaHostUnregister( padded_kernel2[v]->data() ));
+
+    delete padded_view   [v];
+    delete padded_kernel1[v];
+    delete padded_kernel2[v];
+    delete padded_weights[v];
+
+  }
+  
+  
 }
 
 

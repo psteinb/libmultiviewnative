@@ -14,7 +14,7 @@
 using namespace multiviewnative;
 
 static const ReferenceData reference;
-static const first_5_iterations guesses;
+static const first_2_iterations guesses;
 
 BOOST_AUTO_TEST_SUITE( deconvolve_psi0_on_device  )
 
@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE( compare_to_cpu )
 
   //setup
   ReferenceData local_ref(reference);
-  first_5_iterations local_guesses(guesses);
+  first_2_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
   fill_workspace(local_ref, input, local_guesses.lambda_, local_guesses.minValue_);

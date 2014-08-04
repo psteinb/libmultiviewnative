@@ -13,7 +13,7 @@ namespace multiviewnative {
 
     typedef typename ImageStackT::element value_type;
     
-    void push(ImageStackT* _host_ptr, value_type* _device_ptr, cudaStream_t* _stream = 0 ){
+    void push(const ImageStackT* _host_ptr, value_type* _device_ptr, cudaStream_t* _stream = 0 ){
       HANDLE_ERROR( cudaMemcpy(_device_ptr , _host_ptr->data(),  _host_ptr->num_elements()*sizeof(value_type) , cudaMemcpyHostToDevice ) );
     }
 
@@ -39,54 +39,121 @@ namespace multiviewnative {
     }
   };
 
-  template <typename ImageStackT, template <typename> class IOPolicy >
+  template <typename T>
+  unsigned obtain_cuda_host_mem_flags(T* _ptr){
+    unsigned value = 0;
+    cudaError_t errcode = cudaHostGetFlags( &value, (void*)_ptr ) ;
+    if(errcode != cudaSuccess){
+      //clearing the cuda driver error state
+      //see http://developer.download.nvidia.com/compute/cuda/4_1/rel/toolkit/docs/online/group__CUDART__ERROR_g0a933755a73d874d0d7051a3eb2aa533.html#g0a933755a73d874d0d7051a3eb2aa533
+      cudaGetLastError();
+      return 0;}
+    else
+      return value;
+  }
+
+  //TODO: refactor this class
+  template <typename ImageStackT, template <typename> class IOPolicy = synch >
   struct stack_on_device : public IOPolicy<ImageStackT> {
 
     typedef typename ImageStackT::element value_type;
     typedef IOPolicy<ImageStackT> io_policy;
 
-    ImageStackT* host_stack_;
+    //ownership taken
     value_type* device_stack_ptr_;
-    unsigned size_in_byte_;
+    unsigned long size_in_byte_;
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+    // Constructors
 
     stack_on_device():
-      host_stack_(0),
       device_stack_ptr_(0),
       size_in_byte_(0)
     {}
+
+    stack_on_device(const size_t& _num_elements):
+      device_stack_ptr_(0),
+      size_in_byte_(sizeof(value_type)*(_num_elements))
+    {
+      HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
+    }
     
-    stack_on_device( ImageStackT& _other, const size_t& _num_elements = 0):
-      host_stack_(&_other),
+    //RAII
+    stack_on_device( const ImageStackT& _other, 
+		     const size_t& _num_elements = 0,
+		     cudaStream_t* _stream = 0):
       device_stack_ptr_(0),
       size_in_byte_(sizeof(value_type)*((_num_elements) ? _num_elements : _other.num_elements()))
     {
       HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
-      HANDLE_ERROR( cudaHostRegister( host_stack_->data(), sizeof(value_type)*_other.num_elements() , cudaHostRegisterPortable) );
+      
+      push_to_device(_other,_stream);
     }
 
-    stack_on_device(ImageStackT* _other, const size_t& _num_elements = 0):
-      host_stack_(_other),
+    stack_on_device(ImageStackT* _other, 
+		    const size_t& _num_elements = 0,
+		    cudaStream_t* _stream = 0):
       device_stack_ptr_(0),
       size_in_byte_(sizeof(value_type)*((_num_elements) ? _num_elements : _other->num_elements()))
     {
       HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
-      HANDLE_ERROR( cudaHostRegister( host_stack_->data(), sizeof(value_type)*_other->num_elements() , cudaHostRegisterPortable) );
+      push_to_device(*_other, _stream);
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////////
+    // Copy
+    stack_on_device(const stack_on_device& _other ):
+      device_stack_ptr_(0),
+      size_in_byte_(_other.size_in_byte_)
+    {
+      HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
+      HANDLE_ERROR( cudaMemcpy( device_stack_ptr_, _other.device_stack_ptr_, size_in_byte_, cudaMemcpyDeviceToDevice ) );
+    }
 
-    stack_on_device& operator=(ImageStackT& _rhs){
-      this->host_stack_ = &_rhs;
+    //////////////////////////////////////////////////////////////////////////////////////////
+    // Assignment
+    stack_on_device& operator=(const ImageStackT& _rhs){
+      
+      stack_on_device temp(_rhs);
+      swap(*this, _rhs);
+      // this->host_stack_ = &_rhs;
 
-      size_in_byte_ = sizeof(value_type)*_rhs.num_elements();
+      // size_in_byte_ = sizeof(value_type)*_rhs.num_elements();
 
-      HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
+      // unsigned host_mem_flags = obtain_cuda_host_mem_flags(host_stack_->data());
+      // if(!host_mem_flags)
+      // 	HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
 
-      if(_rhs.num_elements()!=(size_in_byte_/sizeof(value_type))){
-	this->clear();
-	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
-      }
+      // if(_rhs.num_elements()!=(size_in_byte_/sizeof(value_type))){
+      // 	this->clear();
+      // 	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
+      // }
       
       return *this;
+    }
+
+    stack_on_device& operator=(stack_on_device _rhs){
+
+      // if(_rhs.size_in_byte_!=size_in_byte_){
+      // 	clear();
+      // 	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ ) );
+      // }
+
+      // this->host_stack_ = _rhs.host_stack_;
+      // size_in_byte_ = sizeof(value_type)*host_stack_->num_elements();
+      // unsigned host_mem_flags = obtain_cuda_host_mem_flags(host_stack_->data());
+      // if(!host_mem_flags)
+      // 	HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ , cudaHostRegisterPortable) );
+      // HANDLE_ERROR( cudaMemcpy( device_stack_ptr_, _rhs.device_stack_ptr_, size_in_byte_, cudaMemcpyDeviceToDevice ) );
+      swap(*this, _rhs);
+      return *this;
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+    // member functions
+    friend void swap(stack_on_device& _first, stack_on_device& _second){
+      std::swap(_first.device_stack_ptr_, _second.device_stack_ptr_);
+      std::swap(_first.size_in_byte_, _second.size_in_byte_);
     }
     
     void resize_device_memory(const size_t& _num_elements){
@@ -96,27 +163,60 @@ namespace multiviewnative {
       }
     }
     
-    void pull_from_device(cudaStream_t* _stream = 0){
-      io_policy::pull(device_stack_ptr_, host_stack_,  _stream);
+    void pull_from_device(ImageStackT& _other,cudaStream_t* _stream = 0){
+      
+      if(_other.num_elements()*sizeof(value_type)<=size_in_byte_){
+	io_policy::pull(device_stack_ptr_, &_other,  _stream);}
+      else{
+	std::stringstream msg("");
+	msg << "[mvn::stack_on_device]\tunable to pull cpu based image stack from device (cpu size: "
+	    << _other.num_elements()*sizeof(value_type)/float(1 << 20) 
+	    << " MB,allocated gpu device memory: "<< size_in_byte_/float(1 << 20)
+	    <<" MB)\n";
+	throw std::runtime_error(msg.str());
+      }
     }
     
-    void push_to_device(cudaStream_t* _stream = 0) {
-      io_policy::push(host_stack_, device_stack_ptr_, _stream);
+    void push_to_device(const ImageStackT& _other,cudaStream_t* _stream = 0) {
+
+
+      if(_other.num_elements()*sizeof(value_type)<=size_in_byte_)
+	io_policy::push(&_other, device_stack_ptr_, _stream);
+      else{
+	std::stringstream msg("");
+	msg << "[mvn::stack_on_device]\tunable to push cpu based image stack to device (cpu size: "
+	    << _other.num_elements()*sizeof(value_type)/float(1 << 20) 
+	    << " MB,allocated gpu device memory: "<< size_in_byte_/float(1 << 20)
+	    <<" MB)\n";
+	throw std::runtime_error(msg.str());
+      }
     }
+
 
     void clear(){
 
-      if(host_stack_)
-	HANDLE_ERROR( cudaHostUnregister( host_stack_->data()));
-
-      if(device_stack_ptr_)
+      if(device_stack_ptr_){
 	HANDLE_ERROR( cudaFree( device_stack_ptr_ ) );
+	device_stack_ptr_ = 0;
+	size_in_byte_ = 0;
+      }
+
+      
 
     }
     
     ~stack_on_device(){
       this->clear();
     }
+
+    // const value_type* data() const {
+    //   return device_stack_ptr_;
+    // }
+
+    value_type* data()  {
+      return device_stack_ptr_;
+    }
+    
   };
 
   enum      port_id  {

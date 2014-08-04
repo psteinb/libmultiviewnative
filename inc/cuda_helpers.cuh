@@ -27,6 +27,7 @@ static void HandleError( cudaError_t err,
 
 
 #define HANDLE_ERROR_KERNEL HandleError(cudaPeekAtLastError(),__FILE__, __LINE__ )
+#define HANDLE_LAST_ERROR( err ) (HandleError(cudaPeekAtLastError(),__FILE__, __LINE__ ))
 
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
@@ -106,6 +107,13 @@ long long int getMemDeviceCUDA(int devCUDA)
 	cudaDeviceProp prop;
 	HANDLE_ERROR( cudaGetDeviceProperties(&prop, devCUDA));
 	return ((long long int)prop.totalGlobalMem);
+}
+
+long long int getAvailableGMemOnCurrentDevice()
+{
+  size_t free, total;
+  HANDLE_ERROR( cudaMemGetInfo(&free, &total));
+  return ((long long int)free);
 }
 
 int selectDeviceWithHighestComputeCapability(){

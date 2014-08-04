@@ -1,6 +1,7 @@
 #ifndef _PADD_UTILS_H_
 #define _PADD_UTILS_H_
 #include <vector>
+#include <algorithm>
 #include "boost/multi_array.hpp"
 #include <boost/type_traits.hpp>
 
@@ -71,6 +72,9 @@ struct zero_padd {
   template <typename ImageStackRefT, typename OtherStackT>
   void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 
+    if(std::lexicographical_compare(_target.shape(), _target.shape() + OtherStackT::dimensionality, extents_.begin(), extents_.end()))
+      throw std::runtime_error("multiviewnative::zero_padd::insert_at_offsets]\ttarget image stack is smaller or equal in size than source\n");
+
     
     image_stack_view subview_padded_image =  _target[ boost::indices[range(offsets_[0], offsets_[0]+_source.shape()[0])][range(offsets_[1], offsets_[1]+_source.shape()[1])][range(offsets_[2], offsets_[2]+_source.shape()[2])] ];
     subview_padded_image = _source;
@@ -81,6 +85,9 @@ struct zero_padd {
   void wrapped_insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 
     typedef typename boost::make_signed<size_type>::type signed_size_type;
+
+    if(std::lexicographical_compare(_target.shape(), _target.shape() + OtherStackT::dimensionality, extents_.begin(), extents_.end()))
+      throw std::runtime_error("multiviewnative::zero_padd::insert_at_offsets]\ttarget image stack is smaller or equal in size than source\n");
 
     for(signed_size_type z=0;z<signed_size_type(_source.shape()[2]);++z)
       for(signed_size_type y=0;y<signed_size_type(_source.shape()[1]);++y)
