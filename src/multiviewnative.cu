@@ -95,10 +95,6 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     multiviewnative::adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
     device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_t>());
 
-    HANDLE_ERROR( cudaHostRegister(padded_view[v]->data()   , sizeof(imageType)*padded_view[v]->num_elements() , cudaHostRegisterPortable) );
-    HANDLE_ERROR( cudaHostRegister(padded_weights[v]->data(), sizeof(imageType)*padded_weights[v]->num_elements() , cudaHostRegisterPortable) );
-    HANDLE_ERROR( cudaHostRegister(padded_kernel1[v]->data(), sizeof(imageType)*padded_kernel1[v]->num_elements() , cudaHostRegisterPortable) );
-    HANDLE_ERROR( cudaHostRegister(padded_kernel2[v]->data(), sizeof(imageType)*padded_kernel2[v]->num_elements() , cudaHostRegisterPortable) );
 
   }
 
@@ -198,11 +194,6 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   //clean-up
   for(int v = 0;v<input.num_views_;++v){
 
-    HANDLE_ERROR( cudaHostUnregister( padded_view[v]->data()    ));
-    HANDLE_ERROR( cudaHostUnregister( padded_weights[v]->data() ));
-    HANDLE_ERROR( cudaHostUnregister( padded_kernel1[v]->data() ));
-    HANDLE_ERROR( cudaHostUnregister( padded_kernel2[v]->data() ));
-
     delete padded_view   [v];
     delete padded_kernel1[v];
     delete padded_kernel2[v];
@@ -259,11 +250,6 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     multiviewnative::adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
     device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_t>());
 
-    // HANDLE_ERROR( cudaHostRegister(padded_view[v]->data()   , sizeof(imageType)*padded_view[v]->num_elements() , cudaHostRegisterPortable) );
-    // HANDLE_ERROR( cudaHostRegister(padded_weights[v]->data(), sizeof(imageType)*padded_weights[v]->num_elements() , cudaHostRegisterPortable) );
-    // HANDLE_ERROR( cudaHostRegister(padded_kernel1[v]->data(), sizeof(imageType)*padded_kernel1[v]->num_elements() , cudaHostRegisterPortable) );
-    // HANDLE_ERROR( cudaHostRegister(padded_kernel2[v]->data(), sizeof(imageType)*padded_kernel2[v]->num_elements() , cudaHostRegisterPortable) );
-
   }
   
   multiviewnative::image_stack_ref input_psi(psi, image_dim);
@@ -291,6 +277,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 	      << getAvailableGMemOnCurrentDevice()/float(1<<20) << " MB, threshold: "
 	      << .25*getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
   }
+
   for(int iteration = 0; iteration < input.num_iterations_;++iteration){
 
     for(int v = 0;v<input.num_views_;++v){
@@ -356,11 +343,6 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   // CLEAN-UP
   //
   for(int v = 0;v<input.num_views_;++v){
-
-    HANDLE_ERROR( cudaHostUnregister( padded_view[v]->data()    ));
-    HANDLE_ERROR( cudaHostUnregister( padded_weights[v]->data() ));
-    HANDLE_ERROR( cudaHostUnregister( padded_kernel1[v]->data() ));
-    HANDLE_ERROR( cudaHostUnregister( padded_kernel2[v]->data() ));
 
     delete padded_view   [v];
     delete padded_kernel1[v];

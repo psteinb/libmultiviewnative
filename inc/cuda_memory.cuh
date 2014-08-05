@@ -566,8 +566,47 @@ namespace multiviewnative {
     }
   };
 
+template <typename Tp>
+class pinned_allocator
+{
+public:
+  typedef size_t     size_type;
+  typedef ptrdiff_t  difference_type;
+  typedef Tp*        pointer;
+  typedef const Tp*  const_pointer;
+  typedef Tp&        reference;
+  typedef const Tp&  const_reference;
+  typedef Tp         value_type;
+ 
+  template<typename Tp1> struct rebind { typedef pinned_allocator<Tp1> other; };
+ 
+  pinned_allocator() throw() { }
+  pinned_allocator(const pinned_allocator&) throw() { }
+  template<typename Tp1> pinned_allocator(const pinned_allocator<Tp1>&) throw() { }
+  ~pinned_allocator() throw() { }
+ 
+  pointer allocate(size_type n, const void* = 0 ){ 
+    pointer value = 0;
+    HANDLE_ERROR(cudaMallocHost((void **)&value,n * sizeof(Tp) ));
+    // pointer value = static_cast<Tp*>(fftw_c_api<Tp>::malloc(n * sizeof(Tp)));
+    return value; 
+      
+  }
+ 
+  void deallocate(pointer p, size_type) { 
+    HANDLE_ERROR(cudaFreeHost(p));
+    // fftw_c_api<Tp>::free(p); 
+    return; }
+ 
+  size_type max_size() const { return size_t(-1) / sizeof(Tp); }
+ 
+  void construct(pointer p) { ::new((void *)p) Tp(); }
+  void construct(pointer p, const Tp& val) { ::new((void *)p) Tp(val); }
+  void destroy(pointer p) { p->~Tp(); }
 };
 
+
+};//multiviewnative namespace
 
 #endif /* _CUDA_MEMORY_H_ */
 

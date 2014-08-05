@@ -122,6 +122,29 @@ BOOST_AUTO_TEST_CASE( instantiate_add_1_asynched )
 BOOST_AUTO_TEST_SUITE_END()
 
 
+typedef  boost::multi_array<float,              3, multiviewnative::pinned_allocator<float> >    pinned_image_stack;
+
+BOOST_FIXTURE_TEST_SUITE( allocator_suite, multiviewnative::default_3D_fixture )
+BOOST_AUTO_TEST_CASE( pinned_allocator_works )
+{
+
+  std::vector<unsigned> shapes(image_.shape(), image_.shape() +3);
+  pinned_image_stack test(shapes);
+  BOOST_CHECK_EQUAL_COLLECTIONS(test.shape(), test.shape() + 3, image_.shape(), image_.shape() + 3);
+}
+
+BOOST_AUTO_TEST_CASE( pinned_allocator_copies_non_pinned )
+{
+
+  pinned_image_stack test = image_;
+  BOOST_CHECK_EQUAL_COLLECTIONS(test.shape(), test.shape() + 3, image_.shape(), image_.shape() + 3);
+  BOOST_CHECK(test == image_);
+  
+  multiviewnative::image_stack returned = test;
+  BOOST_CHECK(returned == image_);
+  
+}
+BOOST_AUTO_TEST_SUITE_END()
 
 
 
