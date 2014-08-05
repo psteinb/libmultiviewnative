@@ -281,17 +281,17 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   for(int iteration = 0; iteration < input.num_iterations_;++iteration){
 
     for(int v = 0;v<input.num_views_;++v){
-      std::cout << "start        [" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      
+      
       d_integral = d_running_psi;HANDLE_LAST_ERROR();
       d_kernel1.push_to_device(*padded_kernel1[v]);HANDLE_LAST_ERROR();
       //integral = integral * kernel1
-      std::cout << "1st conv     [" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
       multiviewnative::inplace_convolve_on_device<device_transform>(d_integral.data(), 
 								    d_kernel1.data(), 
 								    &padding[v].extents_[0],
 								    device_memory_elements_required[v]);
       HANDLE_LAST_ERROR();
-      std::cout << "device_devide[" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
+      
       
       d_view.push_to_device(*padded_view[v]);HANDLE_LAST_ERROR();
       device_divide<<<blocks,threads>>>(d_view.data(), 
@@ -299,7 +299,6 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 					padded_view[v]->num_elements() );
       HANDLE_LAST_ERROR();
       d_kernel2.push_to_device(*padded_kernel2[v]);HANDLE_LAST_ERROR();
-      std::cout << "2nd conv     [" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
       multiviewnative::inplace_convolve_on_device<device_transform>(d_integral.data(), 
 								    d_kernel2.data(), 
 								    &padding[v].extents_[0],
@@ -307,7 +306,6 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
       HANDLE_LAST_ERROR();
       d_weights.push_to_device(*padded_weights[v]);
       HANDLE_LAST_ERROR();
-      std::cout << "regularisatio[" << iteration << "] view= " << v << " available gmem = " << getAvailableGMemOnCurrentDevice()/float(1<<20)<< " MB\n";
       if(input.lambda_>0){
 	device_regularized_final_values<<< blocks,
 	  threads>>>(d_running_psi.data(),
