@@ -66,6 +66,9 @@ target_link_libraries(test_cuda_memory boost_system boost_filesystem boost_unit_
 CUDA_ADD_EXECUTABLE(test_gpu_deconvolve test_gpu_deconvolve.cpp)
 target_link_libraries(test_gpu_deconvolve boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
 
+CUDA_ADD_EXECUTABLE(test_gpu_deconvolve_single_stepped test_gpu_deconvolve_single_stepped.cu)
+target_link_libraries(test_gpu_deconvolve_single_stepped boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
+
 ELSE(CUDA_FOUND)
 WARNING("Skipping GPU based tests, CUDA not found\!")
 ENDIF(CUDA_FOUND)

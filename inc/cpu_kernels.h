@@ -18,7 +18,9 @@ void serial_final_values(TransferT* _psi,
 			 const size_t& _size,
 			 const TransferT& _minValue = 0.0001f,
 			 const size_t& _offset = 0){
-    
+  using std::isinf;
+  using std::isnan;
+  
     TransferT value = 0.f;
     TransferT last_value = 0.f;
     TransferT next_value = 0.f;
@@ -29,7 +31,7 @@ void serial_final_values(TransferT* _psi,
 	value = _minValue;
       }
       
-      if(std::isnan(value) || std::isinf(value))
+      if(isnan(value) || isinf(value))
 	next_value = _minValue;
       else
 	next_value = std::max(value,_minValue);
@@ -51,7 +53,9 @@ void serial_regularized_final_values(TransferT* _psi,
 				     const double& _lambda,
 				     const TransferT& _minValue = 0.0001f,
 				     const size_t& _offset = 0){
-
+  using std::isinf;
+  using std::isnan;
+  
   TransferT value = 0.f;
   TransferT last_value = 0.f;
   TransferT next_value = 0.f;
@@ -67,7 +71,7 @@ void serial_regularized_final_values(TransferT* _psi,
       value = _minValue;
     }
       
-    if(std::isnan(value) || std::isinf(value))
+    if(isnan(value) || isinf(value))
       next_value = _minValue;
     else
       next_value = std::max(value,_minValue);
@@ -83,7 +87,9 @@ void computeFinalValues(TransferT* _psi,const TransferT* _integral, const Transf
 			size_t _offset,
 			double _lambda = 0.006,
 			TransferT _minValue = .0001f){
-  
+  using std::isinf;
+  using std::isnan;
+
   TransferT value = 0.f;
   TransferT last_value = 0.f;
   TransferT next_value = 0.f;
@@ -100,7 +106,7 @@ void computeFinalValues(TransferT* _psi,const TransferT* _integral, const Transf
       value = _minValue;
     }
       
-    if(std::isnan(value) || std::isinf(value))
+    if(isnan(value) || isinf(value))
       next_value = _minValue;
     else
       next_value = std::max(value,_minValue);
@@ -141,8 +147,10 @@ void parallel_divide(const TransferT* _input,TransferT* _output, const SizeT& _s
       const int& _num_threads = -1,
       const TransferT& _minValue = 0.0001f,
       const size_t& _offset = 0){
-    
-    
+
+    using std::isinf;
+    using std::isnan;
+
     int num_procs = (_num_threads > 0) ? _num_threads : omp_get_num_procs();
     omp_set_num_threads(num_procs);
 
@@ -160,7 +168,7 @@ void parallel_divide(const TransferT* _input,TransferT* _output, const SizeT& _s
 	}
       
 	TransferT next_value = 0;
-	if(std::isnan(value) || std::isinf(value))
+	if(isnan(value) || isinf(value))
 	  next_value = _minValue;
 	else
 	  next_value = std::max(value,_minValue);
@@ -185,7 +193,9 @@ template <typename TransferT>
 					 const int& _num_threads = -1,
 					 const TransferT& _minValue = 0.0001f,
 					 const size_t& _offset = 0){
-
+  using std::isinf;
+  using std::isnan;
+  
     TransferT lambda_inv = 1.f / _lambda;
     int num_procs = (_num_threads > 0) ? _num_threads : omp_get_num_procs();
     size_t chunk_size = ((_size - _offset) + num_procs - 1 )/num_procs;
@@ -209,7 +219,7 @@ template <typename TransferT>
 	}
       
 	TransferT next_value = 0;
-	if(std::isnan(value) || std::isinf(value))
+	if(isnan(value) || isinf(value))
 	  next_value = _minValue;
 	else
 	  next_value = std::max(value,_minValue);

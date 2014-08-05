@@ -5,6 +5,7 @@
 #include "multiviewnative.h"
 #include "convert_tiff_fixtures.hpp"
 
+//#include "cuda_memory.cuh"
 #include "cpu_convolve.h"
 #include "padd_utils.h"
 #include "fft_utils.h"
@@ -100,6 +101,7 @@ BOOST_AUTO_TEST_CASE( compare_to_guesses_after_4_iterations )
 
 }
 BOOST_AUTO_TEST_SUITE_END()
+
 
 
 

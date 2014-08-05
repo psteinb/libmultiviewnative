@@ -104,22 +104,23 @@ namespace multiviewnative {
     
     
     bool has_malformed_floats() const {
+      using namespace std;
       
       bool value = false;
 
       unsigned size = stack_.num_elements();
-      bool is_nan = false;
-      bool is_inf = false;
+      bool b_is_nan = false;
+      bool b_is_inf = false;
       const float* data = stack_.data();
 
       for(unsigned i = 0;i<size;++i){
 	
-	is_nan = std::isnan(data[i]);
-	is_inf = std::isinf(data[i]);
+	b_is_nan = isnan(data[i]);
+	b_is_inf = isinf(data[i]);
 	
-	if(is_nan || is_inf){
+	if(b_is_nan || b_is_inf){
 	  std::cerr << "encountered malformed pixel in ["<< stack_path_ <<"]: index = " << i 
-		    << " type: "<< ((is_nan) ? "nan" : "inf") << "\n";
+		    << " type: "<< ((b_is_nan) ? "nan" : "inf") << "\n";
 	  value = true;
 	  break;
 	}

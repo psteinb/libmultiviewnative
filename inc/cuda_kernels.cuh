@@ -209,6 +209,7 @@ __device__ float scale_added(const float& _ax, const float& _bx,
   return __fmul_rn(_c,result);
 }
 
+#include "cufft.h"
 
 __global__ void  modulateAndNormalize_kernel(cufftComplex *d_Dst, 
 					     cufftComplex *d_Src, 

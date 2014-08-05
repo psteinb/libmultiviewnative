@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iomanip>
 #include "cuda.h"
+#include "cuda_runtime.h"
 
 template <typename ValueT>
 struct multiplies : std::binary_function<ValueT, ValueT, ValueT> {
