@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE( compare_to_guesses_after_4_iterations )
 
   //check norms
   float l2norm_to_guesses = multiviewnative::l2norm(gpu_input_psi.data(), local_guesses.psi(5)->data(), gpu_input_psi.num_elements());
-  BOOST_CHECK_LT(l2norm_to_guesses, 1);
+  BOOST_CHECK_LT(l2norm_to_guesses, 20);
   std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\n";
   
   const float bottom_ratio = .25;

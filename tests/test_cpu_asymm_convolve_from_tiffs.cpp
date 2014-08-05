@@ -196,3 +196,55 @@ BOOST_AUTO_TEST_CASE( convolve_with_multiple_custom_ones )
 }
 BOOST_AUTO_TEST_SUITE_END()
 
+BOOST_AUTO_TEST_SUITE( convolution_works_with_kernel2_view_0 )
+
+BOOST_AUTO_TEST_CASE( convolve_with_custom_one_compare_to_gpu )
+{
+
+  tiff_stack local_kernel2(kernel2_view_0);
+  std::vector<int> local_kernel2_dims(3);
+  for(int i = 0;i<3;++i)
+    local_kernel2_dims[i] = local_kernel2.stack_.shape()[i];
+
+  unsigned max_dim = *std::max_element(local_kernel2_dims.begin(), local_kernel2_dims.end());
+  std::vector<int> image_dims(3,3*max_dim);
+  
+  image_stack cpu_local_one(image_dims);
+  cpu_local_one[image_dims[0]/2][image_dims[1]/2][image_dims[2]/2] = 1.f;
+  
+  inplace_cpu_convolution(cpu_local_one.data(), &image_dims[0], 
+			  local_kernel2.stack_.data(),&local_kernel2_dims[0],
+			  2);
+
+  multiviewnative::range expected_kernel_pos[3];
+  for(int i = 0;i<3;++i)
+    expected_kernel_pos[i] = multiviewnative::range(cpu_local_one.shape()[i]/2 - local_kernel2.stack_.shape()[i]/2,
+						    cpu_local_one.shape()[i]/2 - local_kernel2.stack_.shape()[i]/2 + local_kernel2.stack_.shape()[i]);
+  multiviewnative::image_stack_view kernel2_segment = cpu_local_one[ boost::indices[expected_kernel_pos[0]][expected_kernel_pos[1]][expected_kernel_pos[2]] ];
+  multiviewnative::image_stack cpu_result = kernel2_segment;
+
+  float l2norm = multiviewnative::l2norm(local_kernel2.stack_.data(), cpu_result.data(),cpu_result.num_elements());
+  BOOST_CHECK_LT(l2norm, 1.e-5);
+  const int prec = std::cout.precision();
+  std::cout.precision(4);
+  std::cout << "cpu vs. expectation:\t" << l2norm << "\n";
+
+  image_stack gpu_local_one(image_dims);
+  gpu_local_one[image_dims[0]/2][image_dims[1]/2][image_dims[2]/2] = 1.f;
+  
+  inplace_gpu_convolution(gpu_local_one.data(), &image_dims[0], 
+			  local_kernel2.stack_.data(),&local_kernel2_dims[0],
+			  -1);
+
+  kernel2_segment = gpu_local_one[ boost::indices[expected_kernel_pos[0]][expected_kernel_pos[1]][expected_kernel_pos[2]] ];
+  multiviewnative::image_stack gpu_result = kernel2_segment;
+
+  l2norm = multiviewnative::l2norm(local_kernel2.stack_.data(), gpu_result.data(),gpu_result.num_elements());
+  BOOST_CHECK_LT(l2norm, 1.e-5);
+  std::cout << "gpu vs. expectation:\t" << l2norm << "\n";
+  
+  l2norm = multiviewnative::l2norm(cpu_result.data(), gpu_result.data(),gpu_result.num_elements());
+  BOOST_CHECK_LT(l2norm, 1.e-5);
+  std::cout << "gpu vs. cpu        :\t" << l2norm << "\n";
+}
+BOOST_AUTO_TEST_SUITE_END()
