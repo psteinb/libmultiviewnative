@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE( compare_to_cpu )
 
     BOOST_CHECK_LT(l2norm_to_cpu, 1);
     BOOST_CHECK_LT(l2norm_to_guesses, 1);
-    std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\nl2norm_to_cpu\t" << l2norm_to_cpu << "\n";
+    std::cout << boost::unit_test::framework::current_test_case().p_name << "l2norm_to_guesses\t" << l2norm_to_guesses << "\nl2norm_to_cpu\t" << l2norm_to_cpu << "\n";
   
   const float bottom_ratio = .25;
   const float upper_ratio = .75;
@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE( compare_to_cpu )
 
   unsigned prec = std::cout.precision();
     std::cout.precision(2);
-    std::cout << "["<< bottom_ratio << ", "<< upper_ratio <<"] ";
+    std::cout  << boost::unit_test::framework::current_test_case().p_name << "["<< bottom_ratio << ", "<< upper_ratio <<"] ";
     std::cout.precision(prec);
     std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\nl2norm_to_cpu\t" << l2norm_to_cpu << "\n";
 
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE( compare_to_guesses_after_4_iterations )
   //check norms
   float l2norm_to_guesses = multiviewnative::l2norm(gpu_input_psi.data(), local_guesses.psi(5)->data(), gpu_input_psi.num_elements());
   BOOST_CHECK_LT(l2norm_to_guesses, 20);
-  std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\n";
+  std::cout  << boost::unit_test::framework::current_test_case().p_name << "l2norm_to_guesses\t" << l2norm_to_guesses << "\n";
   
   const float bottom_ratio = .25;
   const float upper_ratio = .75;
@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE( compare_to_guesses_after_4_iterations )
   
   unsigned prec = std::cout.precision();
   std::cout.precision(2);
-  std::cout << "["<< bottom_ratio << ", "<< upper_ratio <<"] ";
+  std::cout  << boost::unit_test::framework::current_test_case().p_name << "["<< bottom_ratio << ", "<< upper_ratio <<"] ";
   std::cout.precision(prec);
   std::cout << "l2norm_to_guesses\t" << l2norm_to_guesses << "\n";
 
