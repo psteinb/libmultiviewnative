@@ -127,15 +127,11 @@ void parallel_divide(const TransferT* _input,TransferT* _output, const SizeT& _s
   SizeT idx;
   omp_set_num_threads(num_procs);
 
-#pragma omp parallel shared(_input,_output,_size,chunk_size) private(idx)
-  {
-
-  #pragma omp for schedule(dynamic,chunk_size) nowait
-    for(idx = 0;idx<_size;++idx){
+#pragma omp parallel for schedule(dynamic,chunk_size) shared(_output)
+  for(idx = 0;idx<_size;++idx){
     TransferT temp = 1./_output[idx];
     _output[idx] = temp*_input[idx];
   }
-  } 
 
 }
 
@@ -146,40 +142,36 @@ void parallel_divide(const TransferT* _input,TransferT* _output, const SizeT& _s
       const size_t& _size,
       const int& _num_threads = -1,
       const TransferT& _minValue = 0.0001f,
-      const size_t& _offset = 0){
+				 const size_t& _offset = 0){
 
-    using std::isinf;
-    using std::isnan;
+      using std::isinf;
+      using std::isnan;
 
-    int num_procs = (_num_threads > 0) ? _num_threads : omp_get_num_procs();
-    omp_set_num_threads(num_procs);
+      int num_procs = (_num_threads > 0) ? _num_threads : omp_get_num_procs();
+      omp_set_num_threads(num_procs);
 
-    size_t chunk_size = ((_size - _offset) + num_procs - 1 )/num_procs;
-    size_t pixel = 0;
-#pragma omp parallel shared(_psi,_integral,_weight,chunk_size) private(pixel)
-    {
+      size_t chunk_size = ((_size - _offset) + num_procs - 1 )/num_procs;
+      size_t pixel = 0;
 
-#pragma omp for schedule(dynamic,chunk_size) nowait
-      for(pixel = _offset;pixel<_size;++pixel){
-	TransferT last_value = _psi[pixel];
-	TransferT value = last_value*_integral[pixel];
-	if(!(value>0.f)){
-	  value = _minValue;
-	}
+#pragma omp parallel for schedule(dynamic,chunk_size) shared(_psi) private(pixel)
+	for(pixel = _offset;pixel<_size;++pixel){
+	  TransferT last_value = _psi[pixel];
+	  TransferT value = last_value*_integral[pixel];
+	  if(!(value>0.f)){
+	    value = _minValue;
+	  }
       
-	TransferT next_value = 0;
-	if(isnan(value) || isinf(value))
-	  next_value = _minValue;
-	else
-	  next_value = std::max(value,_minValue);
+	  TransferT next_value = 0;
+	  if(isnan(value) || isinf(value))
+	    next_value = _minValue;
+	  else
+	    next_value = std::max(value,_minValue);
 
-	next_value = _weight[pixel]*(next_value - last_value) + last_value;
-	_psi[pixel] = next_value;
-      }
+	  next_value = _weight[pixel]*(next_value - last_value) + last_value;
+	  _psi[pixel] = next_value;
+	}
 
     }
-
-  }
 
   //
   // perform Tikhonov regularization if desired
@@ -203,11 +195,7 @@ template <typename TransferT>
     
 
     size_t pixel = 0;
-#pragma omp parallel shared(_psi,_integral,_weight,chunk_size) private(pixel)
-    {
-
-      
-#pragma omp for schedule(dynamic,chunk_size) nowait
+#pragma omp parallel for schedule(dynamic,chunk_size) shared(_psi) private(pixel)
       for(pixel = _offset  ;pixel<_size;++pixel){
 	TransferT last_value = _psi[pixel];
 	TransferT value = last_value*_integral[pixel];
@@ -227,7 +215,7 @@ template <typename TransferT>
 	next_value = _weight[pixel]*(next_value - last_value) + last_value;
 	_psi[pixel] = next_value;
       }
-    }
+    
   }
 
 
@@ -245,10 +233,7 @@ void computeFinalValuesMultiCPU(TransferT* _image,TransferT* _integral, Transfer
   int num_procs = omp_get_num_procs();
   size_t chunk_size = ((_size - _offset) + num_procs -1 )/num_procs;
   
-#pragma omp parallel shared(_image,_integral,_weight,chunk_size) private(pixel,_offset,_size,_lambda,_minValue,value,new_value)
-  {
-
-#pragma omp for schedule(dynamic,chunk_size) nowait
+#pragma omp parallel for schedule(dynamic,chunk_size) shared(_image) private(pixel)
   for(pixel = _offset;pixel<_size;++pixel){
     value = _image[pixel]*_integral[pixel];
     if(value>0.f){
@@ -262,8 +247,6 @@ void computeFinalValuesMultiCPU(TransferT* _image,TransferT* _integral, Transfer
     new_value = _weight[pixel]*(new_value - value) + value;
     _image[pixel] = new_value;
   }
-
-  }
 }
 #endif
-#endif /* _COMPUTE_KERNELS_CUH_ */
+#endif /* _CPU_KERNELS_H_ */

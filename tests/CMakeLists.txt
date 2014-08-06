@@ -29,6 +29,7 @@ find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS ${OpenMP_C_FLAGS})
     set (CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS})
+    set (CMAKE_EXE_LINKER_FLAGS ${OpenMP_EXE_LINKER_FLAGS}) 
     message(">> tests: added ${OpenMP_C_FLAGS} and ${OpenMP_CXX_FLAGS} to compiler flags")
 
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
