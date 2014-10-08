@@ -7,7 +7,15 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 ENDIF()
 
-
+IF(LMVN_TEST_IMAGE_PATH)
+message(">> tests: using test images at ${LMVN_TEST_IMAGE_PATH}")
+FILE(GLOB TEST_TIFF_FILES_AVAILABLE ${LMVN_TEST_IMAGE_PATH} "*.tif")
+configure_file( "${PROJECT_SOURCE_DIR}/tests/tests_config.h.in"
+  "${PROJECT_SOURCE_DIR}/tests/tests_config.h"
+  )
+ELSE()
+warning(" unable to configure tests! ")
+ENDIF()
 
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_multi_array_fixture boost_system boost_filesystem boost_unit_test_framework)
@@ -55,7 +63,9 @@ add_executable(test_cpu_symm_convolve test_cpu_symm_convolve.cpp)
 target_link_libraries(test_cpu_symm_convolve boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} ${PROJECT_NAME})
 
 add_executable(test_cpu_asymm_convolve test_cpu_asymm_convolve.cpp)
-target_link_libraries(test_cpu_asymm_convolve boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} tiff ${PROJECT_NAME})
+target_link_libraries(test_cpu_asymm_convolve boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} ${PROJECT_NAME})
+
+FIND_PACKAGE(TIFF QUIET)
 
 IF(CUDA_FOUND)
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
@@ -64,19 +74,23 @@ target_link_libraries(test_gpu_convolve boost_system boost_filesystem boost_unit
 CUDA_ADD_EXECUTABLE(test_cuda_memory test_cuda_memory.cu)
 target_link_libraries(test_cuda_memory boost_system boost_filesystem boost_unit_test_framework )
 
+IF(TIFF_FOUND AND TEST_TIFF_FILES_AVAILABLE)
 CUDA_ADD_EXECUTABLE(test_gpu_deconvolve test_gpu_deconvolve.cpp)
 target_link_libraries(test_gpu_deconvolve boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
 
 CUDA_ADD_EXECUTABLE(test_gpu_deconvolve_single_stepped test_gpu_deconvolve_single_stepped.cu)
 target_link_libraries(test_gpu_deconvolve_single_stepped boost_system boost_filesystem boost_unit_test_framework tiff ${PROJECT_NAME})
+ELSE()
+warning(">> libtiff not found, skipping tests test_gpu_deconvolve and test_gpu_deconvolve_single_stepped")
+ENDIF()
 
 ELSE(CUDA_FOUND)
 WARNING("Skipping GPU based tests, CUDA not found\!")
 ENDIF(CUDA_FOUND)
 
-FIND_PACKAGE(TIFF REQUIRED)
 
-IF(TIFF_FOUND)
+
+IF(TIFF_FOUND AND TEST_TIFF_FILES_AVAILABLE)
 add_executable(test_view_from_disk_fixture test_view_from_disk_fixture.cpp)
 target_link_libraries(test_view_from_disk_fixture boost_system boost_filesystem boost_unit_test_framework tiff)
 
@@ -103,8 +117,8 @@ add_executable(bench_cpu_deconvolve bench_cpu_deconvolve.cpp)
 target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_unit_test_framework tiff ${PROJECT_NAME})
 
 
-ELSE(TIFF_FOUND)
-WARNING("Skipping tests based on reference images, libtiff not found\!")
-ENDIF(TIFF_FOUND)
+ELSE()
+WARNING(">> libtiff not found, skipping tests test_view_from_disk_fixture, test_tiff_stack_fixture, test_iteration_data_fixture, test_reference_data_fixture, test_cpu_deconvolve, test_cpu_asymm_convolve_from_tiffs, bench_cpu_deconvolve\!")
+ENDIF()
 
 

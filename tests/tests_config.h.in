@@ -1,0 +1,11 @@
+#ifndef _TESTS_CONFIG_H_
+#define _TESTS_CONFIG_H_
+
+#cmakedefine LMVN_TEST_IMAGE_PATH "@LMVN_TEST_IMAGE_PATH@"
+
+namespace multiviewnative {
+
+  static const std::string path_to_test_images = LMVN_TEST_IMAGE_PATH;
+
+}
+#endif

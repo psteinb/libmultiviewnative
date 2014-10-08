@@ -12,6 +12,7 @@
 #include <sstream>
 #include "image_stack_utils.h"
 #include "tiff_utils.h"
+#include "tests_config.h"
 
 ////////////////////////////////////////////////////////////////////////////
 // Explanation of the test images
@@ -26,7 +27,7 @@
 
 namespace multiviewnative {
 
-  static const std::string path_to_test_images = "/dev/shm/libmultiview_data/";
+  //static const std::string path_to_test_images = "/dev/shm/libmultiview_data/";
 
   struct tiff_stack {
     

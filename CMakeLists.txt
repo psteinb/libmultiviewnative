@@ -22,6 +22,7 @@ SET (MULTIVIEWNATIVE_ID "${MULTIVIEWNATIVE_VENDOR_ID}.${PROJECT_NAME}")
 # trying to setup paths so this package can be picked up
 set(INSTALL_LIB_DIR lib CACHE PATH "Installation directory for libraries")
 set(INSTALL_INCLUDE_DIR include CACHE PATH "Installation directory for header files")
+set(LMVN_TEST_IMAGE_PATH "/dev/shm/libmultiview_data/" CACHE PATH "Path that contains the images for running some tests")
 
 # shared path is architecture independent for now, TODO extend this to lib/bin/include
 IF(UNIX)
@@ -98,6 +99,8 @@ MESSAGE(">> using release build flags: ${HOST_COMPILER_RELEASE_FLAGS}")
 ## CUDA related
 # project options
 OPTION(INCLUDE_CUDA "Set to OFF to not search for CUDA" ON)
+
+
 # find project dependencies
 # find cuda
 IF(INCLUDE_CUDA)
