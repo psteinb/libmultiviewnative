@@ -101,6 +101,46 @@ BOOST_AUTO_TEST_CASE( compare_to_guesses_after_4_iterations )
 
 
 }
+
+BOOST_AUTO_TEST_CASE( run_1 )
+{
+
+  //setup
+  ReferenceData local_ref(reference);
+  first_2_iterations local_guesses;
+  workspace input;
+  input.data_ = 0;
+  fill_workspace(local_ref, input, local_guesses.lambda_, local_guesses.minValue_);
+  input.num_iterations_ = 1;
+  image_stack gpu_input_psi = *local_guesses.psi(0);
+
+  //test
+  inplace_gpu_deconvolve(gpu_input_psi.data(), input, -1);
+
+  delete [] input.data_;
+
+
+}
+
+BOOST_AUTO_TEST_CASE( run_5 )
+{
+
+  //setup
+  ReferenceData local_ref(reference);
+  first_5_iterations local_guesses(five_guesses);
+  workspace input;
+  input.data_ = 0;
+  fill_workspace(local_ref, input, local_guesses.lambda_, local_guesses.minValue_);
+  input.num_iterations_ = 5;
+  image_stack gpu_input_psi = *local_guesses.psi(0);
+
+  //test
+  inplace_gpu_deconvolve(gpu_input_psi.data(), input, -1);
+
+  delete [] input.data_;
+
+
+}
 BOOST_AUTO_TEST_SUITE_END()
 
 
