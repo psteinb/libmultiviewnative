@@ -4,6 +4,7 @@
 #include <iomanip> 
 #include <vector>
 #include <cmath>
+#include <numeric>
 //#include "mxn_indexer.hpp"
 #include <boost/static_assert.hpp>
 #include "boost/multi_array.hpp"
@@ -12,6 +13,8 @@
 //http://stackoverflow.com/questions/2168082/how-to-rewrite-array-from-row-order-to-column-order
 #include "image_stack_utils.h"
 #include "test_algorithms.hpp"
+
+
 
 namespace multiviewnative {
 
@@ -270,6 +273,16 @@ public:
 typedef convolutionFixture3D<> default_3D_fixture;
 
 
-}
+}//namespace
 
 #endif
+
+
+
+
+
+
+
+
+
+

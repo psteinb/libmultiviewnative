@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE( convolve_with_custom_one_compare_to_gpu )
 
   float l2norm = multiviewnative::l2norm(local_kernel2.stack_.data(), cpu_result.data(),cpu_result.num_elements());
   BOOST_CHECK_LT(l2norm, 1.e-5);
-  const int prec = std::cout.precision();
+  // const int prec = std::cout.precision();
   std::cout.precision(4);
   std::cout << "cpu vs. expectation:\t" << l2norm << "\n";
 

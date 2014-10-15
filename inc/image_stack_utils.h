@@ -35,33 +35,6 @@ namespace multiviewnative {
   
   }
 
-  // bool operator<(const image_stack& _lhs, const image_stack& _rhs){
-   
-  //   bool value = true;
-  //   for(int i = 0;i<image_stack::dimensionality;++i)
-  //     {
-  // 	value = value && _lhs.shape()[i] == _rhs.shape()[i];
-  //     }
-    
-  //   return value;
- 
-  // }
-
-  // bool operator>(const image_stack& _lhs, const image_stack& _rhs){
-   
-  //   bool value = false;
-
-  //   return value;
- 
-  // }
-  
-  // bool operator==(const image_stack& _lhs, const image_stack& _rhs){
-   
-  //   bool value = false;
-
-  //   return value;
- 
-  // }
 }
 
 #endif /* _IMAGE_STACK_UTILS_H_ */

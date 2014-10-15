@@ -94,6 +94,9 @@ ELSE()
 MESSAGE(WARNING ">> libtiff not found, skipping tests test_gpu_deconvolve and test_gpu_deconvolve_single_stepped")
 ENDIF()
 
+CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
+target_link_libraries(bench_gpu_deconvolve boost_program_options boost_regex ${PROJECT_NAME})
+
 ELSE(CUDA_FOUND)
 MESSAGE(WARNING "Skipping GPU based tests, CUDA not found\!")
 ENDIF(CUDA_FOUND)
