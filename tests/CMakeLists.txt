@@ -8,13 +8,15 @@ LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 ENDIF()
 
 #FIXME: OS dependent
-#check if the string does end on '/'
+#check if the string does end on '/' (if not append it)
 string(REGEX MATCH ".*/$"
        TEST_LMVN_TEST_IMAGE_PATH ${LMVN_TEST_IMAGE_PATH})
 
 IF(NOT TEST_LMVN_TEST_IMAGE_PATH)
 SET(LMVN_TEST_IMAGE_PATH "${LMVN_TEST_IMAGE_PATH}/")
 ENDIF()
+
+
 
 IF(LMVN_TEST_IMAGE_PATH)
 FILE(GLOB TEST_TIFF_FILES_AVAILABLE "${LMVN_TEST_IMAGE_PATH}/*.tif")
@@ -24,7 +26,7 @@ configure_file( "${PROJECT_SOURCE_DIR}/tests/tests_config.h.in"
   "${PROJECT_SOURCE_DIR}/tests/tests_config.h"
   )
 ELSE()
-warning(" unable to configure tests! ")
+warning(">> unable to configure (some) tests! LMVN_TEST_IMAGE_PATH not given")
 ENDIF()
 
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
@@ -39,15 +41,17 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 FIND_PACKAGE(FFTW)
 IF(FFTW_FOUND)
-SET(FFTW_LIBS_TO_USE ${FFTWF_THREADS_LIB} ${FFTWF_LIB} # ${FFTW_THREADS_LIB} ${FFTW_LIB}
-  m)
+SET(FFTW_LIBS_TO_USE ${FFTWF_THREADS_LIB} ${FFTWF_LIB} m)
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${FFTW_INCLUDES}")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${FFTW_INCLUDES}")
+set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${FFTW_INCLUDES}")
 ENDIF()
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS ${OpenMP_C_FLAGS})
-    set (CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-    set (CMAKE_EXE_LINKER_FLAGS ${OpenMP_EXE_LINKER_FLAGS}) 
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}") 
     message(">> tests: added ${OpenMP_C_FLAGS} ${OpenMP_CXX_FLAGS} to compiler flags")
 
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
