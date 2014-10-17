@@ -47,6 +47,11 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${FFTW_INCLUDES}")
 set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${FFTW_INCLUDES}")
 ENDIF()
 
+IF(CUDA_FOUND)
+CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
+target_link_libraries(bench_gpu_deconvolve boost_program_options boost_regex boost_system boost_timer ${PROJECT_NAME})
+ENDIF()
+
 find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -98,8 +103,9 @@ ELSE()
 MESSAGE(WARNING ">> libtiff not found, skipping tests test_gpu_deconvolve and test_gpu_deconvolve_single_stepped")
 ENDIF()
 
-CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
-target_link_libraries(bench_gpu_deconvolve boost_program_options boost_regex boost_system boost_timer ${PROJECT_NAME})
+
+
+
 
 ELSE(CUDA_FOUND)
 MESSAGE(WARNING "Skipping GPU based tests, CUDA not found\!")
