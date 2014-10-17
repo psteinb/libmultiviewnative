@@ -11,6 +11,12 @@
 #include "image_stack_utils.h"
 #include "multiviewnative.h"
 
+#include <boost/timer/timer.hpp>
+
+using boost::timer::cpu_timer;
+using boost::timer::cpu_times;
+using boost::timer::nanosecond_type;
+
 namespace po = boost::program_options;
 
 void split(const std::string& _s, std::vector<int>& _tgt){
@@ -168,17 +174,23 @@ int main(int argc, char *argv[])
     
   }
   
-
+  std::vector<cpu_times> durations(num_repeats);
   std::vector<float> psi(data.views_[0].data(), data.views_[0].data() + data.views_[0].num_elements());
-
+  double time_ms = 0.f;
+  
   for(int r = 0;r<num_repeats;++r){
     if(verbose)
-      std::cout << "[inplace_gpu_deconvolve] repeat " << r << "/" << num_repeats << "\n";
+      std::cout << "[inplace_gpu_deconvolve] repeat " << r << "/" << num_repeats;
+    cpu_timer timer;
     inplace_gpu_deconvolve(&psi[0], input, -1);
-    
+    durations[r] = timer.elapsed();
+    time_ms += double(durations[r].system + durations[r].user)/1e6;
+    if(verbose){
+      std::cout << " took " << double(durations[r].system + durations[r].user)/1e6 << " ms\n";
+    }
   }
 
-
+  std::cout << "[bench_gpu_deconvolve] " << time_ms << " ms\n";
 
   delete [] input.data_;
 
