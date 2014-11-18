@@ -59,6 +59,19 @@ bool check_malformed_float(T* _array, const size_t& _size){
   return value;
 }
 
+/**
+   \brief inplace cpu based convolution, decides upon input value of nthreads whether to use single-threaded or multi-threaded implementation
+   
+   \param[in] im 1D array that contains the data image stack
+   \param[in] imDim 3D array that contains the shape of the image stack im
+   \param[in] kernel 1D array that contains the data kernel stack
+   \param[in] kernelDim 3D array that contains the shape of the kernel stack kernel
+   \param[in] nthreads number of threads to use
+   
+   \return 
+   \retval 
+   
+*/
 void inplace_cpu_convolution(imageType* im,
 			     int* imDim,
 			     imageType* kernel,

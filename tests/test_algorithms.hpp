@@ -92,8 +92,8 @@ namespace multiviewnative {
     return l2norm;
   }
 
-  template <typename ImageT>
-  float l2norm_within_limits(const ImageT& _first, const ImageT& _second,
+  template <typename ImageT,typename OtherT>
+  float l2norm_within_limits(const ImageT& _first, const OtherT& _second,
 			      const float& _rel_lower_limit_per_axis,
 			      const float& _rel_upper_limit_per_axis
 			      ){

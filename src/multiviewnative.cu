@@ -24,6 +24,19 @@ typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_pad
 typedef multiviewnative::inplace_3d_transform_on_device<imageType> device_transform;
 typedef multiviewnative::gpu_convolve<wrap_around_padding,imageType,unsigned> device_convolve;
 
+/**
+   \brief Function to perform an inplace convolution (all inputs will received wrap_around_padding)
+   
+   \param[in] im 1D array that contains the data image stack
+   \param[in] imDim 3D array that contains the shape of the image stack im
+   \param[in] kernel 1D array that contains the data kernel stack
+   \param[in] kernelDim 3D array that contains the shape of the kernel stack kernel
+   \param[in] device CUDA device to use (see nvidia-smi for details)
+   
+   \return 
+   \retval 
+   
+*/
 void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device){
 
   using namespace multiviewnative;
@@ -44,6 +57,18 @@ void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* ker
   
 }
 
+/**
+   \brief inplace convolution on workspace interlieving host-device copies with computations
+   \details See cuda_memory.cuh for the classes to facilitate this
+
+   \param[in] input workspace that contains all input images, kernels (1+2) and weights
+   \param[out] psi 3D image stack that will contain the output (it is expected to contain some form of start value)
+   \param[in] device CUDA device to use (see nvidia-smi for details)
+
+   \return 
+   \retval 
+   
+*/
 void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 				      workspace input,
 				      int device){
@@ -204,7 +229,19 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   
 }
 
+/**
+   \brief inplace convolution on workspace performing the entire computation on device
+   \details All data is transferred onto the device first and then the computations are performed.
+   See cuda_memory.cuh for the classes to facilitate memory transfers.
 
+   \param[in] input workspace that contains all input images, kernels (1+2) and weights
+   \param[out] psi 3D image stack that will contain the output (it is expected to contain some form of start value)
+   \param[in] device CUDA device to use (see nvidia-smi for details)
+
+   \return 
+   \retval 
+   
+*/
 void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 				      workspace input,
 				      int device){
@@ -352,7 +389,15 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   
 }
 
-
+/**
+   \brief dispatch function, this one decides wether to try and do the entire computation on the device or not and then dispatches the appropriate call
+   
+   
+   
+   \return 
+   \retval 
+   
+*/
 void inplace_gpu_deconvolve(imageType* psi,
 			    workspace input,
 			    int device){
@@ -366,13 +411,27 @@ void inplace_gpu_deconvolve(imageType* psi,
   // - 2 image-sized kernel stacks per view
   // - 1 psi
   long long device_gmem_byte = getMemDeviceCUDA(device);
-  long long required = sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() );
-  long long total = ((input.num_views_)*4 + 1)*required;//total input data for iteration
-  total += 3*required;//for cufft
-  
 
+  size_t cufft_estimate = 0;
+  cufftEstimate3d(input.data_[0].image_dims_[0], input.data_[0].image_dims_[1], input.data_[0].image_dims_[2], CUFFT_R2C, &cufft_estimate);
+  HANDLE_LAST_ERROR();
+  
+  size_t single_stack_in_byte = sizeof(imageType)*std::accumulate(input.data_[0].image_dims_, input.data_[0].image_dims_ +3, 1., std::multiplies<int>() ) ;
+
+  single_stack_in_byte = std::max(single_stack_in_byte, cufft_estimate);
+  
+  size_t required_for_all_on_device = single_stack_in_byte
+    * input.num_views_ 
+    * 4 //image+kernel1+kernel2+weights
+    + single_stack_in_byte
+    ;
+
+  
   //cufft is memory hungry, that is why we only push all stacks to device mem if the total budget does not exceed 1/3 device mem
-  bool all_on_device = required < device_gmem_byte/3L;
+  bool all_on_device = required_for_all_on_device < (device_gmem_byte*.9);
+  std::cout << "[lmvn::inplace_gpu_deconvolve] FFT: " << required_for_all_on_device/double(1 << 20) << " MB, "  
+	    << " available on GPU: " << device_gmem_byte/double(1<<20) << " MB\n";
+    
 
   if(all_on_device)
     inplace_gpu_deconvolve_iteration_all_on_device(psi,input,device);

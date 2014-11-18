@@ -15,10 +15,10 @@
 namespace multiviewnative {
 
   typedef multiviewnative::zero_padd<multiviewnative::image_stack> wrap_around_padding;
-    
+  typedef multiviewnative::no_padd<multiviewnative::image_stack> no_padding;
 
   template <template<class> class TransformT = multiviewnative::inplace_3d_transform, 
-	    typename PaddingT = wrap_around_padding, 
+	    typename PaddingT = no_padding,//wrap_around_padding, 
 	    typename TransferT = float, 
 	    typename SizeT = unsigned>
   struct cpu_convolve : public PaddingT {

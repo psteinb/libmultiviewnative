@@ -23,6 +23,47 @@ struct minus_1_div_2 {
     return (_first - 1)/2;
   }
   
+  
+};
+
+
+template <typename ImageStackT>
+struct no_padd {
+
+  typedef typename ImageStackT::value_type value_type;
+  typedef typename ImageStackT::size_type size_type;
+  typedef typename ImageStackT::template array_view<ImageStackT::dimensionality>::type image_stack_view;
+  typedef  boost::multi_array_types::index_range	range;
+
+  std::vector<size_type> extents_;
+  std::vector<size_type> offsets_;
+
+  template <typename DimT>
+  no_padd(DimT* _image_shape, DimT* _kernel_shape):
+    extents_(_image_shape, _image_shape + ImageStackT::dimensionality),
+    offsets_(ImageStackT::dimensionality,0)
+  {
+    
+  }
+
+  template <typename ImageStackRefT, typename OtherStackT>
+  void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
+    _target = _source;
+  }
+
+  template <typename ImageStackRefT, typename OtherStackT>
+  void wrapped_insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
+     _target = _source;
+  }
+  
+  const size_type* offsets() const {
+    return &offsets_[0];
+  }
+
+  const size_type* extents() const {
+    return &extents_[0];
+  }
+
 };
 
 template <typename ImageStackT>
