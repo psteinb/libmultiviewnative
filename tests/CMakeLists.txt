@@ -47,10 +47,6 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${FFTW_INCLUDES}")
 set (CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${FFTW_INCLUDES}")
 ENDIF()
 
-IF(CUDA_FOUND)
-CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
-target_link_libraries(bench_gpu_deconvolve boost_program_options boost_regex boost_system boost_timer ${PROJECT_NAME})
-ENDIF()
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -135,9 +131,6 @@ endif (OPENMP_FOUND)
 
 add_executable(test_cpu_asymm_convolve_from_tiffs test_cpu_asymm_convolve_from_tiffs.cpp)
 target_link_libraries(test_cpu_asymm_convolve_from_tiffs boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} tiff ${PROJECT_NAME})
-
-add_executable(bench_cpu_deconvolve bench_cpu_deconvolve.cpp)
-target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_unit_test_framework tiff ${PROJECT_NAME})
 
 
 ELSE()

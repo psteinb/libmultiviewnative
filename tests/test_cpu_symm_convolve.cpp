@@ -10,25 +10,37 @@
 #include "test_algorithms.hpp"
 #include "image_stack_utils.h"
 
+typedef multiviewnative::zero_padd<multiviewnative::image_stack> zero_padding;
+static multiviewnative::storage local_order = boost::c_storage_order();
+
 BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture )
 
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
 
   float* image = image_.data();
-  multiviewnative::image_stack expected(image);
+  multiviewnative::image_stack expected(image_);
+
   
   float* kernel = new float[kernel_size_];
   std::fill(kernel, kernel+kernel_size_,0.f);
 
-  inplace_cpu_convolution(image, &image_dims_[0], 
+  //perform padding
+  zero_padding padder(&image_dims_[0], &kernel_dims_[0]);
+
+  multiviewnative::image_stack padded(padder.extents_, local_order);
+  padder.insert_at_offsets(image_,padded);
+
+  std::copy(&padded.shape()[0], &padded.shape()[0] + 3, image_dims_.begin());
+
+  inplace_cpu_convolution(padded.data(), (int*)padded.shape(), 
 			  kernel,&kernel_dims_[0],
 			  1);
 
-  multiviewnative::image_stack_ref result(image, image_dims);
+  multiviewnative::image_stack_ref result(image, image_dims_);
   
-  float sum = std::accumulate(image, image + image_size_,0.f);
-  BOOST_CHECK_CLOSE(multiviewnative::l2norm_within_limits(result, expected, .2,.8), 0.f, .00001);
+  float l2norm = multiviewnative::l2norm_within_limits(result, expected, .2,.8);
+  BOOST_CHECK_CLOSE(l2norm, 0.f, .00001);
 
   delete [] kernel;
 }

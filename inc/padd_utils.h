@@ -6,6 +6,31 @@
 #include <boost/type_traits.hpp>
 
 namespace multiviewnative {
+
+  template <typename ImageStackRefT, typename OtherStackT>
+  void wrapped_insert_at_point(const ImageStackRefT& _source, 
+			       OtherStackT& _target,
+			       const std::vector<typename ImageStackRefT::size_type>& _point) {
+
+    
+    typedef typename boost::make_signed<typename ImageStackRefT::size_type>::type signed_size_type;
+
+    for(signed_size_type z=0;z<signed_size_type(_source.shape()[2]);++z)
+      for(signed_size_type y=0;y<signed_size_type(_source.shape()[1]);++y)
+	for(signed_size_type x=0;x<signed_size_type(_source.shape()[0]);++x){
+	  signed_size_type intermediate_x = x - _source.shape()[0]/2L;
+	  signed_size_type intermediate_y = y - _source.shape()[1]/2L;
+	  signed_size_type intermediate_z = z - _source.shape()[2]/2L;
+
+	  intermediate_x =(intermediate_x<0) ? intermediate_x + _point[0]: intermediate_x;
+	  intermediate_y =(intermediate_y<0) ? intermediate_y + _point[1]: intermediate_y;
+	  intermediate_z =(intermediate_z<0) ? intermediate_z + _point[2]: intermediate_z;
+	  
+	  _target[intermediate_x][intermediate_y][intermediate_z] = _source[x][y][z];
+	}
+
+
+  }
   
   template < typename inT ,typename outT  >
 struct add_minus_1 {
@@ -53,7 +78,9 @@ struct no_padd {
 
   template <typename ImageStackRefT, typename OtherStackT>
   void wrapped_insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
-     _target = _source;
+    
+    multiviewnative::wrapped_insert_at_point(_source, _target, extents_);
+
   }
   
   const size_type* offsets() const {
@@ -125,24 +152,11 @@ struct zero_padd {
   template <typename ImageStackRefT, typename OtherStackT>
   void wrapped_insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 
-    typedef typename boost::make_signed<size_type>::type signed_size_type;
 
     if(std::lexicographical_compare(_target.shape(), _target.shape() + OtherStackT::dimensionality, extents_.begin(), extents_.end()))
       throw std::runtime_error("multiviewnative::zero_padd::insert_at_offsets]\ttarget image stack is smaller or equal in size than source\n");
 
-    for(signed_size_type z=0;z<signed_size_type(_source.shape()[2]);++z)
-      for(signed_size_type y=0;y<signed_size_type(_source.shape()[1]);++y)
-	for(signed_size_type x=0;x<signed_size_type(_source.shape()[0]);++x){
-	  signed_size_type intermediate_x = x - _source.shape()[0]/2L;
-	  signed_size_type intermediate_y = y - _source.shape()[1]/2L;
-	  signed_size_type intermediate_z = z - _source.shape()[2]/2L;
-
-	  intermediate_x =(intermediate_x<0) ? intermediate_x + extents_[0]: intermediate_x;
-	  intermediate_y =(intermediate_y<0) ? intermediate_y + extents_[1]: intermediate_y;
-	  intermediate_z =(intermediate_z<0) ? intermediate_z + extents_[2]: intermediate_z;
-	  
-	  _target[intermediate_x][intermediate_y][intermediate_z] = _source[x][y][z];
-	}
+    wrapped_insert_at_point(_source, _target, extents_);
     
   }
 
