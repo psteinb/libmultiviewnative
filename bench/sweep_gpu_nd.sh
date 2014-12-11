@@ -12,19 +12,21 @@ else
     echo "unable to sweep, generate_sizes.py not found at $1"
 fi
 
+BASENAME=`basename $2|sed -e 's/nd/3d/'`
+
 for i in $SIZES;
 do echo $i;
-    $2 -s $i -t -a -r 20 >> bench_gpu_3d_fft.data 2>> bench_gpu_3d_fft.err 
+    $2 -s $i -t -a -r 20 >> $BASENAME.data 2>> $BASENAME.err 
 done
 
 for i in $SIZES;
 do echo $i;
-    $2 -s $i -a -r 20 >> bench_gpu_3d_fft.data 2>> bench_gpu_3d_fft.err 
+    $2 -s $i -a -r 20 >> $BASENAME.data 2>> $BASENAME.err 
 done
 
 for i in $SIZES;
 do echo $i;
-    $2 -s $i -r 20 >> bench_gpu_3d_fft.data 2>> bench_gpu_3d_fft.err 
+    $2 -s $i -r 20 >> $BASENAME.data 2>> $BASENAME.err 
 done
 
 fi
