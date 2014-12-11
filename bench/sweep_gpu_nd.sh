@@ -7,7 +7,7 @@ else
 
 SIZES=""
 if [[ -e $1 ]];then
-SIZES=`python $1`
+SIZES=`python $1 11`
 else
     echo "unable to sweep, generate_sizes.py not found at $1"
 fi
