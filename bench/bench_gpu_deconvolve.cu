@@ -5,9 +5,9 @@
 #include <string>
 
 #include "boost/program_options.hpp" 
-#include "boost/regex.hpp"
+//#include "boost/regex.hpp"
 
-#include "test_fixtures.hpp"
+//#include "test_fixtures.hpp"
 #include "image_stack_utils.h"
 #include "multiviewnative.h"
 #include "cpu_kernels.h"
@@ -20,29 +20,50 @@ using boost::timer::nanosecond_type;
 
 namespace po = boost::program_options;
 
+template<const char token>
 void split(const std::string& _s, std::vector<int>& _tgt){
-  boost::regex re("x");
-  boost::sregex_token_iterator i(_s.begin(), _s.end(), re, -1);
-  boost::sregex_token_iterator j;
 
-  unsigned exp_numbers = std::count(_s.begin(), _s.end(), 'x') + 1;
-  if(_tgt.size()< exp_numbers)
-    _tgt.resize(exp_numbers);
-  
+  unsigned n_dims = std::count(_s.begin(), _s.end(), token) + 1;
+  _tgt.resize(n_dims);
+
+  size_t found_ = 0;
   unsigned count = 0;
-  std::string substr;
-  while(i != j)
-    {
-      substr = *i++;
-      std::istringstream istr(substr);
-      try{
-	istr >> _tgt[count];
-      }
-      catch(...){
-	std::cerr << "unable to convert" << substr.c_str() << " to int\n";
-      }
-      count++;
+  while(found_ != std::string::npos){
+    size_t next_ = _s.find(token,found_+1);
+    std::string temp = _s.substr(found_, next_-found_);
+    std::istringstream istr(temp);
+    found_ = next_;
+    try{
+      istr >> _tgt[count++];
     }
+    catch(...){
+      std::cerr << "unable to convert" << temp.c_str() << " to int\n";
+    }
+    
+  }
+
+  // boost::regex re("x");
+  // boost::sregex_token_iterator i(_s.begin(), _s.end(), re, -1);
+  // boost::sregex_token_iterator j;
+
+  // unsigned exp_numbers = std::count(_s.begin(), _s.end(), 'x') + 1;
+  // if(_tgt.size()< exp_numbers)
+  //   _tgt.resize(exp_numbers);
+  
+  // unsigned count = 0;
+  // std::string substr;
+  // while(i != j)
+  //   {
+  //     substr = *i++;
+  //     std::istringstream istr(substr);
+  //     try{
+  // 	istr >> _tgt[count];
+  //     }
+  //     catch(...){
+  // 	std::cerr << "unable to convert" << substr.c_str() << " to int\n";
+  //     }
+  //     count++;
+  //   }
 
       
 }
@@ -188,8 +209,17 @@ int main(int argc, char *argv[])
   numeric_stack_dims[1] = 512;
   numeric_stack_dims[2] = 64;
   
-  split(stack_dims,numeric_stack_dims);
-
+  split<'x'>(stack_dims,numeric_stack_dims);
+  
+  if(verbose){
+    std::cout << "received dimensions: ";
+    for (int i = 0; i < numeric_stack_dims.size(); ++i)
+      {
+	std::cout << numeric_stack_dims[i] << " ";
+      }
+    std::cout << "\n";
+  }
+  
   simulated_data data(numeric_stack_dims, num_views);
   data.info();
 

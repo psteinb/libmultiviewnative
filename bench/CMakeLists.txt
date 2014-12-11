@@ -7,27 +7,6 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 ENDIF()
 
-#FIXME: OS dependent
-#check if the string does end on '/' (if not append it)
-string(REGEX MATCH ".*/$"
-       TEST_LMVN_TEST_IMAGE_PATH ${LMVN_TEST_IMAGE_PATH})
-
-IF(NOT TEST_LMVN_TEST_IMAGE_PATH)
-SET(LMVN_TEST_IMAGE_PATH "${LMVN_TEST_IMAGE_PATH}/")
-ENDIF()
-
-
-
-IF(LMVN_TEST_IMAGE_PATH)
-FILE(GLOB TEST_TIFF_FILES_AVAILABLE "${LMVN_TEST_IMAGE_PATH}/*.tif")
-message(">> tests: using test images at ${LMVN_TEST_IMAGE_PATH}")
-
-configure_file( "${PROJECT_SOURCE_DIR}/tests/tests_config.h.in"
-  "${PROJECT_SOURCE_DIR}/tests/tests_config.h"
-  )
-ELSE()
-warning(">> unable to configure (some) tests! LMVN_TEST_IMAGE_PATH not given")
-ENDIF()
 
 #not sure if this line is correct (appending versus setting)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -44,6 +23,11 @@ IF(CUDA_FOUND)
 CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
 target_link_libraries(bench_gpu_deconvolve boost_program_options boost_regex boost_system boost_timer ${PROJECT_NAME})
 set_target_properties(bench_gpu_deconvolve PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+
+CUDA_ADD_EXECUTABLE(bench_gpu_nd_fft bench_gpu_nd_fft.cu)
+CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_nd_fft)
+target_link_libraries(bench_gpu_nd_fft boost_program_options boost_system boost_timer)
+set_target_properties(bench_gpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 ENDIF()
 
@@ -70,14 +54,14 @@ ENDIF()
 FIND_PACKAGE(TIFF QUIET)
 
 
-IF(TIFF_FOUND AND TEST_TIFF_FILES_AVAILABLE)
+IF(TIFF_FOUND)
 
 add_executable(bench_cpu_deconvolve bench_cpu_deconvolve.cpp)
-target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_unit_test_framework tiff ${PROJECT_NAME})
+target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_chrono boost_unit_test_framework tiff ${PROJECT_NAME})
 set_target_properties(bench_cpu_deconvolve PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 ELSE()
-MESSAGE(WARNING ">> libtiff not found, skipping tests test_view_from_disk_fixture, test_tiff_stack_fixture, test_iteration_data_fixture, test_reference_data_fixture, test_cpu_deconvolve, test_cpu_asymm_convolve_from_tiffs, bench_cpu_deconvolve")
+MESSAGE(WARNING ">> libtiff not found, skipping bench_cpu_deconvolve")
 ENDIF()
 
 
