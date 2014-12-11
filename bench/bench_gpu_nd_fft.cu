@@ -80,6 +80,7 @@ int main(int argc, char *argv[])
   HANDLE_ERROR( cudaSetDevice(device_id));
   unsigned long cufft_extra_space = cufft_3d_estimated_memory_consumption(numeric_stack_dims);
   unsigned long cufft_data_size = cufft_inplace_r2c_memory(numeric_stack_dims);
+  unsigned long data_size_byte = std::accumulate(numeric_stack_dims.begin(), numeric_stack_dims.end(), 1u, std::multiplies<unsigned long>())*sizeof(float);
   unsigned long memory_available_on_device = getAvailableGMemOnCurrentDevice();
 
   float exp_mem_mb = (cufft_extra_space+cufft_data_size)/float(1 << 20);
@@ -131,7 +132,7 @@ int main(int argc, char *argv[])
 	}
       }
       cudaProfilerStop();
-      std::cout << "[bench_gpu_nd_fft ::" << " excl alloc, incl tx] " << num_repeats <<"x took " << time_ms << " ms\n";
+
     } else {
       
       unsigned stack_size_in_byte = data.stack_.num_elements()*sizeof(float);
@@ -155,7 +156,7 @@ int main(int argc, char *argv[])
 	}
       }
       cudaProfilerStop();
-      std::cout << "[bench_gpu_nd_fft ::" << " excl alloc, excl tx] " << num_repeats <<"x took " << time_ms << " ms\n";
+
       //to host
       HANDLE_ERROR( cudaMemcpy((void*)data.stack_.data()   , d_preallocated_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
       HANDLE_ERROR( cudaHostUnregister((void*)data.stack_.data()) );
@@ -178,10 +179,21 @@ int main(int argc, char *argv[])
 	}
       }
       cudaProfilerStop();
-      std::cout << "[bench_gpu_nd_fft ::" << " incl alloc, incl tx] " << num_repeats <<"x took " << time_ms << " ms\n";
+
   }
 
+  std::string device_name = get_cuda_device_name(device_id);
+  std::replace(device_name.begin(), device_name.end(), ' ', '_');
   
+  std::cout << device_name << "\t"
+	    << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << "\t" 
+	    << ( (with_transfers) ? "incl_tx" : "excl_tx") << "\t" 
+	    << num_repeats <<"\t" 
+	    << time_ms << "\t" 
+	    << stack_dims << "\t" 
+	    << data_size_byte/float(1 << 20) << "\t" 
+	    << exp_mem_mb
+	    << "\n";
 
   
 

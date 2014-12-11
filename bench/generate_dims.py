@@ -1,6 +1,6 @@
+import sys
 
 def produce_size_strings(begin, end):
-
     """ function that produces 3D grid sizes in power-of-2 manner
     example: produce_size_strings(4, 6):
     16x16x16
@@ -13,6 +13,11 @@ def produce_size_strings(begin, end):
     """
 
     value = []
+
+    if begin > end:
+        print "unable to produce strings between %i and %i" % (begin, end)
+        return value
+
     cardinals_exponents = range(begin, end)
     cardinals = [str(1 << c) for c in cardinals_exponents]
 
@@ -42,6 +47,21 @@ def produce_size_strings(begin, end):
     return value
 
 if __name__ == '__main__':
+    
+    sargv = sys.argv
     # TODO: maybe wanna give something in through sys.argv
-    res = produce_size_strings(6, 10)
-    print "\n".join(res)
+    begin = 6
+    end = 10
+    if len(sargv) == 3:
+        begin = int(sargv[-2])
+        end = int(sargv[-1])
+
+    if len(sargv) == 2:
+        end = int(sargv[-1])
+        
+    res = produce_size_strings(begin, end)
+    if res:
+        print "\n".join(res)
+        sys.exit(0)
+    else:
+        sys.exit(1)

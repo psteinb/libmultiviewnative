@@ -103,6 +103,15 @@ void getNameDeviceCUDA(int devCUDA, char* name)
 	memcpy(name,prop.name,sizeof(char)*256);
 }
 
+std::string get_cuda_device_name(int devCUDA)
+{	
+	cudaDeviceProp prop;
+	HANDLE_ERROR( cudaGetDeviceProperties(&prop, devCUDA));
+	
+	return std::string(prop.name,prop.name + 256);
+}
+
+
 long long int getMemDeviceCUDA(int devCUDA)
 {
 	cudaDeviceProp prop;
