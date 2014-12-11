@@ -184,6 +184,7 @@ int main(int argc, char *argv[])
 
   std::string device_name = get_cuda_device_name(device_id);
   std::replace(device_name.begin(), device_name.end(), ' ', '_');
+
   
   std::cout << device_name << "\t"
 	    << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << "\t" 

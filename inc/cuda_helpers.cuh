@@ -108,7 +108,7 @@ std::string get_cuda_device_name(int devCUDA)
 	cudaDeviceProp prop;
 	HANDLE_ERROR( cudaGetDeviceProperties(&prop, devCUDA));
 	
-	return std::string(prop.name,prop.name + 256);
+	return std::string(prop.name,prop.name + strlen(prop.name));
 }
 
 
