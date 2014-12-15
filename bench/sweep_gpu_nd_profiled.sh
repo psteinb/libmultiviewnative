@@ -13,20 +13,21 @@ else
 fi
 
 BASENAME=`basename $2|sed -e 's/nd/3d/'`
+echo "-> generating ${BASENAME}.log"
 
 for i in $SIZES;
 do echo $i;
-    nvprof --print-gpu-summary --print-api-summary --print-summary --profile-from-start off $2 -s $i -t -a -r 20 > $BASENAME.log 2>&1
+    nvprof --print-gpu-summary --print-api-summary --print-summary --profile-from-start off $2 -s $i -t -a -r 20 >> ${BASENAME}.log 2>&1
 done
 
 for i in $SIZES;
 do echo $i;
-    nvprof --print-gpu-summary --print-api-summary --print-summary --profile-from-start off $2 -s $i -a -r 20 > $BASENAME.log 2>&1
+    nvprof --print-gpu-summary --print-api-summary --print-summary --profile-from-start off $2 -s $i -a -r 20 >> ${BASENAME}.log 2>&1
 done
 
 for i in $SIZES;
 do echo $i;
-    nvprof --print-gpu-summary --print-api-summary --print-summary --profile-from-start off $2 -s $i -r 20 > $BASENAME.log 2>&1
+    nvprof --print-gpu-summary --print-api-summary --print-summary --profile-from-start off $2 -s $i -r 20 >> ${BASENAME}.log 2>&1
 done
 
 fi

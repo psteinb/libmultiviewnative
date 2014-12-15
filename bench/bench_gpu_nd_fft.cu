@@ -164,21 +164,22 @@ int main(int argc, char *argv[])
     
     HANDLE_ERROR( cudaFree( d_preallocated_buffer ) );
   } else {
-    //wamr-up
+    with_transfers = true;
+    //warm-up
     inplace_fft_incl_transfer_incl_alloc(data.stack_);
     //timing should include allocation, which requires including transfers
     cudaProfilerStart();
-      for(int r = 0;r<num_repeats;++r){
-	cpu_timer timer;
-	inplace_fft_incl_transfer_incl_alloc(data.stack_);
-	durations[r] = timer.elapsed();
+    for(int r = 0;r<num_repeats;++r){
+      cpu_timer timer;
+      inplace_fft_incl_transfer_incl_alloc(data.stack_);
+      durations[r] = timer.elapsed();
 
-	time_ms += double(durations[r].system + durations[r].user)/1e6;
-	if(verbose){
-	  std::cout << r << "\t" << double(durations[r].system + durations[r].user)/1e6 << " ms\n";
-	}
+      time_ms += double(durations[r].system + durations[r].user)/1e6;
+      if(verbose){
+	std::cout << r << "\t" << double(durations[r].system + durations[r].user)/1e6 << " ms\n";
       }
-      cudaProfilerStop();
+    }
+    cudaProfilerStop();
 
   }
 

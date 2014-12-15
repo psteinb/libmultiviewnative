@@ -20,7 +20,7 @@ def produce_size_strings(begin, end, base=2, n_dims=3):
         return value
 
     cardinals_exponents = range(begin, end)
-    cardinals = [str(math.pow(base, c)) for c in cardinals_exponents]
+    cardinals = [str(int(math.pow(base, c))) for c in cardinals_exponents]
 
     start_size = "x".join([cardinals[0]]*n_dims)
     value.append(start_size)
@@ -66,7 +66,6 @@ if __name__ == '__main__':
         end = int(sargv[-2])
         base = int(sargv[-1])
         
-    print len(sargv),begin,end,base
     res = produce_size_strings(begin, end, base)
     if res:
         print "\n".join(res)
