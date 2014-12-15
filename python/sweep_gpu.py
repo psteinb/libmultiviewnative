@@ -73,7 +73,7 @@ if __name__ == '__main__':
     size_str = produce_size_strings(args_parsed.start_exponent,
                                     args_parsed.end_exponent)
 
-    modes = ["-t -a", "-a", ""]
+    modes = ["-t -a", "-t", ""]
     nvprof_cmd = expected_cmd.split()
     api_calls_to_check = "cudaFree cudaMemcpy cudaMalloc".split()
 
