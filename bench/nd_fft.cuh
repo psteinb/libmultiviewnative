@@ -111,8 +111,9 @@ void inplace_fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _s
    \retval 
    
 */
-void inplace_fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
-			       float* _d_prealloc_buffer){
+void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
+				  float* _d_prealloc_buffer,
+				  float* _d_prealloc_target = 0){
   
   
 
@@ -126,9 +127,14 @@ void inplace_fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _s
 				 CUFFT_R2C));
   HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
   
-  HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
-				  _d_prealloc_buffer, 
-				  (cufftComplex *)_d_prealloc_buffer));
+  if(_d_prealloc_target)
+    HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
+				    _d_prealloc_buffer, 
+				    (cufftComplex *)_d_prealloc_target));
+  else
+    HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
+				    _d_prealloc_buffer, 
+				    (cufftComplex *)_d_prealloc_buffer));
 
   HANDLE_CUFFT_ERROR( cufftDestroy(transform_plan_) );
 

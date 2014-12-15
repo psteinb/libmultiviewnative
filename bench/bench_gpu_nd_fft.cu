@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
   bool verbose = false;
   bool with_transfers = false;
   bool with_allocation = false;
+  bool out_of_place = false;
   
   int num_repeats = 5;
   std::string stack_dims = "";
@@ -38,6 +39,7 @@ int main(int argc, char *argv[])
     ("verbose,v", "print lots of information in between")
     ("stack_dimensions,s", po::value<std::string>(&stack_dims)->default_value("512x512x64"), "HxWxD of synthetic stacks to generate")
     ("with_transfers,t", "include host-device transfers in timings" )
+    ("out-of-place,o", "perform out-of-place transforms" )
     ("with_allocation,a", "include host-device memory allocation in timings" )
     ("repeats,r", po::value<int>(&num_repeats)->default_value(10), "number of repetitions per measurement")
     // ("input-files", po::value<std::vector<std::string> >()->composing(), "")
@@ -57,7 +59,7 @@ int main(int argc, char *argv[])
   verbose = vm.count("verbose");
   with_transfers = vm.count("with_transfers");
   with_allocation = vm.count("with_allocation");
-
+  out_of_place = vm.count("out-of-place");
   
   std::vector<unsigned> numeric_stack_dims;
   split<'x'>(stack_dims,numeric_stack_dims);
@@ -110,20 +112,29 @@ int main(int argc, char *argv[])
   if(!with_allocation){
     
     float* d_preallocated_buffer = 0;
+    float* d_preallocated_target_buffer = 0;
     unsigned size_in_byte_ = cufft_inplace_r2c_memory(numeric_stack_dims);
-
-    HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_buffer), size_in_byte_ ) );
+    
+    if(out_of_place)
+      {
+	HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_buffer), data_size_byte_ ) );
+	HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_target_buffer), size_in_byte_ ) );
+      }
+    else
+      HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_buffer), size_in_byte_ ) );
 
     if(with_transfers){
       //warm-up
-      inplace_fft_incl_transfer_excl_alloc(data.stack_,
-				d_preallocated_buffer );
+      fft_incl_transfer_excl_alloc(data.stack_,
+				   d_preallocated_buffer ,
+				   out_of_place ? d_preallocated_target_buffer : 0);
 
       cudaProfilerStart();
       for(int r = 0;r<num_repeats;++r){
 	cpu_timer timer;
-	inplace_fft_incl_transfer_excl_alloc(data.stack_,
-					     d_preallocated_buffer );
+	fft_incl_transfer_excl_alloc(data.stack_,
+				     d_preallocated_buffer ,
+				     out_of_place ? d_preallocated_target_buffer : 0);
 	durations[r] = timer.elapsed();
 
 	time_ms += double(durations[r].system + durations[r].user)/1e6;
@@ -139,14 +150,16 @@ int main(int argc, char *argv[])
       HANDLE_ERROR( cudaHostRegister((void*)data.stack_.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
       HANDLE_ERROR( cudaMemcpy(d_preallocated_buffer, data.stack_.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
       //warm-up
-      inplace_fft_excl_transfer_excl_alloc(data.stack_,
-					   d_preallocated_buffer );
+      fft_excl_transfer_excl_alloc(data.stack_,
+				   d_preallocated_buffer ,
+				   out_of_place ? d_preallocated_target_buffer : 0);
       
       cudaProfilerStart();
       for(int r = 0;r<num_repeats;++r){
 	cpu_timer timer;
-	inplace_fft_excl_transfer_excl_alloc(data.stack_,
-					     d_preallocated_buffer );
+	fft_excl_transfer_excl_alloc(data.stack_,
+				     d_preallocated_buffer,
+				     out_of_place ? d_preallocated_target_buffer : 0 );
 	durations[r] = timer.elapsed();
 
 	time_ms += double(durations[r].system + durations[r].user)/1e6;
@@ -160,18 +173,22 @@ int main(int argc, char *argv[])
       //to host
       HANDLE_ERROR( cudaMemcpy((void*)data.stack_.data()   , d_preallocated_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
       HANDLE_ERROR( cudaHostUnregister((void*)data.stack_.data()) );
+      
     }
     
     HANDLE_ERROR( cudaFree( d_preallocated_buffer ) );
+    if(out_of_place)
+      HANDLE_ERROR( cudaFree( d_preallocated_target_buffer ) );
+    
   } else {
     with_transfers = true;
     //warm-up
-    inplace_fft_incl_transfer_incl_alloc(data.stack_);
+    fft_incl_transfer_incl_alloc(data.stack_);
     //timing should include allocation, which requires including transfers
     cudaProfilerStart();
     for(int r = 0;r<num_repeats;++r){
       cpu_timer timer;
-      inplace_fft_incl_transfer_incl_alloc(data.stack_);
+      fft_incl_transfer_incl_alloc(data.stack_);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user)/1e6;
