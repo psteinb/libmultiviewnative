@@ -102,14 +102,14 @@ if __name__ == '__main__':
             nvprof_output = p.stderr.read().split("\n")
             bench_output = p.stdout.read().strip("\n")
             
-            if args_parsed.profile:
-                for k in api_calls_to_check:
-                    res = extract_cuda_api_totals(nvprof_output, k)
-                    if res and len(res) > 1:
-                        bench_output += " %s %s" % res
-                    else:
-                        bench_output += " %s %s" % (str(0), str(0))
-                
-            output.append(bench_output)
+            if bench_output:
+                if args_parsed.profile:
+                    for k in api_calls_to_check:
+                        res = extract_cuda_api_totals(nvprof_output, k)
+                        if res and len(res) > 1:
+                            bench_output += " %s %s" % res
+                        else:
+                            bench_output += " %s %s" % (str(0), str(0))
+                output.append(bench_output)
 
     print "\n".join(output)
