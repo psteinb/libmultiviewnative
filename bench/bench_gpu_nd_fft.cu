@@ -187,13 +187,13 @@ int main(int argc, char *argv[])
   std::replace(device_name.begin(), device_name.end(), ' ', '_');
 
   
-  std::cout << device_name << "\t"
-	    << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << "\t" 
-	    << ( (with_transfers) ? "incl_tx" : "excl_tx") << "\t" 
-	    << num_repeats <<"\t" 
-	    << time_ms << "\t" 
-	    << stack_dims << "\t" 
-	    << data_size_byte/float(1 << 20) << "\t" 
+  std::cout << device_name << " "
+	    << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << " " 
+	    << ( (with_transfers) ? "incl_tx" : "excl_tx") << " " 
+	    << num_repeats <<" " 
+	    << time_ms << " " 
+	    << stack_dims << " " 
+	    << data_size_byte/float(1 << 20) << " " 
 	    << exp_mem_mb
 	    << "\n";
 
