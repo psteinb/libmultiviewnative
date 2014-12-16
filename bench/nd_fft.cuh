@@ -59,52 +59,13 @@ unsigned long cufft_inplace_r2c_memory(Iter _shape_begin, Iter _shape_end){
   return value;
 }
 
-/**
-   \brief function that computes a r-2-c float32 FFT
-   the function assumes that there has been space pre-allocated on device
-   
-   \param[in] _d_prealloc_buffer was already allocated to match the expected size of the FFT
-   \param[in] _stack host-side nD image
-
-   \return 
-   \retval 
-   
-*/
-void inplace_fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
-			       float* _d_prealloc_buffer){
-  
-  unsigned stack_size_in_byte = _stack.num_elements()*sizeof(float);
-  HANDLE_ERROR( cudaHostRegister((void*)_stack.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
-  HANDLE_ERROR( cudaMemcpy(_d_prealloc_buffer, _stack.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
-
-  //to device
-  cufftHandle transform_plan_;
-
-  HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, 
-				 (int)_stack.shape()[0], 
-				 (int)_stack.shape()[1], 
-				 (int)_stack.shape()[2], 
-				 CUFFT_R2C));
-  HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
-  
-  HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
-				  _d_prealloc_buffer, 
-				  (cufftComplex *)_d_prealloc_buffer));
-
-  HANDLE_CUFFT_ERROR( cufftDestroy(transform_plan_) );
-
-  //to host
-  HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , _d_prealloc_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
-  HANDLE_ERROR( cudaHostUnregister((void*)_stack.data()) );
-  HANDLE_ERROR( cudaDeviceSynchronize() );
-	
-}
 
 /**
    \brief function that computes a r-2-c float32 FFT
    the function assumes that there has been space pre-allocated on device and that the data required has already been transferred
    
-   \param[in] _d_prealloc_buffer was already allocated to match the expected size of the FFT
+   \param[in] _d_src_buffer was already allocated to match the expected size of the FFT
+   \param[in] _d_dest_buffer if non-zero, was already allocated to match the expected size of the FFT and if non-zero will be used as destionation buffer
    \param[in] _stack host-side nD image
 
    \return 
@@ -112,10 +73,8 @@ void inplace_fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _s
    
 */
 void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
-				  float* _d_prealloc_buffer,
-				  float* _d_prealloc_target = 0){
-  
-  
+				  float* _d_src_buffer,
+				  float* _d_dest_buffer = 0){
 
   //to device
   cufftHandle transform_plan_;
@@ -127,14 +86,14 @@ void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
 				 CUFFT_R2C));
   HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
   
-  if(_d_prealloc_target)
+  if(_d_dest_buffer)
     HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
-				    _d_prealloc_buffer, 
-				    (cufftComplex *)_d_prealloc_target));
+				    _d_src_buffer, 
+				    (cufftComplex *)_d_dest_buffer));
   else
     HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
-				    _d_prealloc_buffer, 
-				    (cufftComplex *)_d_prealloc_buffer));
+				    _d_src_buffer, 
+				    (cufftComplex *)_d_src_buffer));
 
   HANDLE_CUFFT_ERROR( cufftDestroy(transform_plan_) );
 
@@ -142,49 +101,82 @@ void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
   HANDLE_ERROR( cudaDeviceSynchronize() );	
 }
 
+
+/**
+   \brief function that computes a r-2-c float32 FFT
+   the function assumes that there has been space pre-allocated on device
+   
+   \param[in] _d_src_buffer was already allocated to match the expected size of the FFT
+   \param[in] _d_dest_buffer if non-zero, was already allocated to match the expected size of the FFT and if non-zero will be used as destionation buffer
+   \param[in] _stack host-side nD image
+
+   \return 
+   \retval 
+   
+*/
+void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
+				  float* _d_src_buffer,
+				  float* _d_dest_buffer = 0){
+  
+  unsigned stack_size_in_byte = _stack.num_elements()*sizeof(float);
+  unsigned target_size_in_byte = cufft_inplace_r2c_memory(&_stack.shape()[0], &_stack.shape()[0] + 3);
+  
+  HANDLE_ERROR( cudaHostRegister((void*)_stack.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
+  HANDLE_ERROR( cudaMemcpy(_d_src_buffer, _stack.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
+
+  cufftComplex * dest_buffer = (cufftComplex *)_d_src_buffer;
+  if(_d_dest_buffer)
+    dest_buffer = (cufftComplex *)_d_dest_buffer;
+  
+  //perform FFT
+  fft_excl_transfer_excl_alloc(_stack, _d_src_buffer, _d_dest_buffer);
+  
+  //to host
+  if(_d_dest_buffer)
+    HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , dest_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
+  else
+    HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , _d_src_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
+
+  HANDLE_ERROR( cudaHostUnregister((void*)_stack.data()) );
+  HANDLE_ERROR( cudaDeviceSynchronize() );
+	
+}
+
 /**
    \brief function that computes a r-2-c float32 FFT
       
    \param[in] _stack host-side nD image
+   \param[in] _d_dest_buffer if non-zero, was already allocated to match the expected size of the FFT and if non-zero will be used as destionation buffer
    
    \return 
    \retval 
    
 */
-void inplace_fft_incl_transfer_incl_alloc(const multiviewnative::image_stack& _stack){
+void fft_incl_transfer_incl_alloc(const multiviewnative::image_stack& _stack,
+				  float* _d_dest_buffer = 0){
   
-  float* d_buffer = 0;
+  float* src_buffer = 0;
   //on host
   unsigned stack_size_in_byte = _stack.num_elements()*sizeof(float);
   HANDLE_ERROR( cudaHostRegister((void*)_stack.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
   
   unsigned cufft_size_in_byte = cufft_inplace_r2c_memory(&_stack.shape()[0], 
 							 &_stack.shape()[0] + multiviewnative::image_stack::dimensionality);
-    //alloc on device
-  HANDLE_ERROR( cudaMalloc( (void**)&(d_buffer), cufft_size_in_byte ) );
+  //alloc on device
+  HANDLE_ERROR( cudaMalloc( (void**)&(src_buffer), cufft_size_in_byte ) );
   
   //to device
-  HANDLE_ERROR( cudaMemcpy(d_buffer, (void*)_stack.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
-
-    //compute
-  cufftHandle transform_plan_;
-
-  HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, 
-				 (int)_stack.shape()[0], 
-				 (int)_stack.shape()[1], 
-				 (int)_stack.shape()[2], 
-				 CUFFT_R2C));
-  HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
+  HANDLE_ERROR( cudaMemcpy(src_buffer, (void*)_stack.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
   
-  HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
-				  d_buffer, 
-				  (cufftComplex *)d_buffer));
+  fft_excl_transfer_excl_alloc(_stack, src_buffer, _d_dest_buffer);
 
-  HANDLE_CUFFT_ERROR( cufftDestroy(transform_plan_) );
-
-  HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , d_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
+  if(_d_dest_buffer)
+    HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , _d_dest_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
+  else
+    HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , src_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
+  
   //to clean-up
-  HANDLE_ERROR( cudaFree( d_buffer ) );
+  HANDLE_ERROR( cudaFree( src_buffer ) );
   HANDLE_ERROR( cudaHostUnregister((void*)_stack.data()) );
   HANDLE_ERROR( cudaDeviceSynchronize() );	
 }

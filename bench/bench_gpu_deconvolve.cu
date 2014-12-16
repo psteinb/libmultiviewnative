@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
   
   if(verbose){
     std::cout << "received dimensions: ";
-    for (int i = 0; i < numeric_stack_dims.size(); ++i)
+    for (unsigned i = 0; i < numeric_stack_dims.size(); ++i)
       {
 	std::cout << numeric_stack_dims[i] << " ";
       }

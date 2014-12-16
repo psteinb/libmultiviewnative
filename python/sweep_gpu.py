@@ -73,11 +73,11 @@ if __name__ == '__main__':
     size_str = produce_size_strings(args_parsed.start_exponent,
                                     args_parsed.end_exponent)
 
-    modes = ["-t -a", "-t", ""]
+    modes = ["-o -t -a", "-o -t", "-o ", "-t -a", "-t", ""]
     nvprof_cmd = expected_cmd.split()
     api_calls_to_check = "cudaFree cudaMemcpy cudaMalloc".split()
 
-    colnames = ["gpu", "alloc", "tx", "repeats", "total_time_ms",
+    colnames = ["gpu", "alloc", "tx", "type", "repeats", "total_time_ms",
                 "shape", "data_in_mb", "exp_gmem_in_mb"]
 
     if args_parsed.profile:

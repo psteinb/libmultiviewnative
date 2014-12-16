@@ -108,33 +108,32 @@ int main(int argc, char *argv[])
   std::vector<cpu_times> durations(num_repeats);
 
   double time_ms = 0.f;
-  
+  float* d_dest_buffer = 0; 
+  const unsigned fft_size_in_byte_ = cufft_inplace_r2c_memory(numeric_stack_dims); 
+  if(out_of_place)
+    HANDLE_ERROR( cudaMalloc( (void**)&(d_dest_buffer), fft_size_in_byte_ ) );
+
   if(!with_allocation){
     
-    float* d_preallocated_buffer = 0;
-    float* d_preallocated_target_buffer = 0;
-    unsigned size_in_byte_ = cufft_inplace_r2c_memory(numeric_stack_dims);
-    
+    float* d_src_buffer = 0; 
+      
     if(out_of_place)
-      {
-	HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_buffer), data_size_byte_ ) );
-	HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_target_buffer), size_in_byte_ ) );
-      }
+      HANDLE_ERROR( cudaMalloc( (void**)&(d_src_buffer), data_size_byte ) );
     else
-      HANDLE_ERROR( cudaMalloc( (void**)&(d_preallocated_buffer), size_in_byte_ ) );
+      HANDLE_ERROR( cudaMalloc( (void**)&(d_src_buffer), fft_size_in_byte_ ) );
 
     if(with_transfers){
       //warm-up
       fft_incl_transfer_excl_alloc(data.stack_,
-				   d_preallocated_buffer ,
-				   out_of_place ? d_preallocated_target_buffer : 0);
+				   d_src_buffer ,
+				   out_of_place ? d_dest_buffer : 0);
 
       cudaProfilerStart();
       for(int r = 0;r<num_repeats;++r){
 	cpu_timer timer;
 	fft_incl_transfer_excl_alloc(data.stack_,
-				     d_preallocated_buffer ,
-				     out_of_place ? d_preallocated_target_buffer : 0);
+				     d_src_buffer ,
+				     out_of_place ? d_dest_buffer : 0);
 	durations[r] = timer.elapsed();
 
 	time_ms += double(durations[r].system + durations[r].user)/1e6;
@@ -148,18 +147,18 @@ int main(int argc, char *argv[])
       
       unsigned stack_size_in_byte = data.stack_.num_elements()*sizeof(float);
       HANDLE_ERROR( cudaHostRegister((void*)data.stack_.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
-      HANDLE_ERROR( cudaMemcpy(d_preallocated_buffer, data.stack_.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
+      HANDLE_ERROR( cudaMemcpy(d_src_buffer, data.stack_.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
       //warm-up
       fft_excl_transfer_excl_alloc(data.stack_,
-				   d_preallocated_buffer ,
-				   out_of_place ? d_preallocated_target_buffer : 0);
+				   d_src_buffer ,
+				   out_of_place ? d_dest_buffer : 0);
       
       cudaProfilerStart();
       for(int r = 0;r<num_repeats;++r){
 	cpu_timer timer;
 	fft_excl_transfer_excl_alloc(data.stack_,
-				     d_preallocated_buffer,
-				     out_of_place ? d_preallocated_target_buffer : 0 );
+				     d_src_buffer,
+				     out_of_place ? d_dest_buffer : 0 );
 	durations[r] = timer.elapsed();
 
 	time_ms += double(durations[r].system + durations[r].user)/1e6;
@@ -171,24 +170,24 @@ int main(int argc, char *argv[])
       cudaProfilerStop();
 
       //to host
-      HANDLE_ERROR( cudaMemcpy((void*)data.stack_.data()   , d_preallocated_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
+      HANDLE_ERROR( cudaMemcpy((void*)data.stack_.data()   , d_src_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
       HANDLE_ERROR( cudaHostUnregister((void*)data.stack_.data()) );
       
     }
     
-    HANDLE_ERROR( cudaFree( d_preallocated_buffer ) );
-    if(out_of_place)
-      HANDLE_ERROR( cudaFree( d_preallocated_target_buffer ) );
+    HANDLE_ERROR( cudaFree( d_src_buffer ) );
     
   } else {
     with_transfers = true;
     //warm-up
-    fft_incl_transfer_incl_alloc(data.stack_);
+    fft_incl_transfer_incl_alloc(data.stack_,
+				 out_of_place ? d_dest_buffer : 0);
     //timing should include allocation, which requires including transfers
     cudaProfilerStart();
     for(int r = 0;r<num_repeats;++r){
       cpu_timer timer;
-      fft_incl_transfer_incl_alloc(data.stack_);
+      fft_incl_transfer_incl_alloc(data.stack_,
+				   out_of_place ? d_dest_buffer : 0);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user)/1e6;
@@ -200,6 +199,9 @@ int main(int argc, char *argv[])
 
   }
 
+  if(out_of_place)
+    HANDLE_ERROR( cudaFree( d_dest_buffer ) );
+  
   std::string device_name = get_cuda_device_name(device_id);
   std::replace(device_name.begin(), device_name.end(), ' ', '_');
 
@@ -207,6 +209,7 @@ int main(int argc, char *argv[])
   std::cout << device_name << " "
 	    << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << " " 
 	    << ( (with_transfers) ? "incl_tx" : "excl_tx") << " " 
+	    << ( (out_of_place) ? "out-of-place" : "inplace") << " " 
 	    << num_repeats <<" " 
 	    << time_ms << " " 
 	    << stack_dims << " " 
