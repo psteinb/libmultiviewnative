@@ -1,4 +1,4 @@
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE
 import argparse
 import sys
 
@@ -12,16 +12,7 @@ if __name__ == '__main__':
                                      call <bench_executable> given a generated set of arguments
                                      """)
 
-    parser.add_argument('bench_util',
-                        nargs="?",
-                        action='store',
-                        type=str,
-                        default="./bench_gpu_nd_fft",
-                        help="""
-                        benchmark utility, that has a cli complying to:
-                        <util> -s <stack_size|generated> -t <optional> -a <optional>
-                        (default: %(default)s)
-                        """)
+    
 
     parser.add_argument('-s,--start_exponent',
                         nargs="?",
@@ -62,14 +53,40 @@ if __name__ == '__main__':
                         and collect additional information
                         """)
 
+    parser.add_argument('-v,--verbose',
+                        dest='verbose',
+                        action='store_true',
+                        default=False,
+                        help="""
+                        print verbose messages
+                        """)
+
+    parser.add_argument('bench_util',
+                        nargs=argparse.REMAINDER,
+                        action='store',
+                        type=str,
+                        default="./bench_gpu_nd_fft",
+                        help="""
+                        benchmark utility, that has a cli complying to:
+                        <util> -s <stack_size|generated> -t <optional> -a <optional>
+                        (default: %(default)s)
+                        """)
+
     # READING CL FLAGS
-    args_parsed = parser.parse_args()
+    args_parsed, left_over = parser.parse_known_args()
 
     if hasattr(args_parsed, "help"):
         parser.print_help()
         sys.exit(1)
 
     # PRODUCE stack DIMS
+    if args_parsed.verbose:
+        if left_over:
+            print "[WARNING]\tcli options not recognized: ", left_over
+        print "producing data sizes from %i^%i to %i^%i" % (args_parsed.basis,
+                                                            args_parsed.start_exponent,
+                                                            args_parsed.basis,
+                                                            args_parsed.end_exponent)
     size_str = produce_size_strings(args_parsed.start_exponent,
                                     args_parsed.end_exponent)
 
@@ -85,14 +102,19 @@ if __name__ == '__main__':
                          item in api_calls_to_check])
 
     output = [" ".join(colnames)]
+    bench_util_cmd = " ".join(args_parsed.bench_util)
     for mode in modes:
 
         for size in size_str:
             if args_parsed.profile:
-                cmd = nvprof_cmd + [args_parsed.bench_util, mode, "-s", size]
+                cmd = nvprof_cmd + [bench_util_cmd, mode, "-s", size]
             else:
                 cmd = [args_parsed.bench_util, mode, "-s", size]
+                
             cmd_to_give = " ".join(cmd)
+
+            if args_parsed.verbose:
+                print cmd_to_give
             
             p = Popen(cmd_to_give,
                       stderr=PIPE,

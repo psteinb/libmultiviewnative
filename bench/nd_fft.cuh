@@ -25,7 +25,7 @@ static void HandleCufftError( cufftResult_t err,
    \retval 
    
 */
-unsigned long cufft_inplace_r2c_memory(const std::vector<unsigned>& _shape){
+unsigned long cufft_r2c_memory(const std::vector<unsigned>& _shape){
   
   unsigned long start = 1;
   unsigned long value = std::accumulate(_shape.begin(), 
@@ -48,7 +48,7 @@ unsigned long cufft_inplace_r2c_memory(const std::vector<unsigned>& _shape){
    
 */
 template <typename Iter>
-unsigned long cufft_inplace_r2c_memory(Iter _shape_begin, Iter _shape_end){
+unsigned long cufft_r2c_memory(Iter _shape_begin, Iter _shape_end){
   
   unsigned long start = 1;
   unsigned long value = std::accumulate(_shape_begin, 
@@ -72,30 +72,36 @@ unsigned long cufft_inplace_r2c_memory(Iter _shape_begin, Iter _shape_end){
    \retval 
    
 */
-void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
+ void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
 				  float* _d_src_buffer,
-				  float* _d_dest_buffer = 0){
+				  float* _d_dest_buffer = 0,
+				  cufftHandle* _plan = 0){
 
-  //to device
-  cufftHandle transform_plan_;
+  
+  if(!_plan){
+    _plan = new cufftHandle;
 
-  HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, 
-				 (int)_stack.shape()[0], 
-				 (int)_stack.shape()[1], 
-				 (int)_stack.shape()[2], 
-				 CUFFT_R2C));
-  HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
+    HANDLE_CUFFT_ERROR(cufftPlan3d(_plan, 
+				   (int)_stack.shape()[0], 
+				   (int)_stack.shape()[1], 
+				   (int)_stack.shape()[2], 
+				   CUFFT_R2C));
+    HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(*_plan,CUFFT_COMPATIBILITY_NATIVE));
+  }
   
   if(_d_dest_buffer)
-    HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
+    HANDLE_CUFFT_ERROR(cufftExecR2C(*_plan, 
 				    _d_src_buffer, 
 				    (cufftComplex *)_d_dest_buffer));
   else
-    HANDLE_CUFFT_ERROR(cufftExecR2C(transform_plan_, 
+    HANDLE_CUFFT_ERROR(cufftExecR2C(*_plan, 
 				    _d_src_buffer, 
 				    (cufftComplex *)_d_src_buffer));
 
-  HANDLE_CUFFT_ERROR( cufftDestroy(transform_plan_) );
+  if(!_plan){
+    HANDLE_CUFFT_ERROR( cufftDestroy(*_plan) );
+    delete _plan;
+  }
 
   
   HANDLE_ERROR( cudaDeviceSynchronize() );	
@@ -114,12 +120,12 @@ void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
    \retval 
    
 */
-void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
+ void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack, 
 				  float* _d_src_buffer,
-				  float* _d_dest_buffer = 0){
+				  float* _d_dest_buffer = 0,
+				  cufftHandle* _plan = 0){
   
   unsigned stack_size_in_byte = _stack.num_elements()*sizeof(float);
-  unsigned target_size_in_byte = cufft_inplace_r2c_memory(&_stack.shape()[0], &_stack.shape()[0] + 3);
   
   HANDLE_ERROR( cudaHostRegister((void*)_stack.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
   HANDLE_ERROR( cudaMemcpy(_d_src_buffer, _stack.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
@@ -129,7 +135,7 @@ void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
     dest_buffer = (cufftComplex *)_d_dest_buffer;
   
   //perform FFT
-  fft_excl_transfer_excl_alloc(_stack, _d_src_buffer, _d_dest_buffer);
+  fft_excl_transfer_excl_alloc(_stack, _d_src_buffer, _d_dest_buffer, _plan);
   
   //to host
   if(_d_dest_buffer)
@@ -138,7 +144,7 @@ void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
     HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , _d_src_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
 
   HANDLE_ERROR( cudaHostUnregister((void*)_stack.data()) );
-  HANDLE_ERROR( cudaDeviceSynchronize() );
+
 	
 }
 
@@ -152,33 +158,20 @@ void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
    \retval 
    
 */
-void fft_incl_transfer_incl_alloc(const multiviewnative::image_stack& _stack,
-				  float* _d_dest_buffer = 0){
+ void fft_incl_transfer_incl_alloc(const multiviewnative::image_stack& _stack,
+				  float* _d_dest_buffer = 0,
+				  cufftHandle* _plan = 0){
   
   float* src_buffer = 0;
-  //on host
-  unsigned stack_size_in_byte = _stack.num_elements()*sizeof(float);
-  HANDLE_ERROR( cudaHostRegister((void*)_stack.data()   , stack_size_in_byte , cudaHostRegisterPortable) );
-  
-  unsigned cufft_size_in_byte = cufft_inplace_r2c_memory(&_stack.shape()[0], 
-							 &_stack.shape()[0] + multiviewnative::image_stack::dimensionality);
+  unsigned cufft_size_in_byte = cufft_r2c_memory(&_stack.shape()[0], 
+						 &_stack.shape()[0] + multiviewnative::image_stack::dimensionality);
   //alloc on device
   HANDLE_ERROR( cudaMalloc( (void**)&(src_buffer), cufft_size_in_byte ) );
   
-  //to device
-  HANDLE_ERROR( cudaMemcpy(src_buffer, (void*)_stack.data()   , stack_size_in_byte , cudaMemcpyHostToDevice) );
-  
-  fft_excl_transfer_excl_alloc(_stack, src_buffer, _d_dest_buffer);
-
-  if(_d_dest_buffer)
-    HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , _d_dest_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
-  else
-    HANDLE_ERROR( cudaMemcpy((void*)_stack.data()   , src_buffer, stack_size_in_byte , cudaMemcpyDeviceToHost) );
-  
+  fft_incl_transfer_excl_alloc(_stack, src_buffer, _d_dest_buffer, _plan); 
   //to clean-up
   HANDLE_ERROR( cudaFree( src_buffer ) );
-  HANDLE_ERROR( cudaHostUnregister((void*)_stack.data()) );
-  HANDLE_ERROR( cudaDeviceSynchronize() );	
+	
 }
 
 
@@ -191,18 +184,19 @@ void fft_incl_transfer_incl_alloc(const multiviewnative::image_stack& _stack,
   \retval 
 
  */
-unsigned long cufft_3d_estimated_memory_consumption(const std::vector<unsigned>& _shape){
+unsigned long cufft_3d_estimated_memory_consumption(const std::vector<unsigned>& _shape, cufftHandle* _plan = 0){
   
-  cufftHandle transform_plan_;
+  if(!_plan){
+    _plan = new cufftHandle;
 
-  HANDLE_CUFFT_ERROR(cufftPlan3d(&transform_plan_, 
-  				 (int)_shape[0], 
-  				 (int)_shape[1], 
-  				 (int)_shape[2], 
-  				 CUFFT_R2C));
+    HANDLE_CUFFT_ERROR(cufftPlan3d(_plan, 
+				   (int)_shape[0], 
+				   (int)_shape[1], 
+				   (int)_shape[2], 
+				   CUFFT_R2C));
 
-  HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(transform_plan_,CUFFT_COMPATIBILITY_NATIVE));
-
+    HANDLE_CUFFT_ERROR(cufftSetCompatibilityMode(*_plan,CUFFT_COMPATIBILITY_NATIVE));
+  }
 
   size_t coarse_requirement = 0;
   HANDLE_CUFFT_ERROR( cufftEstimate3d((int)_shape[0], (int)_shape[1], (int)_shape[2], CUFFT_R2C, &coarse_requirement) );
@@ -214,15 +208,19 @@ unsigned long cufft_3d_estimated_memory_consumption(const std::vector<unsigned>&
   HANDLE_ERROR(cudaRuntimeGetVersion(&cuda_api_version));
   if(cuda_api_version <= 5050){
     std::cout << "CALLING cufftGetSize3d\n";
-    HANDLE_CUFFT_ERROR(  cufftGetSize3d(transform_plan_,
+    HANDLE_CUFFT_ERROR(  cufftGetSize3d(*_plan,
 					(int)_shape[0], 
 					(int)_shape[1], 
 					(int)_shape[2], 
 					CUFFT_R2C, 
 					&refined_requirement) );
   }
-  
-  HANDLE_CUFFT_ERROR( cufftDestroy(transform_plan_) );
+
+  if(!_plan){
+    HANDLE_CUFFT_ERROR( cufftDestroy(*_plan) );
+    delete _plan;
+  }
+    
 
   return std::max(refined_requirement, coarse_requirement);
 }

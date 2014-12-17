@@ -124,7 +124,7 @@ struct image_kernel_data {
   }
     
   void info() {
-    std::cout << "[image_kernel_data] " 
+    std::cout << "[data]\t" 
 	      << "stack "  << stack_.shape()[0] << "x"  << stack_.shape()[1] << "x"  << stack_.shape()[2] 
 	      << " kernel "<< kernel_.shape()[0] << "x"  << kernel_.shape()[1] << "x"  << kernel_.shape()[2] 
 	      << "\n";
