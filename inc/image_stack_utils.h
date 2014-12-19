@@ -35,6 +35,19 @@ namespace multiviewnative {
   
   }
 
+  template <typename StorageT, typename DimT, typename ODimT>
+  void adapt_shape_for_fftw_inplace(const StorageT& _storage, const DimT& _extent, ODimT& _value){
+
+    std::fill(_value.begin(),_value.end(),0);
+
+    size_t lowest_storage_index = std::min_element(_storage.begin(),_storage.end()) - _storage.begin() ;
+
+    for(size_t i = 0;i<_extent.size();++i)
+      _value[i] = (lowest_storage_index == i) ? 2*(_extent[i]/2 + 1) : _extent[i];  
+  
+  
+  }
+
 }
 
 #endif /* _IMAGE_STACK_UTILS_H_ */

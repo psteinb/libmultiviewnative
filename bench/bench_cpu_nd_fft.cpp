@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
   bool with_allocation = false;
   bool out_of_place = false;
   bool use_global_plan = false;
-  cufftHandle* global_plan = 0;
+  fftw_api::plan_type* global_plan = 0;
   
   int num_repeats = 5;
   std::string stack_dims = "";
@@ -88,7 +88,6 @@ int main(int argc, char *argv[])
 
   if(exp_mem_mb>av_mem_mb){
     std::cerr << "not enough memory available on device, needed " << exp_mem_mb 
-	      << " MB (data only: "<< cufft_data_size/float(1<< 20) 
 	      <<" MB), available: " << av_mem_mb << " MB\n";
     return 1;
   } else {
@@ -98,12 +97,9 @@ int main(int argc, char *argv[])
   }
 
   
-  if(use_global_plan){
-    global_plan = new ;
 
-  }
 
-  std::vector<int> reshaped(numeric_stack_dims);
+  std::vector<unsigned> reshaped(numeric_stack_dims);
   fftw_r2c_reshape(reshaped);
 
   bool shapes_differ = !std::equal(numeric_stack_dims.begin(), 
@@ -116,7 +112,6 @@ int main(int argc, char *argv[])
   
   float* d_dest_buffer = 0; 
   fftw_image_stack* aligned_output = 0;
-  const unsigned fft_size_in_byte_ = fftw_r2c_memory(numeric_stack_dims); 
 
   if(out_of_place){
     aligned_output = new fftw_image_stack(reshaped);
@@ -134,7 +129,14 @@ int main(int argc, char *argv[])
 
     if(too_small){
       aligned_input.resize(reshaped);
-      if(verbose)
+      if(verbose){
+	std::cout << "adjusting input data size\t";
+	for (unsigned i = 0; i < reshaped.size(); ++i)
+	  {
+	    std::cout << reshaped[i] << " ";
+	  }
+	std::cout << "\n";
+      }
     }
   }
 
@@ -146,21 +148,30 @@ int main(int argc, char *argv[])
 	      << ( (out_of_place) ? "out-of-place" : "inplace") << " " 
       	      << ( (use_global_plan) ? "global plans" : "local plans") << " " 
 	      << "\n";
-    data.info();
+    std::copy(numeric_stack_dims.begin(),
+	      numeric_stack_dims.end(),
+	      std::ostream_iterator<unsigned>(std::cout, " "));
   }
   
+  if(use_global_plan){
+    global_plan = new fftw_api::plan_type ;
+    *global_plan = fftw_api::dft_r2c_3d(numeric_stack_dims[0], numeric_stack_dims[1], numeric_stack_dims[2],
+					(fftw_api::real_type*)aligned_input.data(), 
+					(fftw_api::complex_type*)(out_of_place ?  aligned_output->data() : aligned_input.data() ),
+					FFTW_ESTIMATE);
+  }
+
+
   std::vector<cpu_times> durations(num_repeats);
 
   double time_ms = 0.f;
-
-  if(!with_allocation){
         
       
     for(int r = 0;r<num_repeats;++r){
       cpu_timer timer;
-      st_fftw_excl_alloc(,
-			 out_of_place ? d_dest_buffer : 0 ,
-			 use_global_plan ? global_plan : 0);
+      st_fftw(aligned_input,
+	      out_of_place ? d_dest_buffer : 0 ,
+	      use_global_plan ? global_plan : 0);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user)/1e6;
@@ -169,26 +180,6 @@ int main(int argc, char *argv[])
 
       }
     }
-     
-      
-  } else {
-    with_transfers = true;
-    //timing should include allocation, which requires including transfers
-
-    for(int r = 0;r<num_repeats;++r){
-      cpu_timer timer;
-      fftw_incl_transfer_incl_alloc(data.stack_,
-				   out_of_place ? d_dest_buffer : 0,
-				   use_global_plan ? global_plan : 0);
-      durations[r] = timer.elapsed();
-
-      time_ms += double(durations[r].system + durations[r].user)/1e6;
-      if(verbose){
-	std::cout << r << "\t" << double(durations[r].system + durations[r].user)/1e6 << " ms\n";
-      }
-    }
-
-  }
 
   if(out_of_place){
     delete aligned_output;
