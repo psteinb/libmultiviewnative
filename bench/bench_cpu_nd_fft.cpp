@@ -18,7 +18,8 @@ using boost::timer::nanosecond_type;
 
 namespace po = boost::program_options;
 
-typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
+//typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
+typedef boost::multi_array<float,3 >    fftw_image_stack;
 
 int main(int argc, char *argv[])
 {
@@ -183,7 +184,7 @@ int main(int argc, char *argv[])
 
   if(out_of_place){
     delete aligned_output;
-    d_dest_buffer = 0;
+    //d_dest_buffer = 0;
   }
 
   if(use_global_plan){

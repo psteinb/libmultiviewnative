@@ -1,6 +1,20 @@
 #ifndef _FFTW_INTERFACE_H_
 #define _FFTW_INTERFACE_H_
 
+//seems that fftw coming with fedora 20 has this problem as documented here
+//http://stackoverflow.com/questions/23165409/fftw-3-3-compile-error-using-nvcc-on-linux                                                                                                                           // if the following 3 lines are commented out                                                                                                                                                                      
+
+#ifndef __float128
+#include <cfloat>
+//check if the mantnisse of double representation is smaller, 
+//than long double (would perhaps not be the case on 32-bit 
+//systems, TODO!)
+#if DBL_MANT_DIG<LDBL_MANT_DIG
+#define __float128 long double
+#endif
+
+#endif
+
 #include "fftw3.h"
 
 
