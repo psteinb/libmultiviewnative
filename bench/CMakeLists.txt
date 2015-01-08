@@ -60,7 +60,7 @@ MESSAGE(">> Linking against ${FFTW_LIBS_TO_USE}")
 ENDIF()
 
 ADD_EXECUTABLE(bench_cpu_nd_fft bench_cpu_nd_fft.cpp)
-target_link_libraries(bench_cpu_nd_fft boost_program_options boost_system boost_timer ${FFTW_LIBS_TO_USE})
+target_link_libraries(bench_cpu_nd_fft boost_program_options boost_system boost_chrono ${FFTW_LIBS_TO_USE})
 set_target_properties(bench_cpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 

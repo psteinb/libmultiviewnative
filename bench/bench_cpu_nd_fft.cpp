@@ -10,16 +10,21 @@
 #include "cpu_nd_fft.hpp"
 #include "fftw_interface.h"
 
-#include <boost/timer/timer.hpp>
+#include <boost/chrono.hpp>
 
-using boost::timer::cpu_timer;
-using boost::timer::cpu_times;
-using boost::timer::nanosecond_type;
+// // #include <boost/timer/timer.hpp>
+// using boost::timer::cpu_timer;
+// using boost::timer::cpu_times;
+// using boost::timer::nanosecond_type;
+
+typedef boost::chrono::high_resolution_clock::time_point tp_t;
+typedef boost::chrono::milliseconds ms_t;
+typedef boost::chrono::nanoseconds ns_t;
 
 namespace po = boost::program_options;
 
-//typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
-typedef boost::multi_array<float,3 >    fftw_image_stack;
+typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
+//typedef boost::multi_array<float,3 >    fftw_image_stack;
 
 int main(int argc, char *argv[])
 {
@@ -29,6 +34,8 @@ int main(int argc, char *argv[])
   bool with_allocation = false;
   bool out_of_place = false;
   bool use_global_plan = false;
+  int num_threads = 0;		
+  
   fftw_api::plan_type* global_plan = 0;
   
   int num_repeats = 5;
@@ -39,11 +46,11 @@ int main(int argc, char *argv[])
     ("help,h", "produce help message")
     ("verbose,v", "print lots of information in between")
     ("stack_dimensions,s", po::value<std::string>(&stack_dims)->default_value("512x512x64"), "HxWxD of synthetic stacks to generate")
-    ("with_transfers,t", "include host-device transfers in timings" )
     ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed" )
     ("out-of-place,o", "perform out-of-place transforms" )
     ("with_allocation,a", "include host-device memory allocation in timings" )
     ("repeats,r", po::value<int>(&num_repeats)->default_value(10), "number of repetitions per measurement")
+    ("num_threads,t", po::value<int>(&num_threads)->default_value(1), "number of threads to use") // 
     // ("input-files", po::value<std::vector<std::string> >()->composing(), "")
     ;
 
@@ -162,23 +169,27 @@ int main(int argc, char *argv[])
 					FFTW_ESTIMATE);
   }
 
-
-  std::vector<cpu_times> durations(num_repeats);
-
-  double time_ms = 0.f;
-        
-      
+   
+  std::vector<ns_t> durations(num_repeats);
+  
+  
+  tp_t start, end;
+  ns_t time_ns = ns_t(0);
+  
     for(int r = 0;r<num_repeats;++r){
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
+
       st_fftw(numeric_stack_dims,
 	      aligned_input.data(),
 	      out_of_place ? d_dest_buffer : 0 ,
 	      use_global_plan ? global_plan : 0);
-      durations[r] = timer.elapsed();
 
-      time_ms += double(durations[r].system + durations[r].user)/1e6;
+      end = boost::chrono::high_resolution_clock::now();
+      durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+
+      time_ns += boost::chrono::duration_cast<ns_t>(end - start);
       if(verbose){
-	std::cout << r << "\t" << double(durations[r].system + durations[r].user)/1e6 << " ms\n";
+	std::cout << r << "\t" << boost::chrono::duration_cast<ns_t>(durations[r]).count()/double(1e6) << " ms\n";
 
       }
     }
@@ -200,7 +211,7 @@ int main(int argc, char *argv[])
 	    << ( (with_transfers) ? "incl_tx" : "excl_tx") << " " 
 	    << ( (out_of_place) ? "out-of-place" : "inplace") << " " 
 	    << num_repeats <<" " 
-	    << time_ms << " " 
+	    << time_ns.count()/double(1e6) << " " 
 	    << stack_dims << " " 
 	    << data_size_byte/float(1 << 20) << " " 
 	    << exp_mem_mb
