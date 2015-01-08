@@ -170,7 +170,8 @@ int main(int argc, char *argv[])
       
     for(int r = 0;r<num_repeats;++r){
       cpu_timer timer;
-      st_fftw(aligned_input,
+      st_fftw(numeric_stack_dims,
+	      aligned_input.data(),
 	      out_of_place ? d_dest_buffer : 0 ,
 	      use_global_plan ? global_plan : 0);
       durations[r] = timer.elapsed();

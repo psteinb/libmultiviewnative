@@ -58,12 +58,12 @@ void fftw_r2c_reshape(std::vector<unsigned>& _shape){
    \retval 
    
 */
-template <typename stack_type>
- void st_fftw(const stack_type& _stack, 
-	      float* _d_dest_buffer = 0,
-	      fftw_api::plan_type* _plan = 0){
+void st_fftw(const std::vector<unsigned>& _shape, 
+	     float* _d_src_buffer,
+	     float* _d_dest_buffer = 0,
+	     fftw_api::plan_type* _plan = 0){
 
-  fftw_api::real_type* fourier_input = (fftw_api::real_type*)_stack.data(); 
+  fftw_api::real_type* fourier_input = (fftw_api::real_type*)_d_src_buffer; 
   fftw_api::complex_type* fourier_output  = (fftw_api::complex_type*)_d_dest_buffer; 
   if(!fourier_output)
     fourier_output  = (fftw_api::complex_type*)fourier_input; 
@@ -71,7 +71,7 @@ template <typename stack_type>
   if(!_plan){
     _plan = new fftw_api::plan_type;
 
-    *_plan = fftw_api::dft_r2c_3d(_stack.shape()[0], _stack.shape()[1], _stack.shape()[2],
+    *_plan = fftw_api::dft_r2c_3d(_shape[0], _shape[1], _shape[2],
 				  fourier_input, 
 				  fourier_output,
 				  FFTW_ESTIMATE);
