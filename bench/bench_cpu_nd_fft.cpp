@@ -11,6 +11,7 @@
 #include "fftw_interface.h"
 
 #include <boost/chrono.hpp>
+#include <boost/thread.hpp>
 
 // // #include <boost/timer/timer.hpp>
 // using boost::timer::cpu_timer;
@@ -30,8 +31,7 @@ int main(int argc, char *argv[])
 {
 
   bool verbose = false;
-  bool with_transfers = false;
-  bool with_allocation = false;
+  bool reuse_global_plan = false;
   bool out_of_place = false;
   bool use_global_plan = false;
   int num_threads = 0;		
@@ -47,8 +47,8 @@ int main(int argc, char *argv[])
     ("verbose,v", "print lots of information in between")
     ("stack_dimensions,s", po::value<std::string>(&stack_dims)->default_value("512x512x64"), "HxWxD of synthetic stacks to generate")
     ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed" )
+    ("reuse_global_plan,a", "use a global plan, and reuse it for all transforms" )
     ("out-of-place,o", "perform out-of-place transforms" )
-    ("with_allocation,a", "include host-device memory allocation in timings" )
     ("repeats,r", po::value<int>(&num_repeats)->default_value(10), "number of repetitions per measurement")
     ("num_threads,t", po::value<int>(&num_threads)->default_value(1), "number of threads to use") // 
     // ("input-files", po::value<std::vector<std::string> >()->composing(), "")
@@ -66,10 +66,9 @@ int main(int argc, char *argv[])
   }
 
   verbose = vm.count("verbose");
-  with_transfers = vm.count("with_transfers");
-  with_allocation = vm.count("with_allocation");
   out_of_place = vm.count("out-of-place");
   use_global_plan = vm.count("global_plan");
+  reuse_global_plan = vm.count("reuse_global_plan");
 
   std::vector<unsigned> numeric_stack_dims;
   split<'x'>(stack_dims,numeric_stack_dims);
@@ -151,22 +150,31 @@ int main(int argc, char *argv[])
 
   if(verbose){
     std::cout << "[config]\t" 
-	      << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << " " 
-	      << ( (with_transfers) ? "incl_tx" : "excl_tx") << " " 
+	      << "excl_alloc" << " " 
+	      << "excl_tx" << " " 
 	      << ( (out_of_place) ? "out-of-place" : "inplace") << " " 
       	      << ( (use_global_plan) ? "global plans" : "local plans") << " " 
 	      << "\n";
     std::copy(numeric_stack_dims.begin(),
 	      numeric_stack_dims.end(),
 	      std::ostream_iterator<unsigned>(std::cout, " "));
+    std::cout << "\n";
   }
   
+  static const int max_threads = boost::thread::hardware_concurrency();
+  if(num_threads>1 && num_threads<=max_threads){
+    fftw_api::init_threads();
+    fftw_api::plan_with_threads(num_threads);
+    if(verbose)
+      std::cout << "planning with " << num_threads << " threads\n";
+  }
+
   if(use_global_plan){
     global_plan = new fftw_api::plan_type ;
     *global_plan = fftw_api::dft_r2c_3d(numeric_stack_dims[0], numeric_stack_dims[1], numeric_stack_dims[2],
 					(fftw_api::real_type*)aligned_input.data(), 
 					(fftw_api::complex_type*)(out_of_place ?  aligned_output->data() : aligned_input.data() ),
-					FFTW_ESTIMATE);
+					reuse_global_plan ? FFTW_MEASURE : FFTW_ESTIMATE);
   }
 
    
@@ -178,11 +186,17 @@ int main(int argc, char *argv[])
   
     for(int r = 0;r<num_repeats;++r){
       start = boost::chrono::high_resolution_clock::now();
-
-      st_fftw(numeric_stack_dims,
-	      aligned_input.data(),
-	      out_of_place ? d_dest_buffer : 0 ,
-	      use_global_plan ? global_plan : 0);
+      
+      if(!reuse_global_plan)
+	st_fftw(numeric_stack_dims,
+		aligned_input.data(),
+		out_of_place ? d_dest_buffer : 0 ,
+		use_global_plan ? global_plan : 0);
+      if(!reuse_global_plan)
+	reuse_fftw_plan(numeric_stack_dims,
+			aligned_input.data(),
+			out_of_place ? d_dest_buffer : 0,
+			global_plan);
 
       end = boost::chrono::high_resolution_clock::now();
       durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
@@ -206,9 +220,9 @@ int main(int argc, char *argv[])
 
   std::string device_name = "CPU";
   
-  std::cout << device_name << " "
-	    << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << " " 
-	    << ( (with_transfers) ? "incl_tx" : "excl_tx") << " " 
+  std::cout << num_threads << "x" << device_name << " "
+	    << "excl_alloc" << " " 
+	    << "incl_tx" << " " 
 	    << ( (out_of_place) ? "out-of-place" : "inplace") << " " 
 	    << num_repeats <<" " 
 	    << time_ns.count()/double(1e6) << " " 
@@ -217,7 +231,8 @@ int main(int argc, char *argv[])
 	    << exp_mem_mb
 	    << "\n";
 
-  
+  if(num_threads>1 && num_threads<=max_threads)
+    fftw_api::cleanup_threads();
 
   return 0;
 }

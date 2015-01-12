@@ -93,6 +93,9 @@ struct fftw_api_definitions<float> {
   typedef void (*execute_plan_fptr)(const plan_type);
   static execute_plan_fptr execute_plan;
 
+  typedef void (*reuse_plan_fptr)(const plan_type, real_type*, complex_type*);
+  static reuse_plan_fptr reuse_plan;
+
   typedef void (*destroy_plan_fptr)(plan_type);
   static destroy_plan_fptr destroy_plan;
 
@@ -121,6 +124,7 @@ struct fftw_api_definitions<float> {
 };
 
 fftw_api_definitions<float>::execute_plan_fptr  fftw_api_definitions<float>::execute_plan  =  fftwf_execute;
+fftw_api_definitions<float>::reuse_plan_fptr  fftw_api_definitions<float>::reuse_plan  =  fftwf_execute_dft_r2c;
 fftw_api_definitions<float>::destroy_plan_fptr  fftw_api_definitions<float>::destroy_plan  =  fftwf_destroy_plan;
 fftw_api_definitions<float>::dft_c2r_3d_fptr    fftw_api_definitions<float>::dft_c2r_3d    =  fftwf_plan_dft_c2r_3d;
 fftw_api_definitions<float>::dft_r2c_3d_fptr    fftw_api_definitions<float>::dft_r2c_3d    =  fftwf_plan_dft_r2c_3d;
@@ -137,6 +141,9 @@ struct fftw_api_definitions<double> {
 
   typedef void (*execute_plan_fptr)(const plan_type);
   static execute_plan_fptr execute_plan;
+
+  typedef void (*reuse_plan_fptr)(const plan_type, real_type*, complex_type*);
+  static reuse_plan_fptr reuse_plan;
 
   typedef void (*destroy_plan_fptr)(plan_type);
   static destroy_plan_fptr destroy_plan;
@@ -163,6 +170,7 @@ struct fftw_api_definitions<double> {
 };
 
 fftw_api_definitions<double>::execute_plan_fptr  fftw_api_definitions<double>::execute_plan  =  fftw_execute;
+fftw_api_definitions<double>::reuse_plan_fptr  fftw_api_definitions<double>::reuse_plan  =  fftw_execute_dft_r2c;
 fftw_api_definitions<double>::destroy_plan_fptr  fftw_api_definitions<double>::destroy_plan  =  fftw_destroy_plan;
 fftw_api_definitions<double>::dft_c2r_3d_fptr    fftw_api_definitions<double>::dft_c2r_3d    =  fftw_plan_dft_c2r_3d;
 fftw_api_definitions<double>::dft_r2c_3d_fptr    fftw_api_definitions<double>::dft_r2c_3d    =  fftw_plan_dft_r2c_3d;

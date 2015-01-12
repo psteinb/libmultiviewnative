@@ -88,6 +88,34 @@ void st_fftw(const std::vector<unsigned>& _shape,
 
 }
 
+/**
+   \brief function that computes a r-2-c float32 FFT single-threaded
+   the function assumes that there has been space pre-allocated on device and that the data required has already been transferred
+   
+   \param[in] _d_src_buffer was already allocated to match the expected size of the FFT
+   \param[in] _d_dest_buffer if non-zero, was already allocated to match the expected size of the FFT and if non-zero will be used as destionation buffer
+   \param[in] _stack host-side nD image
+
+   \return 
+   \retval 
+   
+*/
+void reuse_fftw_plan(const std::vector<unsigned>& _shape, 
+		     float* _d_src_buffer,
+		     float* _d_dest_buffer = 0,
+		     fftw_api::plan_type* _plan = 0){
+
+  fftw_api::real_type* fourier_input = (fftw_api::real_type*)_d_src_buffer; 
+  fftw_api::complex_type* fourier_output  = (fftw_api::complex_type*)_d_dest_buffer; 
+  if(!fourier_output)
+    fourier_output  = (fftw_api::complex_type*)fourier_input; 
+
+  
+  fftw_api::reuse_plan(*_plan, fourier_input, fourier_output);
+
+
+}
+
 
 
 
