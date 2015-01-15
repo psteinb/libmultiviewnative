@@ -122,6 +122,8 @@ int main(int argc, char *argv[])
   }
 
   multiviewnative::image_kernel_data data(numeric_stack_dims);
+  std::random_shuffle(data.stack_.data(),
+		      data.stack_.data() + data.stack_.num_elements());
   if(verbose){
     std::cout << "[config]\t" 
 	      << ( (with_allocation) ? "incl_alloc" : "excl_alloc") << " " 

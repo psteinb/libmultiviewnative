@@ -117,6 +117,8 @@ int main(int argc, char *argv[])
   for(unsigned long i = 0;i < aligned_input.num_elements();++i)
     aligned_input.data()[i] = float(i);
   
+  std::random_shuffle(aligned_input.data(),aligned_input.data() + aligned_input.num_elements());
+
   float* d_dest_buffer = 0; 
   fftw_image_stack* aligned_output = 0;
 
@@ -169,34 +171,47 @@ int main(int argc, char *argv[])
       std::cout << "planning with " << num_threads << " threads\n";
   }
 
+
+  tp_t start, end;
   if(use_global_plan){
     global_plan = new fftw_api::plan_type ;
+    start = boost::chrono::high_resolution_clock::now();
     *global_plan = fftw_api::dft_r2c_3d(numeric_stack_dims[0], numeric_stack_dims[1], numeric_stack_dims[2],
 					(fftw_api::real_type*)aligned_input.data(), 
 					(fftw_api::complex_type*)(out_of_place ?  aligned_output->data() : aligned_input.data() ),
 					reuse_global_plan ? FFTW_MEASURE : FFTW_ESTIMATE);
+    end = boost::chrono::high_resolution_clock::now();
+    if(verbose)
+      std::cout << "creating plan took ("<< (reuse_global_plan ? "FFTW_MEASURE" : "FFTW_ESTIMATE")
+		<<") " << boost::chrono::duration_cast<ms_t>(end - start) << "\n";
   }
 
    
   std::vector<ns_t> durations(num_repeats);
   
   
-  tp_t start, end;
+  
   ns_t time_ns = ns_t(0);
   
     for(int r = 0;r<num_repeats;++r){
       start = boost::chrono::high_resolution_clock::now();
       
-      if(!reuse_global_plan)
+      if(!reuse_global_plan){
+	if(verbose) std::cout << "[process_plan]\t";
 	st_fftw(numeric_stack_dims,
 		aligned_input.data(),
 		out_of_place ? d_dest_buffer : 0 ,
 		use_global_plan ? global_plan : 0);
-      if(!reuse_global_plan)
-	reuse_fftw_plan(numeric_stack_dims,
+      }
+      else{
+	  if(verbose) std::cout << "[reuse_plan]\t";
+	  reuse_fftw_plan(numeric_stack_dims,
 			aligned_input.data(),
 			out_of_place ? d_dest_buffer : 0,
 			global_plan);
+
+
+      }
 
       end = boost::chrono::high_resolution_clock::now();
       durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
