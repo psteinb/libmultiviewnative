@@ -111,7 +111,7 @@ void reuse_fftw_plan(const std::vector<unsigned>& _shape,
     fourier_output  = (fftw_api::complex_type*)fourier_input; 
 
   
-  fftw_api::reuse_plan(*_plan, fourier_input, fourier_output);
+  fftw_api::reuse_plan_r2c(*_plan, fourier_input, fourier_output);
 
 
 }

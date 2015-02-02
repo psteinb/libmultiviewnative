@@ -11,6 +11,7 @@
 #include "boost/multi_array.hpp"
 #include "fft_utils.h"
 #include "image_stack_utils.h"
+#include "plan_store.h"
 
 namespace multiviewnative {
 
@@ -29,7 +30,7 @@ namespace multiviewnative {
     typedef boost::multi_array<value_type,3, fftw_allocator<value_type> >    fftw_image_stack;
     typedef TransformT<fftw_image_stack> transform_policy;
     
-    static const int num_dims = 3;
+    static const int num_dims = image_stack_ref::dimensionality;
 
     image_stack_ref* image_;
     fftw_image_stack* padded_image_;
@@ -37,6 +38,8 @@ namespace multiviewnative {
     image_stack_ref* kernel_;
     fftw_image_stack* padded_kernel_;
     
+    multiviewnative::plan_store<TransferT> plan_holder_;
+
     cpu_convolve(value_type* _image_stack_arr, size_type* _image_extents_arr,
 		 value_type* _kernel_stack_arr, size_type* _kernel_extents_arr, 
 		 size_type* _storage_order = 0):
@@ -44,7 +47,8 @@ namespace multiviewnative {
       image_(0),
       padded_image_(0),
       kernel_(0),
-      padded_kernel_(0)
+      padded_kernel_(0),
+      plan_holder_()
     {
       std::vector<size_type> image_shape(num_dims);
       std::copy(_image_extents_arr, _image_extents_arr+num_dims,image_shape.begin());
@@ -67,18 +71,21 @@ namespace multiviewnative {
       
       this->insert_at_offsets(*image_,*padded_image_);
       this->wrapped_insert_at_offsets(*kernel_,*padded_kernel_);
-
+      
+      
     };
 
-    void inplace(){
+template <typename Plan_Store_t>
+    void inplace(Plan_Store_t* plan_holder_){
       
       typedef typename TransformT<fftw_image_stack>::complex_type complex_type;
 
       TransformT<fftw_image_stack> image_transform(padded_image_);
       TransformT<fftw_image_stack> kernel_transform(padded_kernel_);
       
-      image_transform.forward();
-      kernel_transform.forward();
+      shape_t tx_shape(padded_image_->shape(), padded_image_->shape() + num_dims);
+      image_transform.forward(plan_holder_.get_forward(tx_shape));
+      kernel_transform.forward(plan_holder_.get_forward(tx_shape));
 
       complex_type*  complex_image_fourier   =  (complex_type*)padded_image_->data();
       complex_type*  complex_kernel_fourier  =  (complex_type*)padded_kernel_->data();
@@ -91,7 +98,7 @@ namespace multiviewnative {
 	complex_image_fourier[index][1] = imag;
       }
 
-      image_transform.backward();
+      image_transform.backward(plan_holder_.get_backward(tx_shape));
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());
       value_type scale = 1.0 / (transform_size);
@@ -99,7 +106,11 @@ namespace multiviewnative {
 	padded_image_->data()[index]*=scale;
       }
 
-      (*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
+      if(!std::equal(image_->shape(), image_->shape() + num_dims,
+		       padded_image_->shape(), padded_image_->shape() + num_dims
+		     )
+	 )
+	(*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
     };
 
     ~cpu_convolve(){

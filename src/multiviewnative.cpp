@@ -9,6 +9,7 @@
 #include "fft_utils.h"
 
 #include "cpu_kernels.h"
+#include "plan_store.h"
 
 typedef multiviewnative::cpu_convolve<> default_convolution;
 typedef multiviewnative::cpu_convolve<multiviewnative::parallel_inplace_3d_transform> parallel_convolution;
@@ -86,7 +87,6 @@ void inplace_cpu_convolution(imageType* im,
   std::copy(imDim, imDim + 3, &image_dim[0]);
   std::copy(kernelDim, kernelDim + 3, &kernel_dim[0]);
   
-
   if(nthreads!=1){
     parallel_convolution convolver(im, image_dim, kernel, kernel_dim); 
     parallel_convolution::transform_policy::set_n_threads(nthreads);
@@ -106,15 +106,17 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
 					     double lambda, 
 					     imageType minValue){
 
-  std::vector<unsigned> image_dim(3);
+  typedef fftw_api_definitions<float> fftw_api;
+
+  multiviewnative::shape_t image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
 
   multiviewnative::image_stack_ref input_psi(psi, image_dim);
   multiviewnative::image_stack integral = input_psi;
 
   view_data view_access;
-  std::vector<unsigned> kernel1_dim(3);
-  std::vector<unsigned> kernel2_dim(3);
+  multiviewnative::shape_t kernel1_dim(3);
+  multiviewnative::shape_t kernel2_dim(3);
 
   for(unsigned view = 0;view < input.num_views_;++view){
 
@@ -151,6 +153,8 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
     
   }
 
+  
+  
 }
 
 //implements http://arxiv.org/abs/1308.0730 (Eq 70) using multiple threads
@@ -160,15 +164,15 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 					       double lambda, 
 					       imageType minValue){
 
-  std::vector<unsigned> image_dim(3);
+  multiviewnative::shape_t image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
 
   multiviewnative::image_stack_ref input_psi(psi, image_dim);
   multiviewnative::image_stack integral = input_psi;
 
   view_data view_access;
-  std::vector<unsigned> kernel1_dim(3);
-  std::vector<unsigned> kernel2_dim(3);
+  multiviewnative::shape_t kernel1_dim(3);
+  multiviewnative::shape_t kernel2_dim(3);
 
   parallel_convolution::transform_policy::set_n_threads(nthreads);
 
@@ -217,23 +221,43 @@ void inplace_cpu_deconvolve_iteration(imageType* psi,
 				      int nthreads){
 
   if(nthreads == 1)
-    serial_inplace_cpu_deconvolve_iteration(psi,input,input.lambda_,input.minValue_);
+    serial_inplace_cpu_deconvolve_iteration(psi,
+					    input,
+					    input.lambda_,
+					    input.minValue_);
   else
-    parallel_inplace_cpu_deconvolve_iteration(psi,input,nthreads,input.lambda_,input.minValue_);
+    parallel_inplace_cpu_deconvolve_iteration(psi,
+					      input,
+					      nthreads,
+					      input.lambda_,
+					      input.minValue_);
 }
 
 void inplace_cpu_deconvolve(imageType* psi,
 			    workspace input,
 			    int nthreads){
 
+  //create plan_store
 
+  
+  //launch deconvolution
   if(nthreads == 1)
     for(int it = 0;it<input.num_iterations_;++it){
-      serial_inplace_cpu_deconvolve_iteration(psi,input,input.lambda_,input.minValue_);
+      serial_inplace_cpu_deconvolve_iteration(psi,
+					      input,
+					      input.lambda_,
+					      input.minValue_//,
+					      //plan_store*);
     }
   else
     for(int it = 0;it<input.num_iterations_;++it){
-      parallel_inplace_cpu_deconvolve_iteration(psi,input,nthreads,input.lambda_,input.minValue_);
+      parallel_inplace_cpu_deconvolve_iteration(psi,
+						input,
+						nthreads,
+						input.lambda_,
+						input.minValue_//,
+						//plan_store*
+						);
     }
 
 }

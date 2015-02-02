@@ -77,4 +77,72 @@ BOOST_AUTO_TEST_CASE( add_correct_item_through_boolean  )
   
 }
 
+BOOST_AUTO_TEST_CASE( mutable_iterators  )
+{
+
+  multiviewnative::shape_t cube(3,128);
+  multiviewnative::shape_t big(3,512);
+  multiviewnative::shape_t arb(3,42);
+
+  std::stringstream local("");
+  std::copy(cube.begin(), cube.end(), std::ostream_iterator<unsigned>(local," "));
+  std::string cube_str = local.str();
+
+  local.str("");
+  std::copy(big.begin(), big.end(), std::ostream_iterator<unsigned>(local," "));
+  std::string big_str = local.str();
+
+  local.str("");
+  std::copy(arb.begin(), arb.end(), std::ostream_iterator<unsigned>(local," "));
+  std::string arb_str = local.str();
+
+  multiviewnative::plan_store<std::string> foo;
+  foo.add(cube, cube_str);
+  foo.add(big, big_str);
+
+  multiviewnative::plan_store<std::string>::map_iter_t begin = foo.begin();
+  for(; begin!=foo.end();++begin){
+    if((begin->first) == cube)
+      begin->second += " foobar ";
+  }
+  
+  BOOST_CHECK(foo.has_key(cube));  
+  BOOST_CHECK(foo.get(cube).find("foobar")!=std::string::npos);  
+  BOOST_CHECK_NE(foo.get(cube), cube_str);  
+
+}
+
+// BOOST_AUTO_TEST_CASE( mutable_iterators_to_pointers  )
+// {
+
+//   multiviewnative::shape_t cube(3,128);
+//   multiviewnative::shape_t big(3,512);
+//   multiviewnative::shape_t arb(3,42);
+
+//   std::stringstream local("");
+//   std::copy(cube.begin(), cube.end(), std::ostream_iterator<unsigned>(local," "));
+//   std::string cube_str = local.str();
+
+//   local.str("");
+//   std::copy(big.begin(), big.end(), std::ostream_iterator<unsigned>(local," "));
+//   std::string big_str = local.str();
+
+//   local.str("");
+//   std::copy(arb.begin(), arb.end(), std::ostream_iterator<unsigned>(local," "));
+//   std::string arb_str = local.str();
+
+//   multiviewnative::plan_store<std::string*> foo;
+//   foo.add(cube, new std::string(cube_str));
+//   foo.add(big, new std::string(big_str));
+
+//   multiviewnative::plan_store<std::string>::map_iter_t begin = foo.begin();
+//   for(; begin!=foo.end();++begin){
+//     delete begin->second;
+//     begin->second = 0;
+//   }
+  
+//   BOOST_CHECK(foo.has_key(cube));  
+
+
+// }
 BOOST_AUTO_TEST_SUITE_END()
