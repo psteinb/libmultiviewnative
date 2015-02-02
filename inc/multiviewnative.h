@@ -38,20 +38,43 @@ struct workspace {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPU convolution
+///////////////////
+/* 
+   Function for debug/benchmark purposes (not really needed in library
+*/
 FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im,int* imDim,
 					     imageType* kernel,int* kernelDim,
 					     int nthreads);
 
+/* 
+   Function for debug/benchmark purposes (not really needed in library
+*/
 FUNCTION_PREFIX void inplace_cpu_deconvolve_iteration(imageType* psi,
 						      workspace input,
 						      int nthreads);
-
+/* 
+   To be used for multi-view deconvolution
+*/					
 FUNCTION_PREFIX void inplace_cpu_deconvolve(imageType* psi,
 					    workspace input,
 					    int nthreads);
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // GPU convolution
-FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
+///////////////////
+/* 
+   Function for debug/benchmark purposes (not really needed in library
+*/
+FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,
+					     int* imDim,
+					     imageType* kernel,
+					     int* kernelDim,
+					     int device);
+
+/* 
+   To be used for multi-view deconvolution
+*/
 FUNCTION_PREFIX void inplace_gpu_deconvolve(imageType* psi,
 					    workspace input,					    
 					    int device);
@@ -59,6 +82,8 @@ FUNCTION_PREFIX void inplace_gpu_deconvolve(imageType* psi,
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Legacy GPU convolution(s)
+/////////////////////////////
+
 FUNCTION_PREFIX void inplace_gpu_convolution(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int device);
 
 FUNCTION_PREFIX void convolution3DfftCUDAInPlace(imageType* im,int* imDim,imageType* kernel,int* kernelDim,int devCUDA);

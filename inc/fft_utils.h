@@ -42,11 +42,11 @@ public:
       transform_plan_ = fftw_api::dft_r2c_3d(shape_[0], shape_[1], shape_[2],
 					     fourier_input, fourier_output,
 					     FFTW_ESTIMATE);
-      _plan = transform_plan_;
+      _plan = &transform_plan_;
     }
           
     
-    fftw_api::reuse_plan_r2c(_plan, fourier_input, fourier_output);
+    fftw_api::reuse_plan_r2c(*_plan, fourier_input, fourier_output);
 
     if(!_plan)
       clean_up();
@@ -61,11 +61,11 @@ public:
       transform_plan_ = fftw_api::dft_c2r_3d(shape_[0], shape_[1], shape_[2],
 					     fourier_input, fourier_output,
 					     FFTW_ESTIMATE);
-      _plan = transform_plan_;
+      _plan = &transform_plan_;
     }
           
     
-    fftw_api::reuse_plan_c2r(_plan, fourier_input, fourier_output);
+    fftw_api::reuse_plan_c2r(*_plan, fourier_input, fourier_output);
 
     if(!_plan)
       clean_up();
@@ -82,7 +82,7 @@ private:
   ImageStackT* input_;
   std::vector<typename ImageStackT::size_type> shape_; 
 
-  plan_type* transform_plan_;
+  plan_type transform_plan_;
 
   void padd_for_fft(ImageStackT* _input){
 
@@ -93,7 +93,7 @@ private:
   };
 
   void clean_up(){
-    fftw_api::destroy_plan(*transform_plan_);
+    fftw_api::destroy_plan(transform_plan_);
   };
 
 };

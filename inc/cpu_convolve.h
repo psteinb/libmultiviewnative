@@ -38,8 +38,6 @@ namespace multiviewnative {
     image_stack_ref* kernel_;
     fftw_image_stack* padded_kernel_;
     
-    multiviewnative::plan_store<TransferT> plan_holder_;
-
     cpu_convolve(value_type* _image_stack_arr, size_type* _image_extents_arr,
 		 value_type* _kernel_stack_arr, size_type* _kernel_extents_arr, 
 		 size_type* _storage_order = 0):
@@ -47,8 +45,7 @@ namespace multiviewnative {
       image_(0),
       padded_image_(0),
       kernel_(0),
-      padded_kernel_(0),
-      plan_holder_()
+      padded_kernel_(0)
     {
       std::vector<size_type> image_shape(num_dims);
       std::copy(_image_extents_arr, _image_extents_arr+num_dims,image_shape.begin());
@@ -75,7 +72,7 @@ namespace multiviewnative {
       
     };
 
-template <typename Plan_Store_t>
+    template <typename Plan_Store_t>
     void inplace(Plan_Store_t* plan_holder_){
       
       typedef typename TransformT<fftw_image_stack>::complex_type complex_type;
@@ -84,8 +81,8 @@ template <typename Plan_Store_t>
       TransformT<fftw_image_stack> kernel_transform(padded_kernel_);
       
       shape_t tx_shape(padded_image_->shape(), padded_image_->shape() + num_dims);
-      image_transform.forward(plan_holder_.get_forward(tx_shape));
-      kernel_transform.forward(plan_holder_.get_forward(tx_shape));
+      image_transform.forward(plan_holder_->get_forward(tx_shape));
+      kernel_transform.forward(plan_holder_->get_forward(tx_shape));
 
       complex_type*  complex_image_fourier   =  (complex_type*)padded_image_->data();
       complex_type*  complex_kernel_fourier  =  (complex_type*)padded_kernel_->data();
@@ -98,7 +95,7 @@ template <typename Plan_Store_t>
 	complex_image_fourier[index][1] = imag;
       }
 
-      image_transform.backward(plan_holder_.get_backward(tx_shape));
+      image_transform.backward(plan_holder_->get_backward(tx_shape));
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());
       value_type scale = 1.0 / (transform_size);
@@ -106,8 +103,9 @@ template <typename Plan_Store_t>
 	padded_image_->data()[index]*=scale;
       }
 
-      if(!std::equal(image_->shape(), image_->shape() + num_dims,
-		       padded_image_->shape(), padded_image_->shape() + num_dims
+      if(!std::equal(image_->shape(), 
+		     image_->shape() + num_dims,
+		     padded_image_->shape()
 		     )
 	 )
 	(*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];

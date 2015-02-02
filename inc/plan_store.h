@@ -19,7 +19,7 @@ namespace multiviewnative {
     typedef typename fftw_api::plan_type plan_t;
     typedef typename fftw_api::complex_type complex_t;
 
-    typedef std::map<mvn::shape_t, plan_t*> map_t;
+    typedef std::map<mvn::shape_t, plan_t> map_t;
     typedef typename map_t::iterator map_iter_t;
     typedef typename map_t::const_iterator map_citer_t;
     
@@ -76,7 +76,7 @@ namespace multiviewnative {
       map_citer_t found = fwd_store_.find(_key);
       
       if(found!=fwd_store_.end())
-	return found->second;
+	return &(found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -92,7 +92,7 @@ namespace multiviewnative {
       map_iter_t found = fwd_store_.find(_key);
       
       if(found!=fwd_store_.end())
-	return found->second;
+	return &(found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -108,7 +108,7 @@ namespace multiviewnative {
       map_citer_t found = bwd_store_.find(_key);
       
       if(found!=bwd_store_.end())
-	return found->second;
+	return &(found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -124,7 +124,7 @@ namespace multiviewnative {
       map_iter_t found = bwd_store_.find(_key);
       
       if(found!=bwd_store_.end())
-	return found->second;
+	return &(found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";

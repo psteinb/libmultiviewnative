@@ -44,19 +44,21 @@ if (OPENMP_FOUND)
 IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES ".*fftw3_omp.*")
   IF(FFTW_OMP_LIB AND FFTW_OMPF_LIB)
   SET(FFTW_LIBS_TO_USE ${FFTWF_OMP_LIB} ${FFTW_OMP_LIB} ${FFTW_LIBS_TO_USE})
-  ENDIF()
+  ENDIF() 
+
+ENDIF()
+
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}") 
-  message(">> tests: added ${OpenMP_C_FLAGS} ${OpenMP_CXX_FLAGS} to compiler flags")
+  message(">> [BENCH] added ${OpenMP_C_FLAGS} ${OpenMP_CXX_FLAGS} to compiler flags")
 
-endif()
 else(OPENMP_FOUND)
   warning(">> OpenMP not found, expect related error/warning messages")
 endif(OPENMP_FOUND)
 
 IF(FFTW_FOUND)
-MESSAGE(">> Linking against ${FFTW_LIBS_TO_USE}")
+MESSAGE(">> [BENCH] Linking against ${FFTW_LIBS_TO_USE}")
 ENDIF()
 
 ADD_EXECUTABLE(bench_cpu_nd_fft bench_cpu_nd_fft.cpp)
