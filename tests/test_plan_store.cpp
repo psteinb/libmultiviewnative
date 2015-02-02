@@ -11,6 +11,7 @@
 
 #include "plan_store.h"
 
+typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
 
 BOOST_FIXTURE_TEST_SUITE( store_minimal_api , multiviewnative::default_3D_fixture )
 BOOST_AUTO_TEST_CASE( default_constructs  )
@@ -24,10 +25,17 @@ BOOST_AUTO_TEST_CASE( default_constructs  )
 BOOST_AUTO_TEST_CASE( add_item  )
 {
 
-  multiviewnative::shape_t any(3,8);
+  multiviewnative::shape_t any(image_dims_.begin(), image_dims_.end());
   
   multiviewnative::plan_store<float> foo;
-  foo.add(any, image_.data(), reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(image_.data()));
+  
+  fftw_image_stack input = image_;
+  fftw_image_stack output = image_;
+  output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][(image_.shape()[2]/2) + 1]);
+  
+  foo.add(any, 
+	  input.data(), 
+	  reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
   BOOST_CHECK(foo.empty()!=false);  
 
 }
