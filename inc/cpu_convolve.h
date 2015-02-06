@@ -72,8 +72,8 @@ namespace multiviewnative {
       
     };
 
-    template <typename Plan_Store_t>
-    void inplace(Plan_Store_t* plan_holder_){
+
+    void inplace(){
       
       typedef typename TransformT<fftw_image_stack>::complex_type complex_type;
 
@@ -81,8 +81,8 @@ namespace multiviewnative {
       TransformT<fftw_image_stack> kernel_transform(padded_kernel_);
       
       shape_t tx_shape(padded_image_->shape(), padded_image_->shape() + num_dims);
-      image_transform.forward(plan_holder_->get_forward(tx_shape));
-      kernel_transform.forward(plan_holder_->get_forward(tx_shape));
+      image_transform.forward(multiviewnative::plan_store<TransferT>::get()->get_forward(tx_shape));
+      kernel_transform.forward(multiviewnative::plan_store<TransferT>::get()->get_forward(tx_shape));
 
       complex_type*  complex_image_fourier   =  (complex_type*)padded_image_->data();
       complex_type*  complex_kernel_fourier  =  (complex_type*)padded_kernel_->data();
@@ -95,7 +95,7 @@ namespace multiviewnative {
 	complex_image_fourier[index][1] = imag;
       }
 
-      image_transform.backward(plan_holder_->get_backward(tx_shape));
+      image_transform.backward(multiviewnative::plan_store<TransferT>::get()->get_backward(tx_shape));
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());
       value_type scale = 1.0 / (transform_size);

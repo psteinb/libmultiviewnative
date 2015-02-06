@@ -19,35 +19,61 @@ namespace multiviewnative {
     typedef typename fftw_api::plan_type plan_t;
     typedef typename fftw_api::complex_type complex_t;
 
-    typedef std::map<mvn::shape_t, plan_t> map_t;
+    typedef std::map<mvn::shape_t, plan_t*> map_t;
     typedef typename map_t::iterator map_iter_t;
     typedef typename map_t::const_iterator map_citer_t;
+
     
     map_t fwd_store_;//r2c
     map_t bwd_store_;//c2r
 
-    plan_store():
-      fwd_store_(),
-      bwd_store_()
-    {}
-    
-    ~plan_store(){
-      map_iter_t begin = fwd_store_.begin();
-      map_iter_t end = fwd_store_.end();
-      for(;begin!=end;++begin){
-	fftw_api::destroy_plan(begin->second);
-      }
-      
-      begin = bwd_store_.begin();
-      end = bwd_store_.end();
-      for(;begin!=end;++begin){
-	fftw_api::destroy_plan(begin->second);
-      }
-      
+    static plan_store* get(){
+      static plan_store instance;
+      return &instance;
     }
-
+    
     bool empty() const {
       return fwd_store_.empty() && bwd_store_.empty();
+    }
+
+    unsigned size() const {
+      return std::max(fwd_store_.size(),bwd_store_.size());
+    }
+    
+    bool has_key(const mvn::shape_t& _key) const {
+      map_citer_t fwd_found = fwd_store_.find(_key);
+      map_citer_t bwd_found = bwd_store_.find(_key);
+      
+      return fwd_found!=fwd_store_.end() && bwd_found!=bwd_store_.end();
+
+    }
+
+    friend std::ostream& operator<<(std::ostream& _stream, const plan_store& _self){
+      auto fwd_itr = _self.fwd_store_.cbegin();
+      for( ;fwd_itr != _self.fwd_store_.cend(); ++fwd_itr  ){
+	_stream << "fwd key shape = ";
+	for( auto i : fwd_itr->first )
+	  _stream << i << " ";
+	_stream << "\n";
+      }
+
+      auto bwd_itr = _self.bwd_store_.cbegin();
+      for( ;bwd_itr != _self.bwd_store_.cend(); ++bwd_itr  ){
+	_stream << "bwd key shape = ";
+	for( auto i : bwd_itr->first )
+	  _stream << i << " ";
+	_stream << "\n";
+      }
+
+
+      return _stream;
+    }
+
+    friend std::ostream& operator<<(std::ostream& _stream, const plan_store* _self){
+      
+      _stream << *_self;
+            
+      return _stream;
     }
 
     void add(const mvn::shape_t& _shape,
@@ -56,18 +82,20 @@ namespace multiviewnative {
 	     ) {
       
       if(fwd_store_.find(_shape)==fwd_store_.end())
-	fwd_store_[_shape] = fftw_api::dft_r2c_3d(_shape[0], 
-						_shape[1], 
-						_shape[2],
-						_input, _output,
-						FFTW_MEASURE);
+	fwd_store_[_shape] = new plan_t(fftw_api::dft_r2c_3d(_shape[0], 
+							     _shape[1], 
+							     _shape[2],
+							     _input, _output,
+							     FFTW_MEASURE)
+					);
       
       if(bwd_store_.find(_shape)==bwd_store_.end())
-	bwd_store_[_shape] = fftw_api::dft_c2r_3d(_shape[0], 
+	bwd_store_[_shape] = new plan_t(fftw_api::dft_c2r_3d(_shape[0], 
 						_shape[1], 
 						_shape[2],
 						_output, _input,
-						FFTW_MEASURE);
+						FFTW_MEASURE)
+					);
 
       
     }
@@ -76,7 +104,7 @@ namespace multiviewnative {
       map_citer_t found = fwd_store_.find(_key);
       
       if(found!=fwd_store_.end())
-	return &(found->second);
+	return (found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -92,7 +120,7 @@ namespace multiviewnative {
       map_iter_t found = fwd_store_.find(_key);
       
       if(found!=fwd_store_.end())
-	return &(found->second);
+	return (found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -108,7 +136,7 @@ namespace multiviewnative {
       map_citer_t found = bwd_store_.find(_key);
       
       if(found!=bwd_store_.end())
-	return &(found->second);
+	return (found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -124,7 +152,7 @@ namespace multiviewnative {
       map_iter_t found = bwd_store_.find(_key);
       
       if(found!=bwd_store_.end())
-	return &(found->second);
+	return (found->second);
       else{
 	std::stringstream stream;
 	stream << "[multiviewnative::plan_store] key ";
@@ -136,14 +164,41 @@ namespace multiviewnative {
       };
     }
 
-
-    bool has_key(const mvn::shape_t& _key) const {
-      map_citer_t fwd_found = fwd_store_.find(_key);
-      map_citer_t bwd_found = bwd_store_.find(_key);
+    void clear(){
+      map_iter_t begin = fwd_store_.begin();
+      map_iter_t end = fwd_store_.end();
+      for(;begin!=end;++begin){
+	fftw_api::destroy_plan(*begin->second);
+	delete begin->second;
+	begin->second = 0;
+	fwd_store_.erase(begin);
+      }
       
-      return fwd_found!=fwd_store_.end() && bwd_found!=bwd_store_.end();
-
+      begin = bwd_store_.begin();
+      end = bwd_store_.end();
+      for(;begin!=end;++begin){
+	fftw_api::destroy_plan(*begin->second);
+	delete begin->second;
+	begin->second = 0;
+	bwd_store_.erase(begin);
+      }
     }
+
+  private:
+    
+    plan_store():
+      fwd_store_(),
+      bwd_store_()
+    {}
+    
+
+
+    ~plan_store(){
+      clear();
+      
+    }
+
+
 
     // map_iter_t begin() {
     //   return store_.begin();

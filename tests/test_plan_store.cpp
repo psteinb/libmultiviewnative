@@ -1,5 +1,5 @@
 #define BOOST_TEST_DYN_LINK 
-#define BOOST_TEST_MODULE PLAN_STORE_OF_STRING
+#define BOOST_TEST_MODULE PLAN_STORE
 #include "boost/test/unit_test.hpp"
 #include "test_fixtures.hpp"
 #include <numeric>
@@ -17,8 +17,8 @@ BOOST_FIXTURE_TEST_SUITE( store_minimal_api , multiviewnative::default_3D_fixtur
 BOOST_AUTO_TEST_CASE( default_constructs  )
 {
 
-  multiviewnative::plan_store<float> foo;
-  BOOST_CHECK(foo.empty()==true);
+
+  BOOST_CHECK(multiviewnative::plan_store<float>::get()->empty()==true);
   
 }
 
@@ -27,49 +27,67 @@ BOOST_AUTO_TEST_CASE( add_item  )
 
   multiviewnative::shape_t any(image_dims_.begin(), image_dims_.end());
   
-  multiviewnative::plan_store<float> foo;
   
-  fftw_image_stack input = image_;
   fftw_image_stack output = image_;
-  output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][(image_.shape()[2]/2) + 1]);
+  unsigned last_dim = 2*((image_.shape()[2]/2) + 1);
   
-  foo.add(any, 
-	  input.data(), 
-	  reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
-  BOOST_CHECK(foo.empty()!=false);  
-
+  output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][last_dim]);
+  
+  multiviewnative::plan_store<float>::get()->add(any, 
+						 output.data(), 
+						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
+  
+  BOOST_CHECK(multiviewnative::plan_store<float>::get()->empty()!=true);
 }
 
 BOOST_AUTO_TEST_CASE( add_correct_item  )
 {
 
-  multiviewnative::shape_t cube(3,8);
-  multiviewnative::plan_store<float> foo;
+  
+  multiviewnative::shape_t cube(image_dims_.begin(), image_dims_.end());
+  
+  multiviewnative::plan_store<float>::get()->clear();
+  BOOST_CHECK_MESSAGE(multiviewnative::plan_store<float>::get()->empty()==true, "not empty ! size = " << multiviewnative::plan_store<float>::get()->size());
+  
 
-  BOOST_CHECK(foo.empty()==false);  
-  foo.add(cube, image_.data(), reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(image_.data()));
+  fftw_image_stack output = image_;
+  unsigned last_dim = 2*((image_.shape()[2]/2) + 1);
+  output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][last_dim]);
+
+  multiviewnative::plan_store<float>::get()->add(cube, 
+						 output.data(), 
+						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
+  
   multiviewnative::plan_store<float>::plan_t* result = 0;
   
-  result = foo.get_forward(cube);
+  result = multiviewnative::plan_store<float>::get()->get_forward(cube);
   BOOST_CHECK(result != 0);  
   result = 0;
-  result = foo.get_backward(cube);
+  result = multiviewnative::plan_store<float>::get()->get_backward(cube);
   BOOST_CHECK(result != 0);  
 }
 
 BOOST_AUTO_TEST_CASE( add_correct_item_through_boolean  )
 {
-
-  multiviewnative::shape_t cube(3,128);
-  multiviewnative::shape_t big(3,512);
+  
+  multiviewnative::shape_t cube(3,8);
+  multiviewnative::shape_t big(3,9);
   multiviewnative::shape_t arb(3,42);
   
-  multiviewnative::plan_store<float> foo;
-  foo.add(cube, image_.data(), reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(image_.data()));
-  foo.add(big, image_.data(), reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(image_.data()));  
-  BOOST_CHECK(foo.has_key(cube));  
-  BOOST_CHECK(foo.has_key(big));  
-  BOOST_CHECK(!foo.has_key(arb));  
+  fftw_image_stack output = image_;
+  unsigned last_dim = 2*((image_.shape()[2]/2) + 1);
+  output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][last_dim]);
+  multiviewnative::plan_store<float>::get()->clear();
+  multiviewnative::plan_store<float>::get()->add(cube, output.data(), 
+						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
+
+  last_dim = 2*((big[2]/2) + 1);
+  output.resize(boost::extents[big[0]][big[1]][last_dim]);
+  multiviewnative::plan_store<float>::get()->add(big, output.data(), 
+						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));  
+  BOOST_CHECK(  multiviewnative::plan_store<float>::get()->has_key(cube));  
+  BOOST_CHECK(  multiviewnative::plan_store<float>::get()->has_key(big));  
+  BOOST_CHECK( !multiviewnative::plan_store<float>::get()->has_key(arb));  
   
 }
 
