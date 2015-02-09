@@ -116,8 +116,8 @@ namespace multiviewnative {
 
       for(unsigned i = 0;i<size;++i){
 	
-	b_is_nan = isnan(data[i]);
-	b_is_inf = isinf(data[i]);
+	b_is_nan = std::isnan(data[i]);
+	b_is_inf = std::isinf(data[i]);
 	
 	if(b_is_nan || b_is_inf){
 	  std::cerr << "encountered malformed pixel in ["<< stack_path_ <<"]: index = " << i 

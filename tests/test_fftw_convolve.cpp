@@ -181,7 +181,7 @@ void convolute_3d_in_place(MatrixT& _image, const MatrixT& _kernel, const bool& 
   ///////////////////////////////////////////////////////////////////////////
   //RESIZE ALL TO ALLOW FFTW INPLACE TRANSFORM
   std::vector<unsigned> inplace_extents(3);
-  adapt_extents_for_fftw_inplace(_image.storage_order(),common_extents, inplace_extents);
+  adapt_extents_for_fftw_inplace(common_extents, inplace_extents,_image.storage_order());
   padded_image.resize(boost::extents[inplace_extents[0]][inplace_extents[1]][inplace_extents[2]]);
   padded_kernel.resize(boost::extents[inplace_extents[0]][inplace_extents[1]][inplace_extents[2]]);
   if(_verbose){

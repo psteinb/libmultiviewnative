@@ -18,8 +18,10 @@ namespace multiviewnative {
 
   std::ostream& operator<<(std::ostream&, const image_stack&);
 
-  template <typename StorageT, typename DimT, typename ODimT>
-  void adapt_extents_for_fftw_inplace(const StorageT& _storage, const DimT& _extent, ODimT& _value){
+  template <typename DimT, typename ODimT>
+  void adapt_extents_for_fftw_inplace(const DimT& _extent, 
+				      ODimT& _value, 
+				      const storage& _storage = boost::c_storage_order() ){
 
     std::fill(_value.begin(),_value.end(),0);
 

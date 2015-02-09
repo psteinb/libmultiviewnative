@@ -38,13 +38,6 @@ BOOST_AUTO_TEST_CASE( printf )
   image_stack input_psi = *local_guesses.psi(0);
   int log_level = boost::unit_test::runtime_config::log_level();
   
-  //create plan_store
-  multiviewnative::plan_store<imageType> store;
-  multiviewnative::shape_t psi_shape(3);
-  std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, psi_shape.begin());
-  store.add(psi_shape,
-	    input_psi.data(), reinterpret_cast<multiviewnative::plan_store<imageType>::complex_t*>(input_psi.data())
-	    );
 
   //convolve
   std::vector<unsigned> image_dim(3);
@@ -81,7 +74,7 @@ BOOST_AUTO_TEST_CASE( printf )
     }
     
     default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
-    convolver1.inplace(&store);
+    convolver1.inplace();
     
     if(log_level < 4){
       std::cout << "\ncomputeQuotient: min/max view " << multiviewnative::min_value(view_access.image_, integral.num_elements()) << "/"
@@ -108,7 +101,7 @@ BOOST_AUTO_TEST_CASE( printf )
     
     //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
     default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
-    convolver2.inplace(&store);
+    convolver2.inplace();
     
     if(log_level < 4){
       std::cout << "\ncomputeFinalValues: "

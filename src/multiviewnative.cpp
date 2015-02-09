@@ -236,6 +236,7 @@ void inplace_cpu_deconvolve(imageType* psi,
 			    workspace input,
 			    int nthreads){
 
+  //TODO: at best, perform kernel transform as batch here
   
   //launch deconvolution
   if(nthreads == 1)

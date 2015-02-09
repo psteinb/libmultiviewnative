@@ -117,7 +117,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
     padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
 
-    multiviewnative::adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
+    multiviewnative::adapt_extents_for_fftw_inplace(padding[v].extents_, cufft_inplace_extents,padded_view[v]->storage_order());
     device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_t>());
 
 
@@ -284,7 +284,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
     padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
 
-    multiviewnative::adapt_extents_for_fftw_inplace(padded_view[v]->storage_order(),padding[v].extents_, cufft_inplace_extents);
+    multiviewnative::adapt_extents_for_fftw_inplace(padding[v].extents_, cufft_inplace_extents,padded_view[v]->storage_order());
     device_memory_elements_required[v] = std::accumulate(cufft_inplace_extents.begin(),cufft_inplace_extents.end(),1,std::multiplies<size_t>());
 
   }

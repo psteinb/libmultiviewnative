@@ -132,7 +132,7 @@ namespace multiviewnative {
 
       //extend kernel and image according to inplace requirements (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
       std::vector<unsigned> inplace_extents(this->extents_.size());
-      adapt_extents_for_fftw_inplace(padded_image_->storage_order(),this->extents_, inplace_extents);
+      adapt_extents_for_fftw_inplace(this->extents_, inplace_extents,padded_image_->storage_order());
       size_type device_memory_elements_required = std::accumulate(inplace_extents.begin(),inplace_extents.end(),1,std::multiplies<size_type>());    
        
 	//place image and kernel on device (add extra space on device for cufft processing)

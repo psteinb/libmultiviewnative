@@ -1,6 +1,6 @@
 #ifndef _CUDA_HELPERS_H_
 #define _CUDA_HELPERS_H_
-
+#include <cstring>
 #include <iostream>
 #include <iomanip>
 #include "cuda.h"
@@ -99,8 +99,8 @@ void getNameDeviceCUDA(int devCUDA, char* name)
 {	
 	cudaDeviceProp prop;
 	HANDLE_ERROR( cudaGetDeviceProperties(&prop, devCUDA));
-
-	memcpy(name,prop.name,sizeof(char)*256);
+	std::copy(prop.name, prop.name + 256, name);
+	//	memcpy(name,prop.name,sizeof(char)*256);
 }
 
 std::string get_cuda_device_name(int devCUDA)

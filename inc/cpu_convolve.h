@@ -11,7 +11,7 @@
 #include "boost/multi_array.hpp"
 #include "fft_utils.h"
 #include "image_stack_utils.h"
-#include "plan_store.h"
+
 
 namespace multiviewnative {
 
@@ -77,12 +77,16 @@ namespace multiviewnative {
       
       typedef typename TransformT<fftw_image_stack>::complex_type complex_type;
 
-      TransformT<fftw_image_stack> image_transform(padded_image_);
-      TransformT<fftw_image_stack> kernel_transform(padded_kernel_);
-      
       shape_t tx_shape(padded_image_->shape(), padded_image_->shape() + num_dims);
-      image_transform.forward(multiviewnative::plan_store<TransferT>::get()->get_forward(tx_shape));
-      kernel_transform.forward(multiviewnative::plan_store<TransferT>::get()->get_forward(tx_shape));
+
+      //set up transforms
+      TransformT<fftw_image_stack> stack_transform(tx_shape);
+          
+      stack_transform.padd_for_fft(padded_image_ );
+      stack_transform.forward( padded_image_  );
+
+      stack_transform.padd_for_fft(padded_kernel_ );
+      stack_transform.forward( padded_kernel_  );      
 
       complex_type*  complex_image_fourier   =  (complex_type*)padded_image_->data();
       complex_type*  complex_kernel_fourier  =  (complex_type*)padded_kernel_->data();
@@ -94,8 +98,9 @@ namespace multiviewnative {
 	complex_image_fourier[index][0] = real;
 	complex_image_fourier[index][1] = imag;
       }
-
-      image_transform.backward(multiviewnative::plan_store<TransferT>::get()->get_backward(tx_shape));
+      
+      stack_transform.backward(padded_image_);
+      stack_transform.resize_after_fft(padded_image_);
 
       size_type transform_size = std::accumulate(this->extents_.begin(),this->extents_.end(),1,std::multiplies<size_type>());
       value_type scale = 1.0 / (transform_size);

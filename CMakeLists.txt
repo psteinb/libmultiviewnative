@@ -174,12 +174,16 @@ IF(INCLUDE_CUDA)
     ELSE("${CUDA_VERSION_MAJOR}" STREQUAL "5")
       MESSAGE(">> CUDA less than version 5.0 detected, compiling for Compute Capability 2.x only ")
     ENDIF()
+    
     set(CUDA_NVCC_FLAGS_RELEASE ${CUDA_NVCC_FLAGS_RELEASE};-O2;--use_fast_math)
+#    set(CUDA_NVCC_FLAGS_DEBUG ${CUDA_NVCC_FLAGS_DEBUG};-x c++)
+    
 
     IF("${CUDA_VERSION}" VERSION_GREATER "6.0")
       list(APPEND CUDA_NVCC_FLAGS_RELEASE -std=c++11)
+      list(APPEND CUDA_NVCC_FLAGS_DEBUG -std=c++11)
     ELSE()
-      MESSAGE(">> FAILED to add -std=c++11 to nvcc flags")
+      MESSAGE(FATAL_ERROR ">> FAILED to add -std=c++11 to nvcc flags")
     ENDIF()
 
     set(CUDA_NVCC_FLAGS_DEBUG ${CUDA_NVCC_FLAGS_DEBUG};-g;-G)
