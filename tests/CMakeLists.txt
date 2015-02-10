@@ -35,6 +35,8 @@ target_link_libraries(test_multi_array_fixture boost_system boost_filesystem boo
 add_executable(test_image_stack test_image_stack.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_image_stack boost_system boost_filesystem boost_unit_test_framework)
 
+add_executable(test_padd_utils test_padd_utils.cpp )
+target_link_libraries(test_padd_utils boost_unit_test_framework )
 
 #not sure if this line is correct (appending versus setting)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -80,6 +82,7 @@ target_link_libraries(test_point boost_filesystem boost_unit_test_framework ${FF
 
 add_executable(test_plan_store test_plan_store.cpp)
 target_link_libraries(test_plan_store boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE})
+
 
 
 add_executable(test_fftw_convolve test_fftw_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)

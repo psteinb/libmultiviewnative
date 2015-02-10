@@ -3,6 +3,7 @@
 #include "boost/test/unit_test.hpp"
 #include "test_fixtures.hpp"
 #include <numeric>
+#include <iostream>
 #include "multiviewnative.h"
 #include "cpu_convolve.h"
 #include "padd_utils.h"
@@ -12,6 +13,8 @@
 
 typedef multiviewnative::zero_padd<multiviewnative::image_stack> zero_padding;
 static multiviewnative::storage local_order = boost::c_storage_order();
+
+using namespace multiviewnative;
 
 BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture )
 
@@ -49,12 +52,12 @@ BOOST_AUTO_TEST_CASE( identity_convolve )
 {
   
 
-  float sum_original = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
-  inplace_cpu_convolution(image_.data(), &image_dims_[0], 
+  float sum_original = std::accumulate(padded_image_.origin(), padded_image_.origin() + padded_image_.num_elements(),0.f);
+  inplace_cpu_convolution(padded_image_.data(), &padded_image_dims_[0], 
   			  identity_kernel_.data(),&kernel_dims_[0],
   			  1);
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  float sum = std::accumulate(padded_image_.data(), padded_image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
 
 
@@ -65,14 +68,25 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
   
 
   float sum_original = std::accumulate(image_folded_by_horizontal_.origin(), image_folded_by_horizontal_.origin() + image_folded_by_horizontal_.num_elements(),0.f);
-  inplace_cpu_convolution(image_.data(), &image_dims_[0], 
+  inplace_cpu_convolution(padded_image_.data(), &padded_image_dims_[0], 
   			  horizont_kernel_.data(),&kernel_dims_[0],
   			  1);
 
-  float sum = std::accumulate(image_.origin(), image_.origin() + image_.num_elements(),0.f);
+  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
+  float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
 
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001f);
-
+  try{
+    BOOST_REQUIRE_CLOSE(sum, sum_original, .00001f);
+  }
+  catch(...){
+    std::cout << boost::unit_test::framework::current_test_case().p_name << "\n"
+	      << "\n input:\n" << padded_image_ << "\n"
+	      << "\n kernel:\n" << horizont_kernel_
+	      << "\n expected:\n" << image_folded_by_horizontal_ << "\n"
+	      << "\n received:\n" << image_ << "\n"
+      ;
+  }
 }
 
 BOOST_AUTO_TEST_CASE( vertical_convolve )

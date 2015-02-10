@@ -24,9 +24,13 @@ template <unsigned short KernelDimSize = 3,
 struct convolutionFixture3D
 {
 
-  
+  static const unsigned halfKernel  = KernelDimSize/2u;
+  static const unsigned imageDimSize  = ImageDimSize;
+  static const unsigned kernelDimSize  = KernelDimSize;
+
   const unsigned    image_size_   ;
   std::vector<int>  image_dims_                             ;
+  std::vector<int>  padded_image_dims_                             ;
   image_stack       image_                                  ;
   image_stack       one_                                  ;
   image_stack       padded_image_                           ;
@@ -62,6 +66,7 @@ public:
   convolutionFixture3D():
     image_size_                             ((unsigned)std::pow(ImageDimSize,3)),
     image_dims_                             (3,ImageDimSize),
+    padded_image_dims_                             (3,ImageDimSize+2*(KernelDimSize/2)),
     image_                                  (boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
     one_                                  (boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
     padded_image_                           (boost::extents[ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)]),
@@ -90,7 +95,7 @@ public:
   {
     
     //FILL KERNELS
-    const unsigned halfKernel  = KernelDimSize/2u;
+    
         
     std::fill(trivial_kernel_.data()       ,trivial_kernel_.data()       +  kernel_size_                           ,0.f);
     std::fill(identity_kernel_.data()      ,identity_kernel_.data()      +  kernel_size_                           ,0.f);
