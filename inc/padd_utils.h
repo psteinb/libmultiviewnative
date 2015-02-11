@@ -18,10 +18,13 @@ namespace multiviewnative {
     for(signed_size_type z=0;z<signed_size_type(_source.shape()[2]);++z)
       for(signed_size_type y=0;y<signed_size_type(_source.shape()[1]);++y)
 	for(signed_size_type x=0;x<signed_size_type(_source.shape()[0]);++x){
-	  signed_size_type intermediate_x = x - _source.shape()[0]/2L;
-	  signed_size_type intermediate_y = y - _source.shape()[1]/2L;
-	  signed_size_type intermediate_z = z - _source.shape()[2]/2L;
+	  
+	  //move origin to center of stack
+	  signed_size_type intermediate_x = x - (_source.shape()[0]/2L);
+	  signed_size_type intermediate_y = y - (_source.shape()[1]/2L);
+	  signed_size_type intermediate_z = z - (_source.shape()[2]/2L);
 
+	  //if we are below 0, move by _point, otherwise keep it
 	  intermediate_x =(intermediate_x<0) ? intermediate_x + _point[0]: intermediate_x;
 	  intermediate_y =(intermediate_y<0) ? intermediate_y + _point[1]: intermediate_y;
 	  intermediate_z =(intermediate_z<0) ? intermediate_z + _point[2]: intermediate_z;
@@ -32,14 +35,15 @@ namespace multiviewnative {
 
   }
   
-  template < typename inT ,typename outT  >
-struct add_minus_1 {
-
-  outT operator()(const inT& _first, const inT& _second){
-    return _first + _second - 1;
-  }
+  template < typename outT  >
+  struct add_minus_1 {
+    
+    template < typename any_type  >
+    outT operator()(const any_type& _first, const any_type& _second){
+      return _first + _second - 1;
+    }
   
-};
+  };
 
 template < typename inT ,typename outT  >
 struct minus_1_div_2 {
@@ -124,7 +128,7 @@ struct zero_padd {
     offsets_(ImageStackT::dimensionality,0)
   {
     std::transform(_image, _image + ImageStackT::dimensionality, _kernel, 
-		   extents_.begin(), add_minus_1<DimT,size_type>());
+		   extents_.begin(), add_minus_1<DimT>());
     
     std::transform(_kernel, _kernel + ImageStackT::dimensionality, offsets_.begin(), minus_1_div_2<DimT,size_type>());
   }
@@ -137,6 +141,35 @@ struct zero_padd {
     return *this;
   }
 
+  /**
+     \brief function that inserts _source in _target given limits by vector offsets, 
+     _target is expected to have dimensions (source.shape()[0]+2*offsets_[0])x(source.shape()[1]+2*offsets_[1])x...
+     _target is hence expected to have dimensions extents_[0]xextents_[1]x...
+     
+     as an example:
+     _source = 
+     1 1
+     1 1
+     given a kernel of 3x3x3
+     would expecte a _target of 
+     0 0 0 0
+     0 0 0 0
+     0 0 0 0
+     0 0 0 0
+
+     and the result would look like
+     0 0 0 0
+     0 1 1 0
+     0 1 1 0
+     0 0 0 0
+
+     \param[in] _source image stack to embed into target
+     \param[in] _target image stack of size extents_[0]xextents_[1]x...
+     
+     \return 
+     \retval 
+     
+  */
   template <typename ImageStackRefT, typename OtherStackT>
   void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 
@@ -149,6 +182,38 @@ struct zero_padd {
 
   }
   
+  /**
+     \brief function that inserts _source in _target given limits by vector offsets, 
+     _target is expected to have dimensions (source.shape()[0]+2*offsets_[0])x(source.shape()[1]+2*offsets_[1])x...
+     _target is hence expected to have dimensions extents_[0]xextents_[1]x...
+
+     as an example:
+     _source = 
+     0 0 0
+     1 2 3
+     0 0 0 
+     given a kernel of 3x3x3
+     would expecte a _target of 
+     0 0 0 0 0
+     0 0 0 0 0
+     0 0 0 0 0
+     0 0 0 0 0
+     0 0 0 0 0
+
+     and the result would look like
+     2 3 0 0 1
+     0 0 0 0 0
+     0 0 0 0 0
+     0 0 0 0 0
+     0 0 0 0 0
+
+     \param[in] _source image stack to embed into target
+     \param[in] _target image stack of size extents_[0]xextents_[1]x...
+     
+     \return 
+     \retval 
+     
+  */
   template <typename ImageStackRefT, typename OtherStackT>
   void wrapped_insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
 

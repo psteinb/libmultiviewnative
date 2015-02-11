@@ -845,3 +845,166 @@ BOOST_AUTO_TEST_CASE( convolve_by_all1 )
 BOOST_AUTO_TEST_SUITE_END()
 
 
+struct fftw_multi_array {
+
+  image_stack image_naive_;
+  image_stack image_c_order_;
+  static const int width = 4;
+  static const int height = 8;
+  static const int depth = 2;
+  static const int size = width*height*depth;
+  
+  fftw_multi_array():
+    image_naive_(boost::extents[width][height][depth]),
+    image_c_order_(boost::extents[depth][height][width]){
+    int count = 0;
+    
+    for(int z=0;z<depth;++z){
+      for(int y=0;y<height;++y){
+	for(int x=0;x<width;++x){
+
+	  image_naive_[x][y][z] = count;
+	  image_c_order_[z][y][x] = count;
+	  
+	  count +=1;
+	}
+      }
+    }
+
+  }
+    
+};
+
+using namespace multiviewnative;
+
+BOOST_FIXTURE_TEST_SUITE( boost_multi_array_fftw, fftw_multi_array )
+
+BOOST_AUTO_TEST_CASE( fft_ifft_c_order_use_last_dim )
+{
+  image_stack expected = image_c_order_;
+  
+  image_stack result_for_fftw(boost::extents[depth][height][(width/2 + 1)*2]);
+  image_stack_view result_view = result_for_fftw[ boost::indices[range(0,depth)][range(0,height)][range(0,width)] ];
+  result_view = image_c_order_;
+  std::cout << "\npadded\n" << result_for_fftw << "\n";
+
+  fftwf_complex* image_fourier = (fftwf_complex*)result_for_fftw.data();
+
+
+  fftwf_plan fwd_plan = fftwf_plan_dft_r2c_3d(depth, height, width,
+						    result_for_fftw.data(), image_fourier,
+						    FFTW_ESTIMATE);
+  fftwf_plan bwd_plan = fftwf_plan_dft_c2r_3d(depth, height, width,
+						    image_fourier, result_for_fftw.data(),
+						    FFTW_ESTIMATE);
+  
+
+
+  fftwf_execute(fwd_plan);
+  fftwf_execute(bwd_plan);
+  
+  float scale = 1.f/size;
+  for( int i = 0;i<(int)result_for_fftw.num_elements();++i)
+    result_for_fftw.data()[i] *= scale;
+  
+  
+  BOOST_CHECK_EQUAL_COLLECTIONS(result_view.shape(), result_view.shape() + 3,
+				expected.shape(), expected.shape() + 3);
+  image_stack result = result_view;
+  double l2norm = 0;
+  for( int i = 0;i<size;++i){
+    double temp = expected.data()[i]-result.data()[i];
+    l2norm += (temp)*(temp);
+  }
+  
+  l2norm = std::sqrt(l2norm);
+  try{
+    BOOST_REQUIRE_MESSAGE(l2norm < 1e-5, "l2norm not below 10^-5, l2 =" <<  l2norm);
+  }
+  catch(...){
+    std::cout << "expected\n" << expected
+	      << "\n\nreceived\n" << result << "\n";
+  }
+
+  fftwf_destroy_plan(fwd_plan);
+  fftwf_destroy_plan(bwd_plan);
+
+
+}
+
+
+BOOST_AUTO_TEST_CASE( fft_ifft_from_manual )
+{
+  //http://www.fftw.org/doc/Multi_002dDimensional-DFTs-of-Real-Data.html
+  image_frame expected(boost::extents[height][width]);
+  expected = image_c_order_[ boost::indices[0][range(0,height)][range(0,width)] ];
+  std::cout << "w = " << width << ", h = " << height << "\n";
+  for(int y = 0;y<height;++y){
+    std::cout << y << "] ";
+    for(int x = 0;x<width;++x){
+      std::cout << std::setw(2) << expected[y][x] << " ";
+    }
+    std::cout << "\n";
+  }
+  
+  image_frame result_for_fftw(boost::extents[height][(width/2 + 1)*2]);
+  image_stack_frame sub_result= result_for_fftw[ boost::indices[range(0,height)][range(0,width)] ];
+  sub_result = expected;
+  std::cout << "\n\npadded:\n";
+  for(int y = 0;y<(int)result_for_fftw.shape()[0];++y){
+    std::cout << y << "] ";
+    for(int x = 0;x<(int)result_for_fftw.shape()[1];++x){
+      std::cout << std::setw(2) << result_for_fftw[y][x] << " ";
+    }
+    std::cout << "\n";
+  }
+  
+  fftwf_complex* image_fourier = (fftwf_complex*)result_for_fftw.data();
+
+
+  fftwf_plan fwd_plan = fftwf_plan_dft_r2c_2d(height, width,
+						    result_for_fftw.data(), image_fourier,
+						    FFTW_ESTIMATE);
+  fftwf_plan bwd_plan = fftwf_plan_dft_c2r_2d(height, width,
+						    image_fourier, result_for_fftw.data(),
+						    FFTW_ESTIMATE);
+  
+
+
+  fftwf_execute(fwd_plan);
+  fftwf_execute(bwd_plan);
+  
+  float scale = 1.f/float(expected.num_elements());
+
+  image_frame result(boost::extents[height][width]);
+  result = result_for_fftw[ boost::indices[range(0,height)][range(0,width)] ];
+  
+  for( int i = 0;i<(int)result.num_elements();++i)
+    result.data()[i] *= scale;
+
+std::cout << "\n\nresult:\n";
+  for(int y = 0;y<height;++y){
+    std::cout << y << "] ";
+    for(int x = 0;x<width;++x){
+      std::cout << std::setw(2) << result[y][x] << " ";
+    }
+    std::cout << "\n";
+  }
+  
+
+  double l2norm = 0;
+  for( int i = 0;i<(int)result.num_elements();++i){
+    double temp = expected.data()[i]-result.data()[i];
+    l2norm += (temp)*(temp);
+  }
+  
+  l2norm = std::sqrt(l2norm);
+
+  BOOST_CHECK_MESSAGE(l2norm < 1e-5, "l2norm not below 10^-5, l2 =" <<  l2norm);
+
+  fftwf_destroy_plan(fwd_plan);
+  fftwf_destroy_plan(bwd_plan);
+
+
+}
+BOOST_AUTO_TEST_SUITE_END()

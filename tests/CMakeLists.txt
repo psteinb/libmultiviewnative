@@ -35,7 +35,7 @@ target_link_libraries(test_multi_array_fixture boost_system boost_filesystem boo
 add_executable(test_image_stack test_image_stack.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_image_stack boost_system boost_filesystem boost_unit_test_framework)
 
-add_executable(test_padd_utils test_padd_utils.cpp )
+add_executable(test_padd_utils test_padd_utils.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_padd_utils boost_unit_test_framework )
 
 #not sure if this line is correct (appending versus setting)
