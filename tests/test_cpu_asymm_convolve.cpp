@@ -8,15 +8,20 @@
 #include "padd_utils.h"
 #include "fft_utils.h"
 
+using namespace multiviewnative;
 BOOST_FIXTURE_TEST_SUITE( convolution_works_with_asymm_kernels, multiviewnative::default_3D_fixture )
 
 BOOST_AUTO_TEST_CASE( cross_convolve )
 {
   
   
-  inplace_cpu_convolution(one_.data(), &image_dims_[0], 
+  inplace_cpu_convolution(padded_one_.data(), &padded_image_dims_[0], 
 			  asymm_cross_kernel_.data(),&asymm_kernel_dims_[0],
 			  1);
+
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
+  one_ = padded_one_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
+
 
   float sum_expected = std::accumulate(asymm_cross_kernel_.data(),asymm_cross_kernel_.data()+asymm_cross_kernel_.num_elements(),0.f);
   float sum_received = std::accumulate(one_.data(),one_.data()+one_.num_elements(),0.f);
@@ -47,10 +52,12 @@ BOOST_AUTO_TEST_CASE( cross_convolve )
 BOOST_AUTO_TEST_CASE( one_convolve )
 {
   
-  
-  inplace_cpu_convolution(one_.data(), &image_dims_[0], 
+  inplace_cpu_convolution(padded_one_.data(), &padded_image_dims_[0], 
 			  asymm_one_kernel_.data(),&asymm_kernel_dims_[0],
 			  1);
+
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
+  one_ = padded_one_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
 
   float sum_expected = std::accumulate(asymm_one_kernel_.data(),asymm_one_kernel_.data()+asymm_one_kernel_.num_elements(),0.f);
   float sum_received = std::accumulate(one_.data(),one_.data()+one_.num_elements(),0.f);
@@ -64,9 +71,12 @@ BOOST_AUTO_TEST_CASE( identity_convolve )
 {
   
   
-  inplace_cpu_convolution(one_.data(), &image_dims_[0], 
+  inplace_cpu_convolution(padded_one_.data(), &padded_image_dims_[0], 
 			  asymm_identity_kernel_.data(),&asymm_kernel_dims_[0],
 			  1);
+
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
+  one_ = padded_one_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
 
   float sum_expected = std::accumulate(asymm_identity_kernel_.data(),asymm_identity_kernel_.data()+asymm_identity_kernel_.num_elements(),0.f);
   float sum_received = std::accumulate(one_.data(),one_.data()+one_.num_elements(),0.f);
@@ -95,9 +105,12 @@ BOOST_AUTO_TEST_CASE( diagonal_convolve )
 
   
 
-  inplace_cpu_convolution(one_.data(), &image_dims_[0], 
+  inplace_cpu_convolution(padded_one_.data(), &padded_image_dims_[0], 
 			  diagonal_kernel.data(),&asymm_kernel_dims_[0],
 			  1);
+
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
+  one_ = padded_one_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
 
   float sum_expected = std::accumulate(diagonal_kernel.data(),diagonal_kernel.data()+diagonal_kernel.num_elements(),0.f);
   float sum_received = std::accumulate(one_.data(),one_.data()+one_.num_elements(),0.f);
@@ -112,13 +125,9 @@ BOOST_AUTO_TEST_CASE( diagonal_convolve )
 BOOST_AUTO_TEST_CASE( asymm_one_convolve )
 {
   
-  std::vector<int> asymm_dims(3);
-  for(int i = 0;i<3;++i){
-    asymm_dims[i] = asymm_padded_one_.shape()[i];
-  }
 
   
-  inplace_cpu_convolution(asymm_padded_one_.data(), &asymm_dims[0], 
+  inplace_cpu_convolution(asymm_padded_one_.data(), &asymm_padded_image_dims_[0], 
 			  asymm_cross_kernel_.data(),&asymm_kernel_dims_[0],
 			  1);
 

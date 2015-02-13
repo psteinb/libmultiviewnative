@@ -34,6 +34,7 @@ struct convolutionFixture3D
   const unsigned    image_size_   ;
   std::vector<int>  image_dims_                             ;
   std::vector<int>  padded_image_dims_                             ;
+  std::vector<int>  asymm_padded_image_dims_                             ;
   image_stack       image_                                  ;
   image_stack       one_                                  ;
   image_stack       padded_image_                           ;
@@ -74,6 +75,7 @@ public:
     image_size_                             ((unsigned)std::pow(ImageDimSize,n_dim)),
     image_dims_                             (n_dim,ImageDimSize),
     padded_image_dims_                             (n_dim,ImageDimSize+2*(KernelDimSize/2)),
+    asymm_padded_image_dims_                             (n_dim),
     image_                                  (boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
     one_                                  (boost::extents[ImageDimSize][ImageDimSize][ImageDimSize]),
     padded_image_                           (boost::extents[ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)][ImageDimSize+2*(KernelDimSize/2)]),
@@ -183,7 +185,7 @@ public:
     image_stack padded_image_folded_by_all1        = padded_image_;
 
     //PREPARE ASYMM IMAGES
-    std::vector<unsigned> asymm_padded_image_shape(n_dim);
+    // std::vector<unsigned> asymm_padded_image_shape(n_dim);
 
     std::copy(asymm_cross_kernel_.shape(),asymm_cross_kernel_.shape() + image_stack::dimensionality,
 	      asymm_kernel_dims_.begin());
@@ -196,11 +198,11 @@ public:
     for(int i = 0;i<n_dim;++i){
 
       asymm_ranges_[i] = range(asymm_offsets_[i],asymm_offsets_[i]+ImageDimSize);
-      asymm_padded_image_shape[i] = ImageDimSize+2*asymm_offsets_[i];
+      asymm_padded_image_dims_[i] = ImageDimSize+2*asymm_offsets_[i];
     }
 
-    asymm_padded_image_.resize(asymm_padded_image_shape)    ;
-    asymm_padded_one_.resize(asymm_padded_image_shape)    ;
+    asymm_padded_image_.resize(asymm_padded_image_dims_)    ;
+    asymm_padded_one_.resize(asymm_padded_image_dims_)    ;
     std::fill(asymm_padded_image_.data(),         asymm_padded_image_.data()         +  asymm_padded_image_.num_elements(),        0.f  );
     std::fill(asymm_padded_one_.data(),         asymm_padded_one_.data()         +  asymm_padded_one_.num_elements(),        0.f  );
     asymm_padded_one_[asymm_padded_one_.shape()[0]/2][asymm_padded_one_.shape()[1]/2][asymm_padded_one_.shape()[2]/2] = 1.f;
