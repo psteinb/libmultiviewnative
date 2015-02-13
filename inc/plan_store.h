@@ -77,25 +77,44 @@ namespace multiviewnative {
     }
 
     void add(const mvn::shape_t& _shape,
-	     fp_type* _input = 0,
-	     complex_t* _output = 0
+	     fp_type* _input = 0
 	     ) {
       
+      //http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags
+      //"Important: the planner overwrites the input array during planning unless a saved plan (see Wisdom) is available for that problem, so you should initialize your input data after creating the plan."
+      unsigned long total_size = std::accumulate(_shape.begin(), 
+						 _shape.end()-1,
+						 1,
+						 std::multiplies<unsigned>());
+      total_size *= (_shape[_shape.size()-1]/2+1)*2;
+      
+      std::vector<fp_type> input(total_size,0);
+      if(_input)
+	std::copy(_input, _input + total_size,input.begin());
+      
+      complex_t* output = (complex_t*)&input[0];
+      
       if(fwd_store_.find(_shape)==fwd_store_.end())
-	fwd_store_[_shape] = new plan_t(fftw_api::dft_r2c_3d(_shape[2], 
+	fwd_store_[_shape] = new plan_t(fftw_api::dft_r2c_3d(_shape[0], 
 							     _shape[1], 
-							     _shape[0],
-							     _input, _output,
+							     _shape[2],
+							     &input[0], output,
 							     FFTW_MEASURE)
 					);
       
-      if(bwd_store_.find(_shape)==bwd_store_.end())
-	bwd_store_[_shape] = new plan_t(fftw_api::dft_c2r_3d(_shape[2], 
+      
+      if(bwd_store_.find(_shape)==bwd_store_.end()){
+
+	if(_input)
+	  std::copy(_input, _input + total_size,input.begin());
+
+	bwd_store_[_shape] = new plan_t(fftw_api::dft_c2r_3d(_shape[0], 
 							     _shape[1], 
-							     _shape[0],
-							     _output, _input,
+							     _shape[2],
+							     output, &input[0],
 							     FFTW_MEASURE)
 					);
+      }
       
       
     }
