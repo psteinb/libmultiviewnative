@@ -21,31 +21,35 @@ BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
 
-  float* image = image_.data();
-  multiviewnative::image_stack expected(image_);
+  std::vector<float> kernel(kernel_size_,0.f);
+  image_stack input = padded_image_;
 
-  
-  float* kernel = new float[kernel_size_];
-  std::fill(kernel, kernel+kernel_size_,0.f);
 
-  //perform padding
-  zero_padding padder(&image_dims_[0], &kernel_dims_[0]);
 
-  multiviewnative::image_stack padded(padder.extents_, local_order);
-  padder.insert_at_offsets(image_,padded);
-
-  std::copy(&padded.shape()[0], &padded.shape()[0] + 3, image_dims_.begin());
-
-  inplace_cpu_convolution(padded.data(), (int*)padded.shape(), 
-			  kernel,&kernel_dims_[0],
+  inplace_cpu_convolution(padded_image_.data(), &padded_image_dims_[0], 
+			  &kernel[0],&kernel_dims_[0],
 			  1);
 
-  multiviewnative::image_stack_ref result(image, image_dims_);
-  
-  float l2norm = multiviewnative::l2norm_within_limits(result, expected, .2,.8);
-  BOOST_CHECK_CLOSE(l2norm, 0.f, .00001);
+  float sum = std::accumulate(padded_image_.data(), padded_image_.data() + padded_image_.num_elements(),0.f);
+  float alt_sum = 0;
+  for( unsigned i = 0;i<padded_image_.num_elements();++i)
+    alt_sum += padded_image_.data()[i];
 
-  delete [] kernel;
+  BOOST_CHECK_CLOSE(alt_sum, 0.f, .001);
+  
+
+  try{
+    BOOST_REQUIRE_CLOSE(sum, 0.f, .00001);
+  }
+  catch(...){
+    image_stack expected = input;
+    std::fill(expected.data(), expected.data() + expected.num_elements(),0);
+    std::cout << "input:\n" << input << "\n\n"
+	      << "received:" << padded_image_ << "\n\n"
+    	      << "expected:" << expected << "\n\n";
+  }
+
+
 }
 
 BOOST_AUTO_TEST_CASE( identity_convolve )

@@ -24,29 +24,30 @@ namespace multiviewnative {
     float kernel_value = 0;    
     float value = 0;    
 
-    for(int image_z = _offset[2];image_z<int(_image.shape()[2]-_offset[2]);++image_z){
+    for(int image_z = _offset[0];image_z<int(_image.shape()[0]-_offset[0]);++image_z){
       for(int image_y = _offset[1];image_y<int(_image.shape()[1]-_offset[1]);++image_y){
-	for(int image_x = _offset[0];image_x<int(_image.shape()[0]-_offset[0]);++image_x){
+	for(int image_x = _offset[2];image_x<int(_image.shape()[2]-_offset[2]);++image_x){
 
-	  _result[image_x][image_y][image_z] = 0.f;
+	  _result[image_z][image_y][image_x] = 0.f;
 	  
 	  image_value = 0;    
 	  kernel_value = 0;   
 	  value = 0;          
 	  
 	  //TODO: adapt loops to storage order for the sake of speed (if so, prefetch line to use SIMD)
-	  for(int kernel_z = 0;kernel_z<int(_kernel.shape()[2]);++kernel_z){
+	  for(int kernel_z = 0;kernel_z<int(_kernel.shape()[0]);++kernel_z){
 	    for(int kernel_y = 0;kernel_y<int(_kernel.shape()[1]);++kernel_y){
-	      for(int kernel_x = 0;kernel_x<int(_kernel.shape()[0]);++kernel_x){
+	      for(int kernel_x = 0;kernel_x<int(_kernel.shape()[2]);++kernel_x){
 
-		kernel_value  =  _kernel[_kernel.shape()[0]-1-kernel_x][_kernel.shape()[1]-1-kernel_y][_kernel.shape()[2]-1-kernel_z]	;
-		image_value   =  _image[image_x-half_kernel[0]+kernel_x][image_y-half_kernel[1]+kernel_y][image_z-half_kernel[2]+kernel_z]		;
+		
+		kernel_value  =  _kernel[_kernel.shape()[0]-1-kernel_z][_kernel.shape()[1]-1-kernel_y][_kernel.shape()[2]-1-kernel_x]	;
+		image_value   =  _image[image_z-half_kernel[0]+kernel_z][image_y-half_kernel[1]+kernel_y][image_x-half_kernel[2]+kernel_x]		;
 
 		value += kernel_value*image_value;
 	      }
 	    }
 	  }
-	  _result[image_x][image_y][image_z] = value;
+	  _result[image_z][image_y][image_x] = value;
 	}
       }
     }
@@ -62,11 +63,11 @@ namespace multiviewnative {
     typename ImageStackT::element value = 0.f;
 
     //TODO: adapt loops to storage order for the sake of speed (if so, prefetch line to use SIMD)
-    for(int image_z = _offset[2];image_z<int(_image.shape()[2]-_offset[2]);++image_z){
+    for(int image_z = _offset[0];image_z<int(_image.shape()[0]-_offset[0]);++image_z){
       for(int image_y = _offset[1];image_y<int(_image.shape()[1]-_offset[1]);++image_y){
-	for(int image_x = _offset[0];image_x<int(_image.shape()[0]-_offset[0]);++image_x){
+	for(int image_x = _offset[2];image_x<int(_image.shape()[2]-_offset[2]);++image_x){
 
-	  value += _image[image_x][image_y][image_z];
+	  value += _image[image_z][image_y][image_x];
 	}
       }
     }
@@ -106,11 +107,11 @@ namespace multiviewnative {
     float l2norm = 0.;
 
     #pragma omp parallel for num_threads(omp_get_num_procs()) shared(l2norm)
-    for(int image_z = _first.shape()[2]*_rel_lower_limit_per_axis;image_z<int(_first.shape()[2]*_rel_upper_limit_per_axis);++image_z){
+    for(int image_z = _first.shape()[0]*_rel_lower_limit_per_axis;image_z<int(_first.shape()[0]*_rel_upper_limit_per_axis);++image_z){
       for(int image_y = _first.shape()[1]*_rel_lower_limit_per_axis;image_y<int(_first.shape()[1]*_rel_upper_limit_per_axis);++image_y){
-	for(int image_x = _first.shape()[0]*_rel_lower_limit_per_axis;image_x<int(_first.shape()[0]*_rel_upper_limit_per_axis);++image_x){
+	for(int image_x = _first.shape()[2]*_rel_lower_limit_per_axis;image_x<int(_first.shape()[2]*_rel_upper_limit_per_axis);++image_x){
 
-	  float intermediate = _first[image_x][image_y][image_z] - _second[image_x][image_y][image_z];
+	  float intermediate = _first[image_z][image_y][image_x] - _second[image_z][image_y][image_x];
 	  l2norm += (intermediate)*(intermediate);
 
 	}

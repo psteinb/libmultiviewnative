@@ -82,21 +82,21 @@ namespace multiviewnative {
 	     ) {
       
       if(fwd_store_.find(_shape)==fwd_store_.end())
-	fwd_store_[_shape] = new plan_t(fftw_api::dft_r2c_3d(_shape[0], 
+	fwd_store_[_shape] = new plan_t(fftw_api::dft_r2c_3d(_shape[2], 
 							     _shape[1], 
-							     _shape[2],
+							     _shape[0],
 							     _input, _output,
 							     FFTW_MEASURE)
 					);
       
       if(bwd_store_.find(_shape)==bwd_store_.end())
-	bwd_store_[_shape] = new plan_t(fftw_api::dft_c2r_3d(_shape[0], 
-						_shape[1], 
-						_shape[2],
-						_output, _input,
-						FFTW_MEASURE)
+	bwd_store_[_shape] = new plan_t(fftw_api::dft_c2r_3d(_shape[2], 
+							     _shape[1], 
+							     _shape[0],
+							     _output, _input,
+							     FFTW_MEASURE)
 					);
-
+      
       
     }
     

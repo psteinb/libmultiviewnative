@@ -23,8 +23,8 @@ public:
   typedef typename fftw_api::plan_type plan_type;
 
   template <typename ContainerT>
-  inplace_3d_transform(const ContainerT& _container):
-    input_shape_(begin(_container), end(_container)),
+  inplace_3d_transform(const ContainerT& _shape):
+    input_shape_(begin(_shape), end(_shape)),
     fftw_shape_(ImageStackT::dimensionality,0)
   {
     adapt_extents_for_fftw_inplace(input_shape_, fftw_shape_);

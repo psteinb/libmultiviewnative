@@ -38,6 +38,22 @@ namespace multiviewnative {
     image_stack_ref* kernel_;
     fftw_image_stack* padded_kernel_;
     
+    /**
+       \brief the content of _image_stack_arr and _kernel_stack_arr is expected in row major memory order, however the extents are expected to contain the shape of the stack conforming this convention, so {z-dim, y-dim, x-dim}. 
+       For example, in case of a stack of 
+       width = 2
+       height = 3
+       depth = 4
+       the shape buffer is expected to contain
+       size_type* _image_extents_arr = {4,3,2};
+       
+       \param[in] _image_stack_arr buffer containing an 3D image stack of shape _image_extents_arr
+       \param[in] _kernel_stack_arr buffer containing an 3D kernel stack of shape _kernel_extents_arr
+       
+       \return 
+       \retval 
+       
+    */
     cpu_convolve(value_type* _image_stack_arr, size_type* _image_extents_arr,
 		 value_type* _kernel_stack_arr, size_type* _kernel_extents_arr, 
 		 size_type* _storage_order = 0):
@@ -47,6 +63,7 @@ namespace multiviewnative {
       kernel_(0),
       padded_kernel_(0)
     {
+      
       std::vector<size_type> image_shape(num_dims);
       std::copy(_image_extents_arr, _image_extents_arr+num_dims,image_shape.begin());
 
@@ -114,6 +131,9 @@ namespace multiviewnative {
 		     )
 	 )
 	(*image_) = (*padded_image_)[ boost::indices[range(this->offsets_[0], this->offsets_[0]+image_->shape()[0])][range(this->offsets_[1], this->offsets_[1]+image_->shape()[1])][range(this->offsets_[2], this->offsets_[2]+image_->shape()[2])] ];
+      else
+	(*image_) = (*padded_image_);
+
     };
 
     ~cpu_convolve(){
