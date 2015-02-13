@@ -122,9 +122,9 @@ public:
     identity_kernel_.data()[kernel_size_/2]=1.; 
 
     for(unsigned int index = 0;index<KernelDimSize;++index){
-      horizont_kernel_[index][halfKernel][halfKernel] = float(index+1);
+      horizont_kernel_[halfKernel][halfKernel][index] = float(index+1);
       vertical_kernel_[halfKernel][index][halfKernel] = float(index+1);
-      depth_kernel_   [halfKernel][halfKernel][index] = float(index+1);
+      depth_kernel_   [index][halfKernel][halfKernel] = float(index+1);
     }
     
     asymm_identity_kernel_[asymm_cross_kernel_.shape()[0]/2][asymm_cross_kernel_.shape()[1]/2][asymm_cross_kernel_.shape()[2]/2] = 1.f;

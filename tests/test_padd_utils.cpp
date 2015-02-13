@@ -43,10 +43,20 @@ BOOST_AUTO_TEST_CASE( inserting_does_not_change_anything )
 
 }
 
-BOOST_AUTO_TEST_CASE( wrapped_inserting )
+BOOST_AUTO_TEST_CASE( extents_match )
+{
+  no_padding local(&padded_image_dims_[0], &kernel_dims_[0]);
+  wrap_around_padding wlocal(&image_dims_[0], &kernel_dims_[0]);
+
+  BOOST_CHECK_EQUAL_COLLECTIONS(local.extents_.begin(), local.extents_.end(),
+				wlocal.extents_.begin(), wlocal.extents_.end());
+}
+
+
+BOOST_AUTO_TEST_CASE( wrapped_inserting_horizontal )
 {
 
-  no_padding local(&image_dims_[0], &kernel_dims_[0]);
+  no_padding local(&padded_image_dims_[0], &kernel_dims_[0]);
   wrap_around_padding wlocal(&image_dims_[0], &kernel_dims_[0]);
   
   std::fill(padded_image_.data(),padded_image_.data() + padded_image_.num_elements(),0 );
@@ -63,7 +73,45 @@ BOOST_AUTO_TEST_CASE( wrapped_inserting )
   }
   catch(...){
     
-    std::cout << "kernel:\n" << horizont_kernel_ << "\n\n"
+    std::cout << "horizontal kernel:\n" << horizont_kernel_ << "\n\n"
+	      << "expected:\n" << wrapped_padd_result << "\n\n"
+	      << "received:\n" << no_padd_result << "\n";
+  }
+
+  std::fill(padded_image_.data(),padded_image_.data() + padded_image_.num_elements(),0 );
+  no_padd_result = padded_image_;
+  wrapped_padd_result = padded_image_;
+  
+  wlocal.wrapped_insert_at_offsets(vertical_kernel_, wrapped_padd_result);
+  
+  local.wrapped_insert_at_offsets(vertical_kernel_, no_padd_result);
+  
+  
+  try{
+    BOOST_REQUIRE(no_padd_result == wrapped_padd_result);
+  }
+  catch(...){
+    
+    std::cout << "vertical kernel:\n" << vertical_kernel_ << "\n\n"
+	      << "expected:\n" << wrapped_padd_result << "\n\n"
+	      << "received:\n" << no_padd_result << "\n";
+  }
+
+  std::fill(padded_image_.data(),padded_image_.data() + padded_image_.num_elements(),0 );
+  no_padd_result = padded_image_;
+  wrapped_padd_result = padded_image_;
+  
+  wlocal.wrapped_insert_at_offsets(depth_kernel_, wrapped_padd_result);
+  
+  local.wrapped_insert_at_offsets(depth_kernel_, no_padd_result);
+  
+  
+  try{
+    BOOST_REQUIRE(no_padd_result == wrapped_padd_result);
+  }
+  catch(...){
+    
+    std::cout << "kernel:\n" << depth_kernel_ << "\n\n"
 	      << "expected:\n" << wrapped_padd_result << "\n\n"
 	      << "received:\n" << no_padd_result << "\n";
   }

@@ -55,14 +55,22 @@ BOOST_AUTO_TEST_CASE( trivial_convolve )
 BOOST_AUTO_TEST_CASE( identity_convolve )
 {
   
-
+  image_stack expected = padded_image_;
   float sum_original = std::accumulate(padded_image_.origin(), padded_image_.origin() + padded_image_.num_elements(),0.f);
   inplace_cpu_convolution(padded_image_.data(), &padded_image_dims_[0], 
   			  identity_kernel_.data(),&kernel_dims_[0],
   			  1);
 
   float sum = std::accumulate(padded_image_.data(), padded_image_.data() + image_.num_elements(),0.f);
-  BOOST_CHECK_CLOSE(sum, sum_original, .00001);
+
+  try{
+    BOOST_REQUIRE_CLOSE(sum, sum_original, .0001);
+  }
+  catch(...){
+
+    std::cout << "received:" << padded_image_ << "\n\n"
+    	      << "expected:" << expected << "\n\n";
+  }
 
 
 }
