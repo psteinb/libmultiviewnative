@@ -9,10 +9,11 @@
 #include "fft_utils.h"
 
 #include "cpu_kernels.h"
-//#include "plan_store.h"
 
-typedef multiviewnative::cpu_convolve<> default_convolution;
-typedef multiviewnative::cpu_convolve<multiviewnative::parallel_inplace_3d_transform> parallel_convolution;
+namespace mvn = multiviewnative;
+
+typedef mvn::cpu_convolve<> default_convolution;
+typedef mvn::cpu_convolve<mvn::parallel_inplace_3d_transform> parallel_convolution;
 
 
 template <typename T>
@@ -107,16 +108,17 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
 					     imageType minValue){
 
 
-  multiviewnative::shape_t image_dim(3);
+  mvn::shape_t image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
 
-  multiviewnative::image_stack_ref input_psi(psi, image_dim);
-  multiviewnative::image_stack integral = input_psi;
+  mvn::image_stack_ref input_psi(psi, image_dim);
+  mvn::image_stack integral = input_psi;
 
   view_data view_access;
-  multiviewnative::shape_t kernel1_dim(3);
-  multiviewnative::shape_t kernel2_dim(3);
+  mvn::shape_t kernel1_dim(3);
+  mvn::shape_t kernel2_dim(3);
 
+  
   for(unsigned view = 0;view < input.num_views_;++view){
 
     view_access = input.data_[view];
@@ -127,15 +129,15 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
 
     integral = input_psi;
     //convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
-    default_convolution convolver1(integral.data(), &image_dim[0], view_access.kernel1_ , &kernel1_dim[0]);
-    convolver1.inplace();
+    default_convolution convolver1(integral.data(), &image_dim[0]);
+    convolver1.inplace_with_forward_kernel(view_access.kernel1_ , &kernel1_dim[0]);
     
     //view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
     computeQuotient(view_access.image_,integral.data(),input_psi.num_elements());
 
     //convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) * P_v^{compound}
-    default_convolution convolver2(integral.data(), &image_dim[0], view_access.kernel2_, &kernel2_dim[0]);
-    convolver2.inplace();
+    default_convolution convolver2(integral.data(), &image_dim[0]);
+    convolver2.inplace(view_access.kernel2_, &kernel2_dim[0]);
 
     //computeFinalValues(input_psi,integral,weights)
     //studied impact of different techniques on how to implement this decision (decision in object, decision in if clause)
@@ -163,15 +165,15 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 					       double lambda, 
 					       imageType minValue){
 
-  multiviewnative::shape_t image_dim(3);
+  mvn::shape_t image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3, &image_dim[0]);
 
-  multiviewnative::image_stack_ref input_psi(psi, image_dim);
-  multiviewnative::image_stack integral = input_psi;
+  mvn::image_stack_ref input_psi(psi, image_dim);
+  mvn::image_stack integral = input_psi;
 
   view_data view_access;
-  multiviewnative::shape_t kernel1_dim(3);
-  multiviewnative::shape_t kernel2_dim(3);
+  mvn::shape_t kernel1_dim(3);
+  mvn::shape_t kernel2_dim(3);
 
   parallel_convolution::transform_policy::set_n_threads(nthreads);
 
@@ -235,25 +237,20 @@ void inplace_cpu_deconvolve_iteration(imageType* psi,
 void inplace_cpu_deconvolve(imageType* psi,
 			    workspace input,
 			    int nthreads){
-
-  //TODO: at best, perform kernel transform as batch here
   
   //launch deconvolution
   if(nthreads == 1)
-    for(int it = 0;it<input.num_iterations_;++it){
-      serial_inplace_cpu_deconvolve_iteration(psi,
-					      input,
-					      input.lambda_,
-					      input.minValue_);
-    }
+    serial_inplace_cpu_deconvolve_iteration(psi,
+					    input,
+					    input.lambda_,
+					    input.minValue_);
   else
-    for(int it = 0;it<input.num_iterations_;++it){
-      parallel_inplace_cpu_deconvolve_iteration(psi,
+    parallel_inplace_cpu_deconvolve_iteration(psi,
 						input,
 						nthreads,
 						input.lambda_,
 						input.minValue_
 						);
-    }
+
 
 }

@@ -5,9 +5,9 @@
 #include <numeric>
 #include <iostream>
 #include "multiviewnative.h"
-#include "cpu_convolve.h"
-#include "padd_utils.h"
-#include "fft_utils.h"
+// #include "cpu_convolve.h"
+//#include "padd_utils.h"
+//#include "fft_utils.h"
 #include "test_algorithms.hpp"
 #include "image_stack_utils.h"
 
@@ -227,3 +227,5 @@ BOOST_AUTO_TEST_CASE( all1_convolve )
 
 }
 BOOST_AUTO_TEST_SUITE_END()
+
+
