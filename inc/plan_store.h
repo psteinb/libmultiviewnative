@@ -4,14 +4,27 @@
 #include <sstream>
 #include <iterator>
 #include <stdexcept>
+#include <memory>
 #include "fftw_interface.h"
 #include "point.h"
 
 namespace multiviewnative {
 
   namespace mvn = multiviewnative;
+
+  template <typename T>
+  struct aligned {
+    typedef fftw_allocator<T> allocator;
+  };
+
+  template <typename T>
+  struct unaligned {
+    typedef std::allocator<T> allocator;
+  };
+
   
-  template <typename fp_type>
+  
+  template <typename fp_type, typename MemoryAlignmentPolicy = unaligned<fp_type> >
   struct plan_store
   {
 
@@ -76,9 +89,18 @@ namespace multiviewnative {
       return _stream;
     }
 
-    void add(const mvn::shape_t& _shape,
-	     fp_type* _input = 0
-	     ) {
+    /**
+       \brief add a shape and prepare the corresponding backward and forward plan
+       
+       \param[in] _shape std::vector<unsigned> container typedef'ed to mvn::shape_t
+
+       This function creates a temporary buffer of the size of _shape in order to supply something to fftw! The container itself will be unaligned and hence fftw will not dispatch SSE enabled functions.
+
+       \return 
+       \retval 
+       
+    */
+    void add(const mvn::shape_t& _shape) {
       
       //http://www.fftw.org/fftw3_doc/Planner-Flags.html#Planner-Flags
       //"Important: the planner overwrites the input array during planning unless a saved plan (see Wisdom) is available for that problem, so you should initialize your input data after creating the plan."
@@ -88,9 +110,8 @@ namespace multiviewnative {
 						 std::multiplies<unsigned>());
       total_size *= (_shape[_shape.size()-1]/2+1)*2;
       
-      std::vector<fp_type> input(total_size,0);
-      if(_input)
-	std::copy(_input, _input + total_size,input.begin());
+      //using unaligned container
+      std::vector<fp_type, typename MemoryAlignmentPolicy::allocator > input(total_size,0);
       
       complex_t* output = (complex_t*)&input[0];
       
@@ -105,9 +126,6 @@ namespace multiviewnative {
       
       if(bwd_store_.find(_shape)==bwd_store_.end()){
 
-	if(_input)
-	  std::copy(_input, _input + total_size,input.begin());
-
 	bwd_store_[_shape] = new plan_t(fftw_api::dft_c2r_3d(_shape[0], 
 							     _shape[1], 
 							     _shape[2],
@@ -118,6 +136,7 @@ namespace multiviewnative {
       
       
     }
+    
     
     plan_t* const get_forward(const mvn::shape_t& _key) const {
       map_citer_t found = fwd_store_.find(_key);

@@ -62,9 +62,7 @@ public:
 
     if(!_plan){
       if(!multiviewnative::plan_store<image_element_type>::get()->has_key(input_shape_)){
-	multiviewnative::plan_store<image_element_type>::get()->add(input_shape_,
-							   fourier_input
-							   );
+	multiviewnative::plan_store<image_element_type>::get()->add(input_shape_);
       }
       _plan = multiviewnative::plan_store<image_element_type>::get()->get_forward(input_shape_);
     }

@@ -11,21 +11,23 @@
 
 #include "plan_store.h"
 
-typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
 
-BOOST_FIXTURE_TEST_SUITE( store_minimal_api , multiviewnative::default_3D_fixture )
+typedef boost::multi_array<float,3, fftw_allocator<float> >    fftw_image_stack;
+namespace mvn = multiviewnative;
+
+BOOST_FIXTURE_TEST_SUITE( store_minimal_api , mvn::default_3D_fixture )
 BOOST_AUTO_TEST_CASE( default_constructs  )
 {
 
 
-  BOOST_CHECK(multiviewnative::plan_store<float>::get()->empty()==true);
+  BOOST_CHECK(mvn::plan_store<float>::get()->empty()==true);
   
 }
 
 BOOST_AUTO_TEST_CASE( add_item  )
 {
 
-  multiviewnative::shape_t any(image_dims_.begin(), image_dims_.end());
+  mvn::shape_t any(image_dims_.begin(), image_dims_.end());
   
   
   fftw_image_stack output = image_;
@@ -33,70 +35,125 @@ BOOST_AUTO_TEST_CASE( add_item  )
   
   output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][last_dim]);
   
-  multiviewnative::plan_store<float>::get()->add(any, 
-						 output.data(), 
-						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
+  mvn::plan_store<float>::get()->add(any);
   
-  BOOST_CHECK(multiviewnative::plan_store<float>::get()->empty()!=true);
+  BOOST_CHECK(mvn::plan_store<float>::get()->empty()!=true);
 }
 
 BOOST_AUTO_TEST_CASE( add_correct_item  )
 {
 
   
-  multiviewnative::shape_t cube(image_dims_.begin(), image_dims_.end());
+  mvn::shape_t cube(image_dims_.begin(), image_dims_.end());
   
-  multiviewnative::plan_store<float>::get()->clear();
-  BOOST_CHECK_MESSAGE(multiviewnative::plan_store<float>::get()->empty()==true, "not empty ! size = " << multiviewnative::plan_store<float>::get()->size());
+  mvn::plan_store<float>::get()->clear();
+  BOOST_CHECK_MESSAGE(mvn::plan_store<float>::get()->empty()==true, "not empty ! size = " << mvn::plan_store<float>::get()->size());
   
 
   fftw_image_stack output = image_;
   unsigned last_dim = 2*((image_.shape()[2]/2) + 1);
   output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][last_dim]);
 
-  multiviewnative::plan_store<float>::get()->add(cube, 
-						 output.data(), 
-						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
+  mvn::plan_store<float>::get()->add(cube);
   
-  multiviewnative::plan_store<float>::plan_t* result = 0;
+  mvn::plan_store<float>::plan_t* result = 0;
   
-  result = multiviewnative::plan_store<float>::get()->get_forward(cube);
+  result = mvn::plan_store<float>::get()->get_forward(cube);
   BOOST_CHECK(result != 0);  
   result = 0;
-  result = multiviewnative::plan_store<float>::get()->get_backward(cube);
+  result = mvn::plan_store<float>::get()->get_backward(cube);
   BOOST_CHECK(result != 0);  
 }
 
 BOOST_AUTO_TEST_CASE( add_correct_item_through_boolean  )
 {
   
-  multiviewnative::shape_t cube(3,8);
-  multiviewnative::shape_t big(3,9);
-  multiviewnative::shape_t arb(3,42);
+  mvn::shape_t cube(3,8);
+  mvn::shape_t big(3,9);
+  mvn::shape_t arb(3,42);
   
   fftw_image_stack output = image_;
   unsigned last_dim = 2*((image_.shape()[2]/2) + 1);
   output.resize(boost::extents[image_.shape()[0]][image_.shape()[1]][last_dim]);
-  multiviewnative::plan_store<float>::get()->clear();
-  multiviewnative::plan_store<float>::get()->add(cube, output.data(), 
-						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));
+  mvn::plan_store<float>::get()->clear();
+  mvn::plan_store<float>::get()->add(cube);
 
   last_dim = 2*((big[2]/2) + 1);
   output.resize(boost::extents[big[0]][big[1]][last_dim]);
-  multiviewnative::plan_store<float>::get()->add(big, output.data(), 
-						 reinterpret_cast<multiviewnative::plan_store<float>::complex_t*>(output.data()));  
-  BOOST_CHECK(  multiviewnative::plan_store<float>::get()->has_key(cube));  
-  BOOST_CHECK(  multiviewnative::plan_store<float>::get()->has_key(big));  
-  BOOST_CHECK( !multiviewnative::plan_store<float>::get()->has_key(arb));  
+  mvn::plan_store<float>::get()->add(big);  
+  BOOST_CHECK(  mvn::plan_store<float>::get()->has_key(cube));  
+  BOOST_CHECK(  mvn::plan_store<float>::get()->has_key(big));  
+  BOOST_CHECK( !mvn::plan_store<float>::get()->has_key(arb));  
   
 }
 
-// BOOST_AUTO_TEST_CASE( mutable_iterators  )
-// {
+using namespace mvn;
 
-//   multiviewnative::shape_t cube(3,128);
-//   multiviewnative::shape_t big(3,512);
-//   multiviewnative::shape_t arb(3,42);
+BOOST_AUTO_TEST_CASE( fft_ifft_unaligned  )
+{
+  shape_t real_dims(image_dims_.begin(), image_dims_.end());
+  shape_t padded_dims = real_dims;
+  padded_dims[2] = (padded_dims[2]/2 + 1)*2;
+
+  fftw_image_stack padded_for_fft(padded_dims);
+  padded_for_fft[ boost::indices[range(0,image_dims_[0])][range(0,image_dims_[1])][range(0,image_dims_[2])] ] = image_;
+  
+
+
+  plan_store<float>::get()->clear();
+  plan_store<float>::get()->add(real_dims);
+
+  fftw_api_definitions<float>::reuse_plan_r2c( *plan_store<float>::get()->get_forward(real_dims),
+					       padded_for_fft.data(),
+					       (fftw_api_definitions<float>::complex_type*)padded_for_fft.data());
+  
+  
+  fftw_api_definitions<float>::reuse_plan_c2r( *plan_store<float>::get()->get_backward(real_dims),
+					       (fftw_api_definitions<float>::complex_type*)padded_for_fft.data(),
+					       padded_for_fft.data());
+
+
+  fftw_image_stack result = padded_for_fft[ boost::indices[range(0,image_dims_[0])][range(0,image_dims_[1])][range(0,image_dims_[2])] ];
+  float fft_size = std::accumulate(real_dims.begin(), real_dims.end(), 1, std::multiplies<unsigned>());
+  std::for_each(result.data(), result.data() + result.num_elements(), [&](float& pixel){ pixel /= fft_size; });
+  BOOST_CHECK(result == image_);
+
+}
+
+BOOST_AUTO_TEST_CASE( fft_ifft_aligned  )
+{
+  typedef plan_store<float, aligned<float> > aligned_plan_store;
+  
+  shape_t real_dims(image_dims_.begin(), image_dims_.end());
+  shape_t padded_dims = real_dims;
+  padded_dims[2] = (padded_dims[2]/2 + 1)*2;
+
+  fftw_image_stack padded_for_fft(padded_dims);
+  padded_for_fft[ boost::indices[range(0,image_dims_[0])][range(0,image_dims_[1])][range(0,image_dims_[2])] ] = image_;
+  
+
+  aligned_plan_store::get()->clear();
+  aligned_plan_store::get()->add(real_dims);
+
+  fftw_api_definitions<float>::reuse_plan_r2c( *aligned_plan_store::get()->get_forward(real_dims),
+					       padded_for_fft.data(),
+					       (fftw_api_definitions<float>::complex_type*)padded_for_fft.data());
+  
+  
+  fftw_api_definitions<float>::reuse_plan_c2r( *aligned_plan_store::get()->get_backward(real_dims),
+					       (fftw_api_definitions<float>::complex_type*)padded_for_fft.data(),
+					       padded_for_fft.data());
+
+
+  fftw_image_stack result = padded_for_fft[ boost::indices[range(0,image_dims_[0])][range(0,image_dims_[1])][range(0,image_dims_[2])] ];
+  float fft_size = std::accumulate(real_dims.begin(), real_dims.end(), 1, std::multiplies<unsigned>());
+  std::for_each(result.data(), result.data() + result.num_elements(), [&](float& pixel){ pixel /= fft_size; });
+  BOOST_CHECK(result == image_);
+
+}
+//   mvn::shape_t cube(3,128);
+//   mvn::shape_t big(3,512);
+//   mvn::shape_t arb(3,42);
 
 //   std::stringstream local("");
 //   std::copy(cube.begin(), cube.end(), std::ostream_iterator<unsigned>(local," "));
@@ -110,11 +167,11 @@ BOOST_AUTO_TEST_CASE( add_correct_item_through_boolean  )
 //   std::copy(arb.begin(), arb.end(), std::ostream_iterator<unsigned>(local," "));
 //   std::string arb_str = local.str();
 
-//   multiviewnative::plan_store<std::string> foo;
+//   mvn::plan_store<std::string> foo;
 //   foo.add(cube, cube_str);
 //   foo.add(big, big_str);
 
-//   multiviewnative::plan_store<std::string>::map_iter_t begin = foo.begin();
+//   mvn::plan_store<std::string>::map_iter_t begin = foo.begin();
 //   for(; begin!=foo.end();++begin){
 //     if((begin->first) == cube)
 //       begin->second += " foobar ";
@@ -129,9 +186,9 @@ BOOST_AUTO_TEST_CASE( add_correct_item_through_boolean  )
 // // BOOST_AUTO_TEST_CASE( mutable_iterators_to_pointers  )
 // // {
 
-// //   multiviewnative::shape_t cube(3,128);
-// //   multiviewnative::shape_t big(3,512);
-// //   multiviewnative::shape_t arb(3,42);
+// //   mvn::shape_t cube(3,128);
+// //   mvn::shape_t big(3,512);
+// //   mvn::shape_t arb(3,42);
 
 // //   std::stringstream local("");
 // //   std::copy(cube.begin(), cube.end(), std::ostream_iterator<unsigned>(local," "));
@@ -145,11 +202,11 @@ BOOST_AUTO_TEST_CASE( add_correct_item_through_boolean  )
 // //   std::copy(arb.begin(), arb.end(), std::ostream_iterator<unsigned>(local," "));
 // //   std::string arb_str = local.str();
 
-// //   multiviewnative::plan_store<std::string*> foo;
+// //   mvn::plan_store<std::string*> foo;
 // //   foo.add(cube, new std::string(cube_str));
 // //   foo.add(big, new std::string(big_str));
 
-// //   multiviewnative::plan_store<std::string>::map_iter_t begin = foo.begin();
+// //   mvn::plan_store<std::string>::map_iter_t begin = foo.begin();
 // //   for(; begin!=foo.end();++begin){
 // //     delete begin->second;
 // //     begin->second = 0;
