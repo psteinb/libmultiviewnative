@@ -27,9 +27,23 @@ public:
     input_shape_(begin(_shape), end(_shape)),
     fftw_shape_(ImageStackT::dimensionality,0)
   {
-    adapt_extents_for_fftw_inplace(input_shape_, fftw_shape_);
+    update_from_shape(input_shape_);
   }
 
+  inplace_3d_transform():
+    input_shape_(ImageStackT::dimensionality,0),
+    fftw_shape_(ImageStackT::dimensionality,0)
+  {
+  }
+
+  template <typename ContainerT>
+  void update_from_shape(const ContainerT& _input_shape){
+    fftw_shape_.clear();
+    fftw_shape_.resize(_input_shape.size());
+    std::fill(fftw_shape_.begin(), fftw_shape_.end(), 0);
+    adapt_extents_for_fftw_inplace(_input_shape, fftw_shape_);
+  }
+  
   /**
      \brief 
      forward r-2-c transform, the method assumes that the incoming ImageStackT has already been padded for the fft
@@ -137,7 +151,9 @@ public:
   
   }
 
-  
+  shape_type const *  fftw_shape() const {
+    return &fftw_shape_;
+  }
   
   
 private:
@@ -145,7 +161,6 @@ private:
   ImageStackT* input_;
   shape_type input_shape_; 
   shape_type fftw_shape_; 
-
 
   void clean_up(){
 
@@ -164,6 +179,11 @@ public:
   typedef fftw_api_definitions<typename ImageStackT::element> fftw_api;
   typedef typename fftw_api::plan_type plan_type;
 
+  parallel_inplace_3d_transform():
+    inplace_3d_transform<ImageStackT>()
+  {
+    
+  }
   
   template <typename ContainerT>
   parallel_inplace_3d_transform(const ContainerT& _shape):

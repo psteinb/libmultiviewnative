@@ -94,7 +94,7 @@ target_link_libraries(test_discrete_convolve boost_system boost_filesystem boost
 add_executable(test_cpu_symm_convolve test_cpu_symm_convolve.cpp)
 target_link_libraries(test_cpu_symm_convolve boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} ${PROJECT_NAME})
 
-add_executable(test_cpu_convolve_api test_cpu_convolve_api.cpp image_stack_utils.cpp)
+add_executable(test_cpu_convolve_api test_cpu_convolve_api.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_cpu_convolve_api boost_system boost_filesystem boost_unit_test_framework ${FFTW_LIBS_TO_USE} )
 
 add_executable(test_cpu_asymm_convolve test_cpu_asymm_convolve.cpp)
