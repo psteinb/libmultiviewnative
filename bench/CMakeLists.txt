@@ -65,6 +65,10 @@ ADD_EXECUTABLE(bench_cpu_nd_fft bench_cpu_nd_fft.cpp)
 target_link_libraries(bench_cpu_nd_fft boost_program_options boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
 set_target_properties(bench_cpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
+ADD_EXECUTABLE(bench_cpu_many_nd_fft bench_cpu_many_nd_fft.cpp)
+target_link_libraries(bench_cpu_many_nd_fft boost_program_options boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
+set_target_properties(bench_cpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+
 
 FIND_PACKAGE(TIFF QUIET)
 

@@ -211,6 +211,18 @@ BOOST_AUTO_TEST_CASE( depth_convolve )
 
 }
 
+// BOOST_AUTO_TEST_CASE( fftw_image_stack_distance )
+// {
+//   unsigned num_stacks = 4;
+//   std::vector<mvn::fftw_image_stack> kernels(4,depth_kernel_);
+//   unsigned distance_in_floats = 0;
+//   for(int i = 0;i<(num_stacks-1);++i){
+//     distance_in_floats = kernels[i+1].data() - kernels[i].data() ;
+//     std::cout << "distance : " << distance_in_floats << " (n_el = " << depth_kernel_.num_elements() << ")\n";
+//   }
+  
+//   BOOST_CHECK(distance_in_floats == (depth_kernel_.num_elements()));
+// }
 BOOST_AUTO_TEST_SUITE_END()
 
 

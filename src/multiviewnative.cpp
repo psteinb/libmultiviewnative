@@ -14,7 +14,7 @@ namespace mvn = multiviewnative;
 
 typedef mvn::cpu_convolve<> default_convolution;
 typedef mvn::cpu_convolve<mvn::parallel_inplace_3d_transform> parallel_convolution;
-
+typedef fftw_api_definitions<float> fftwf_api;
 
 template <typename T>
 bool check_nan(T* _array, const size_t& _size){
@@ -158,6 +158,68 @@ void serial_inplace_cpu_deconvolve_iteration(imageType* psi,
   
 }
 
+//implements http://arxiv.org/abs/1308.0730 (Eq 70)
+void serial_inplace_cpu_deconvolve(imageType* psi,
+				   workspace input,
+				   double lambda, 
+				   imageType minValue){
+  
+  //lay the kernel pointers aside
+  std::vector<mvn::image_stack_ref> kernel1_ptr(input.num_views_);
+  std::vector<mvn::image_stack_ref> kernel2_ptr(input.num_views_);
+  std::vector<mvn::shape_t> image_shapes(input.num_views_);
+  
+  for( int v = 0;v<input.num_views_;++v){
+    mvn::shape_t k1_dim(input.data->kernel1_dims_[v], input.data->kernel1_dims_[v] + mvn::image_stack_ref::dimensionality);
+    kernel1_ptr[v] = image_stack_ref(input.data->kernel1_[v], k1_dim);
+
+    mvn::shape_t k2_dim(input.data->kernel2_dims_[v], input.data->kernel2_dims_[v] + mvn::image_stack_ref::dimensionality);
+    kernel2_ptr[v] = image_stack_ref(input.data->kernel2_[v], k2_dim);
+  }
+
+  //create the kernels in memory (this will double the memory consumption)
+  std::vector<mvn::fftw_image_stack> forwarded_kernel1(input.num_views_);
+  std::vector<mvn::fftw_image_stack> forwarded_kernel2(input.num_views_);
+  
+  
+  for( int v = 0;v<input.num_views_;++v){
+
+    image_shapes[v] = mvn::shape_t(&input.data.image_dims_[v], &input.data.image_dims_[v] + mvn::image_stack_ref::dimensionality);
+    default_convolution::transform_policy fft(image_shapes[v]);
+
+    default_convolution::padding_policy k1_padder(&image_shapes[v],kernel1_ptr[v].shape());
+    default_convolution::padding_policy k2_padder(&image_shapes[v],kernel2_ptr[v].shape());
+
+    //prepare the kernels for fft forward transform
+    forwarded_kernel1[v].resize(image_shapes[v]);
+    k1_padder.wrapped_insert_at_offsets(kernel1_ptr[v],forwarded_kernel1[v]);
+    fft.padd_for_fft(forwarded_kernel1[v]);
+
+    forwarded_kernel2[v].resize(image_shapes[v]);
+    k2_padder.wrapped_insert_at_offsets(kernel2_ptr[v],forwarded_kernel2[v]);
+    fft.padd_for_fft(forwarded_kernel2[v]);
+    
+  }
+  
+  //created and call batched fftw plan
+  fftwf_api::plan_type k1_plan = fftwf_api::dft_r2c_many(mvn::image_stack_ref::dimensionality, //rank
+							 (const int*)&image_shapes[0], //n
+							 input.num_views_,//howmany
+							 forwarded_kernel1[0].data(),//in
+							 1, //istride
+							 
+							 
+							 );
+  fftwf_api::plan_type k2_plan = fftwf_api::dft_r2c_many(mvn::image_stack_ref::dimensionality);
+  
+  //put kernel pointers back
+  for( int v = 0;v<input.num_views_;++v){
+    input.data->kernel1_[v] = kernel1_ptr[v].data();
+    input.data->kernel2_[v] = kernel2_ptr[v].data();
+  }
+
+}
+
 //implements http://arxiv.org/abs/1308.0730 (Eq 70) using multiple threads
 void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 					       workspace input,
@@ -216,6 +278,23 @@ void parallel_inplace_cpu_deconvolve_iteration(imageType* psi,
 }
 
 
+//implements http://arxiv.org/abs/1308.0730 (Eq 70) using multiple threads
+void parallel_inplace_cpu_deconvolve(imageType* psi,
+				     workspace input,
+				     int nthreads, 
+				     double lambda, 
+				     imageType minValue){
+  
+  //TODO: place holder
+  for(int it = 0;it<input.num_iterations_;++it){
+    parallel_inplace_cpu_deconvolve_iteration(psi,
+					      input,
+					      nthreads,
+					      input.lambda_,
+					      input.minValue_);
+  }
+
+}
 
 void inplace_cpu_deconvolve_iteration(imageType* psi,
 				      workspace input,
@@ -234,23 +313,25 @@ void inplace_cpu_deconvolve_iteration(imageType* psi,
 					      input.minValue_);
 }
 
+
+
 void inplace_cpu_deconvolve(imageType* psi,
 			    workspace input,
 			    int nthreads){
   
   //launch deconvolution
   if(nthreads == 1)
-    serial_inplace_cpu_deconvolve_iteration(psi,
-					    input,
-					    input.lambda_,
-					    input.minValue_);
+    serial_inplace_cpu_deconvolve(psi,
+				  input,
+				  input.lambda_,
+				  input.minValue_);
   else
-    parallel_inplace_cpu_deconvolve_iteration(psi,
-						input,
-						nthreads,
-						input.lambda_,
-						input.minValue_
-						);
+    parallel_inplace_cpu_deconvolve(psi,
+				    input,
+				    nthreads,
+				    input.lambda_,
+				    input.minValue_
+				    );
 
 
 }
