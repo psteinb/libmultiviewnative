@@ -56,10 +56,10 @@ namespace multiviewnative {
        \retval 
        
     */
-    template <typename int_type>
-    cpu_convolve(value_type* _image_stack_arr, int_type* _image_extents_arr,
-		 int_type* _kernel_extents_arr = 0, 
-		 int_type* _storage_order = 0):
+    template <typename int_type1, typename int_type2>
+    cpu_convolve(value_type* _image_stack_arr, int_type1* _image_extents_arr,
+		 int_type2* _kernel_extents_arr = 0, 
+		 int_type2* _storage_order = 0):
       PaddingT(&_image_extents_arr[0],&_kernel_extents_arr[0]),
       image_(0),
       padded_image_(0),

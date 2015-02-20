@@ -169,7 +169,7 @@ public:
     for(int z_index = 0;z_index<int(image_dims_[0]);++z_index){
       for(int y_index = 0;y_index<int(image_dims_[1]);++y_index){
     	for(int x_index = 0;x_index<int(image_dims_[2]);++x_index){
-    	  image_[z_index][y_index][x_index] = float(++image_index);
+    	  image_[z_index][y_index][x_index] = float(image_index++);
     	}
       }
     }

@@ -5,18 +5,17 @@
 #include <numeric>
 #include <iostream>
 #include "multiviewnative.h"
-// #include "cpu_convolve.h"
-//#include "padd_utils.h"
-//#include "fft_utils.h"
 #include "test_algorithms.hpp"
 #include "image_stack_utils.h"
 
-typedef multiviewnative::zero_padd<multiviewnative::image_stack> zero_padding;
-static multiviewnative::storage local_order = boost::c_storage_order();
+#include "boost/thread.hpp"
 
 using namespace multiviewnative;
 
-BOOST_FIXTURE_TEST_SUITE( convolution_works, multiviewnative::default_3D_fixture )
+
+
+
+BOOST_FIXTURE_TEST_SUITE( convolution_works, default_3D_fixture )
 
 BOOST_AUTO_TEST_CASE( trivial_convolve )
 {
@@ -86,7 +85,7 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
   			  horizont_kernel_.data(),&kernel_dims_[0],
   			  1);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
 
@@ -112,7 +111,7 @@ BOOST_AUTO_TEST_CASE( vertical_convolve )
   			  vertical_kernel_.data(),&kernel_dims_[0],
   			  1);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
 
@@ -130,7 +129,7 @@ BOOST_AUTO_TEST_CASE( depth_convolve )
   			  depth_kernel_.data(),&kernel_dims_[0],
   			  1);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
@@ -147,7 +146,7 @@ BOOST_AUTO_TEST_CASE( all1_convolve )
   			  all1_kernel_.data(),&kernel_dims_[0],
   			  1);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
@@ -167,7 +166,7 @@ BOOST_AUTO_TEST_CASE( horizontal_convolve )
   			  horizont_kernel_.data(),&kernel_dims_[0],
   			  boost::thread::hardware_concurrency()/2);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
 
@@ -184,7 +183,7 @@ BOOST_AUTO_TEST_CASE( vertical_convolve )
   			  vertical_kernel_.data(),&kernel_dims_[0],
   			  boost::thread::hardware_concurrency()/2);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
@@ -201,7 +200,7 @@ BOOST_AUTO_TEST_CASE( depth_convolve )
   			  depth_kernel_.data(),&kernel_dims_[0],
   			  boost::thread::hardware_concurrency()/2);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   BOOST_CHECK_CLOSE(sum, sum_original, .00001);
@@ -218,7 +217,7 @@ BOOST_AUTO_TEST_CASE( all1_convolve )
   			  all1_kernel_.data(),&kernel_dims_[0],
   			  boost::thread::hardware_concurrency()/2);
 
-  mvn::range axis_subrange = mvn::range(halfKernel,halfKernel+imageDimSize);
+  range axis_subrange = range(halfKernel,halfKernel+imageDimSize);
   image_ = padded_image_[ boost::indices[axis_subrange][axis_subrange][axis_subrange]];
   float sum = std::accumulate(image_.data(), image_.data() + image_.num_elements(),0.f);
   

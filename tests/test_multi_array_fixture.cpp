@@ -44,9 +44,9 @@ BOOST_AUTO_TEST_CASE( horizont_kernel )
 {
   
   // printKernel(horizont_kernel_.data());
-  BOOST_CHECK_EQUAL(horizont_kernel_[0][1][1],1.f);
+  BOOST_CHECK_EQUAL(horizont_kernel_[1][1][0],1.f);
   BOOST_CHECK_EQUAL(horizont_kernel_[1][1][1],2.f);
-  BOOST_CHECK_EQUAL(horizont_kernel_[2][1][1],3.f);
+  BOOST_CHECK_EQUAL(horizont_kernel_[1][1][2],3.f);
   
 
 }
@@ -64,9 +64,9 @@ BOOST_AUTO_TEST_CASE( vertical_kernel )
 BOOST_AUTO_TEST_CASE( depth_kernel )
 {
   // printKernel(depth_kernel_.data());
-  BOOST_CHECK_EQUAL(depth_kernel_[1][1][0],1.f);
+  BOOST_CHECK_EQUAL(depth_kernel_[0][1][1],1.f);
   BOOST_CHECK_EQUAL(depth_kernel_[1][1][1],2.f);
-  BOOST_CHECK_EQUAL(depth_kernel_[1][1][2],3.f);
+  BOOST_CHECK_EQUAL(depth_kernel_[2][1][1],3.f);
   
 }
 
@@ -101,13 +101,13 @@ BOOST_AUTO_TEST_CASE( convolve_by_horizontal )
   BOOST_CHECK_NE(image_[center_one_dim_size][center_one_dim_size][center_one_dim_size], image_folded_by_horizontal_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
   
   float intermediate = 2*image_[center_one_dim_size][center_one_dim_size][center_one_dim_size] 
-    + 3*image_[center_one_dim_size-1][center_one_dim_size][center_one_dim_size] 
-    + 1*image_[center_one_dim_size+1][center_one_dim_size][center_one_dim_size];
+    + 3*image_[center_one_dim_size][center_one_dim_size][center_one_dim_size-1] 
+    + 1*image_[center_one_dim_size][center_one_dim_size][center_one_dim_size+1];
 
   BOOST_CHECK_EQUAL(intermediate, image_folded_by_horizontal_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
     // based on bug from Apr 2, 2014
-  BOOST_CHECK_CLOSE(image_folded_by_horizontal_[0][0][6],1153.f, 1e-4);
-  BOOST_CHECK_CLOSE(image_folded_by_horizontal_[0][0][7],1345.f, 1e-4);
+  BOOST_CHECK_CLOSE(image_folded_by_horizontal_[0][0][6],34.f, 1e-4);
+  BOOST_CHECK_CLOSE(image_folded_by_horizontal_[0][0][7],32.f, 1e-4);
 
 
 }
@@ -132,8 +132,8 @@ BOOST_AUTO_TEST_CASE( convolve_by_depth )
   BOOST_CHECK_NE(image_[center_one_dim_size][center_one_dim_size][center_one_dim_size], image_folded_by_depth_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
   
   float intermediate = 2*image_[center_one_dim_size][center_one_dim_size][center_one_dim_size] 
-    + 3*image_[center_one_dim_size][center_one_dim_size][center_one_dim_size-1] 
-    + 1*image_[center_one_dim_size][center_one_dim_size][center_one_dim_size+1];
+    + 3*image_[center_one_dim_size-1][center_one_dim_size][center_one_dim_size] 
+    + 1*image_[center_one_dim_size+1][center_one_dim_size][center_one_dim_size];
 
   BOOST_CHECK_EQUAL(intermediate, image_folded_by_depth_[center_one_dim_size][center_one_dim_size][center_one_dim_size]);
 }

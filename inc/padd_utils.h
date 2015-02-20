@@ -2,8 +2,11 @@
 #define _PADD_UTILS_H_
 #include <vector>
 #include <algorithm>
+#include <type_traits>
+#include <limits>
 #include "boost/multi_array.hpp"
-#include <boost/type_traits.hpp>
+
+
 
 namespace multiviewnative {
 
@@ -13,7 +16,7 @@ namespace multiviewnative {
 			       const std::vector<typename ImageStackRefT::size_type>& _point) {
 
     
-    typedef typename boost::make_signed<typename ImageStackRefT::size_type>::type signed_size_type;
+    typedef typename std::make_signed<typename ImageStackRefT::size_type>::type signed_size_type;
 
     for(signed_size_type z=0;z<signed_size_type(_source.shape()[0]);++z)
       for(signed_size_type y=0;y<signed_size_type(_source.shape()[1]);++y)
@@ -67,13 +70,25 @@ struct no_padd {
   std::vector<size_type> extents_;
   std::vector<size_type> offsets_;
 
-  template <typename DimT>
-  no_padd(DimT* _image_shape, DimT* _kernel_shape):
+  no_padd():
+    extents_(ImageStackT::dimensionality,0),
+    offsets_(ImageStackT::dimensionality,0)
+  {
+
+  }
+
+  template <typename T, typename U>
+  no_padd(T* _image_shape, U* _kernel_shape):
     extents_(_image_shape, _image_shape + ImageStackT::dimensionality),
     offsets_(ImageStackT::dimensionality,0)
   {
-    
+    static_assert(std::numeric_limits<T>::is_integer, 
+		       "[no_padd] didn't receive integer type as image shape descriptor");
+    static_assert(std::numeric_limits<U>::is_integer, 
+		       "[no_padd] didn't receive integer type as kernel shape descriptor");
+
   }
+
 
   template <typename ImageStackRefT, typename OtherStackT>
   void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target ) {
@@ -122,15 +137,20 @@ struct zero_padd {
 
   }
 
-  template <typename DimT>
-  zero_padd(DimT* _image, DimT* _kernel):
+  template <typename T, typename U>
+  zero_padd(T* _image, U* _kernel):
     extents_(ImageStackT::dimensionality,0),
     offsets_(ImageStackT::dimensionality,0)
   {
+    static_assert(std::numeric_limits<T>::is_integer == true, 
+		  "[zero_padd] didn't receive integer type as image shape descriptor");
+    static_assert(std::numeric_limits<U>::is_integer, 
+		  "[zero_padd] didn't receive integer type as kernel shape descriptor");
+
     std::transform(_image, _image + ImageStackT::dimensionality, _kernel, 
-		   extents_.begin(), add_minus_1<DimT>());
+		   extents_.begin(), add_minus_1<T>());
     
-    std::transform(_kernel, _kernel + ImageStackT::dimensionality, offsets_.begin(), minus_1_div_2<DimT,size_type>());
+    std::transform(_kernel, _kernel + ImageStackT::dimensionality, offsets_.begin(), minus_1_div_2<U,size_type>());
   }
 
   zero_padd& operator=(const zero_padd& _other){
