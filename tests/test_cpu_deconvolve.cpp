@@ -16,7 +16,7 @@
 
 using namespace multiviewnative;
 
-static const ReferenceData reference;
+static const PaddedReferenceData reference;
 static const first_5_iterations guesses;
 
 BOOST_AUTO_TEST_SUITE( deconvolve_psi0_as_test_case  )
@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE( printf )
   // typedef multiviewnative::cpu_convolve<multiviewnative::parallel_inplace_3d_transform> parallel_convolution;
 
   //setup
-  ReferenceData local_ref(reference);
+  PaddedReferenceData local_ref(reference);
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_SUITE( deconvolve_psi0  )
 BOOST_AUTO_TEST_CASE( reconstruct_1iteration )
 {
   //setup
-  ReferenceData local_ref(reference);
+  PaddedReferenceData local_ref(reference);
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_1iteration )
 BOOST_AUTO_TEST_CASE( reconstruct_1iteration_16k_cube_of_25 )
 {
   //setup
-  ReferenceData local_ref(reference);
+  PaddedReferenceData local_ref(reference);
   first_5_iterations local_guesses(guesses);
   workspace input;
   
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_1iteration_16k_cube_of_25 )
 BOOST_AUTO_TEST_CASE( reconstruct_2iterations )
 {
   //setup
-  ReferenceData local_ref(reference);
+  PaddedReferenceData local_ref(reference);
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE( reconstruct_2iterations )
 BOOST_AUTO_TEST_CASE( threaded_reconstruct_4iterations )
 {
   //setup
-  ReferenceData local_ref(reference);
+  PaddedReferenceData local_ref(reference);
   first_5_iterations local_guesses(guesses);
   workspace input;
   input.data_ = 0;

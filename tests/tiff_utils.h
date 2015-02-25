@@ -65,9 +65,9 @@ namespace multiviewnative {
 	heights.insert(h);
       }
 
-    value[0] = *(std::max_element(widths.begin(), widths.end()));
+    value[2] = *(std::max_element(widths.begin(), widths.end()));
     value[1] = *(std::max_element(heights.begin(), heights.end()));
-    value[2] = size_z;
+    value[0] = size_z;
 
     return value;
   }
@@ -78,12 +78,12 @@ namespace multiviewnative {
     std::vector<unsigned> extents = extract_max_extents<unsigned>(_tiff_handle, _tiff_dirs );
 
     unsigned w,h;
-    unsigned frame_offset = extents[0]*extents[1];
-    unsigned total = frame_offset*extents[2];
+    unsigned frame_offset = extents[2]*extents[1];
+    unsigned total = frame_offset*extents[0];
     _container.clear();
     _container.resize(total);
 
-    for(int frame = 0;frame<extents[2];++frame)
+    for(int frame = 0;frame<extents[0];++frame)
       {
 	TIFFSetDirectory(_tiff_handle,_tiff_dirs[frame]);
 	TIFFGetField(_tiff_handle, TIFFTAG_IMAGEWIDTH, &w);
@@ -100,13 +100,11 @@ namespace multiviewnative {
 
     
     unsigned w,h;
-    unsigned frame_offset = extents[0]*extents[1];
-    unsigned total = frame_offset*extents[2];
-    std::vector<float> local_pixels;
-    local_pixels.clear();
-    local_pixels.resize(total);
+    unsigned frame_offset = extents[2]*extents[1];
+    unsigned total = frame_offset*extents[0];
+    std::vector<float> local_pixels(total);
 
-    for(unsigned frame = 0;frame<extents[2];++frame)
+    for(unsigned frame = 0;frame<extents[0];++frame)
       {
 	TIFFSetDirectory(_tiff_handle,_tiff_dirs[frame]);
 	TIFFGetField(_tiff_handle, TIFFTAG_IMAGEWIDTH, &w);
@@ -118,10 +116,7 @@ namespace multiviewnative {
 
     _container.resize(extents);
 
-    int tiff_order[3] = {0,1,2};
-    bool ascending[3] = {true, true, true};
-    storage tiff_storage(tiff_order,ascending);
-    image_stack_ref  local_stack    (&local_pixels[0],    extents,    tiff_storage);
+    image_stack_ref  local_stack    (&local_pixels[0],    extents);
     
     _container = local_stack;
   }
@@ -140,9 +135,9 @@ namespace multiviewnative {
     else
       std::cout << "Writing "<< _dest<<"\n";
 
-    unsigned w = _stack.shape()[0];
+    unsigned w = _stack.shape()[2];
     unsigned h = _stack.shape()[1];
-    unsigned z = _stack.shape()[2];
+    unsigned z = _stack.shape()[0];
     
     for(unsigned frame = 0;frame<z;++frame){
       TIFFSetField(output_image, TIFFTAG_IMAGEWIDTH,		w);
@@ -161,7 +156,7 @@ namespace multiviewnative {
       
       for (unsigned y=0;y<h;++y) {
 
-	stack_line temp = _stack[ boost::indices[multiviewnative::range(0,w)][y][frame] ];
+	stack_line temp = _stack[ boost::indices[frame][y][multiviewnative::range(0,w)] ];
 	std::copy(temp.begin(), temp.end(), temp_row.begin());
 	TIFFWriteScanline(output_image,&temp_row[0],y,0);
 

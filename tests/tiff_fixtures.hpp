@@ -33,7 +33,8 @@ namespace multiviewnative {
     
     std::string  stack_path_  ;
     image_stack  stack_     ;
-
+    static const int dimensionality = image_stack::dimensionality;
+    
     tiff_stack():
       stack_path_(""),
       stack_(){
@@ -97,7 +98,7 @@ namespace multiviewnative {
       
       if(stack_size-stack_.num_elements() != 0 && stack_.num_elements()>0){
 	std::stringstream dim_string("");
-	dim_string << "[" << stack_.shape()[0]  << "x" << stack_.shape()[1]  << "x" << stack_.shape()[2] << "]";
+	dim_string << "(c_storage_order: z-y-x) = [" << stack_.shape()[0]  << "x" << stack_.shape()[1]  << "x" << stack_.shape()[2] << "]";
 	std::cout << "successfully loaded " << std::setw(20) << dim_string.str() << " stack from "  << _path  <<  "\n";
       }
       has_malformed_floats();
@@ -226,11 +227,38 @@ namespace multiviewnative {
       return *this;
     }
 
+    void padd_with_kernels(){
+      
+      std::vector<unsigned> max_kernel_shape(kernel1_.stack_.shape(),
+					     kernel1_.stack_.shape() + tiff_stack::dimensionality);
+      unsigned count = 0;
+      for( unsigned& d : max_kernel_shape ){
+	d = std::max(d,(unsigned)kernel2_.stack_.shape()[count]);
+	count++;
+      }
+
+
+      std::vector<unsigned> new_image_shape(image_.stack_.shape(),
+					    image_.stack_.shape() + tiff_stack::dimensionality);
+
+      count = 0;
+      for( unsigned& d : new_image_shape ){
+	d = d + 2*(max_kernel_shape[count]/2);
+	count++;
+      }
+      
+      image_.stack_.resize( new_image_shape );
+      weights_.stack_.resize( new_image_shape );
+      
+    }
+
     void load(const int& _view_number){
+
+      //boost file system magic required here!
 
       view_number_ = _view_number;
 
-      image_path_    << path_to_test_images <<  "image_view_"    <<  view_number_  <<  ".tif";
+      image_path_    << path_to_test_images <<  "input_view_"    <<  view_number_  <<  ".tif";
       kernel1_path_  << path_to_test_images <<  "kernel1_view_"  <<  view_number_  <<  ".tif";
       kernel2_path_  << path_to_test_images <<  "kernel2_view_"  <<  view_number_  <<  ".tif";
       weights_path_  << path_to_test_images <<  "weights_view_"  <<  view_number_  <<  ".tif";
@@ -330,26 +358,37 @@ namespace multiviewnative {
 
   };
 
-  struct ReferenceData {
+  template<bool padd_input_by_kernel = false>
+  struct ReferenceData_Impl {
     
     std::vector<ViewFromDisk> views_;
 
-    ReferenceData():
+    ReferenceData_Impl():
       views_(6){
-      for(int i = 0;i<6;++i)
+      
+      //check how many views are available on disk
+      //boost file system
+
+      for(int i = 0;i<6;++i){
 	views_[i].load(i);
+	if(padd_input_by_kernel)
+	  views_[i].padd_with_kernels();
+      }
     }
 
-    ReferenceData(const ReferenceData& _rhs):
+    ReferenceData_Impl(const ReferenceData_Impl& _rhs):
       views_(_rhs.views_){
     }
 
-    void copy_in(const ReferenceData& _other){
+    void copy_in(const ReferenceData_Impl& _other){
       for(int i = 0;i<6;++i)
 	views_[i] = _other.views_[i];
     }
 
   };
+
+  typedef ReferenceData_Impl<true> PaddedReferenceData;
+  typedef ReferenceData_Impl<> RawReferenceData;
 
   template <unsigned max_num_psi = 2>
   struct IterationData {

@@ -32,8 +32,8 @@ namespace multiviewnative {
 
   }
   
-
-  void fill_workspace(const ReferenceData& _ref, workspace& _space, const double& _lambda, const float& _minValue){
+  template <typename ref_data_type>
+  void fill_workspace(const ref_data_type& _ref, workspace& _space, const double& _lambda, const float& _minValue){
     _space.num_views_ = _ref.views_.size();
 
     if(_space.data_ != 0)
