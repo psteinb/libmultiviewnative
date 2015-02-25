@@ -165,8 +165,8 @@ void serial_inplace_cpu_deconvolve(imageType* psi,
 				   imageType minValue){
   
   //lay the kernel pointers aside
-  std::vector<mvn::image_stack_ref> kernel1_ptr;kernel1_ptr.reserve(input.num_views_);
-  std::vector<mvn::image_stack_ref> kernel2_ptr;kernel2_ptr.reserve(input.num_views_);
+  std::vector<mvn::image_stack_ref> kernel1_ptr;
+  std::vector<mvn::image_stack_ref> kernel2_ptr;
   std::vector<mvn::shape_t> image_shapes(input.num_views_);
   std::vector<mvn::shape_t> kernel1_shapes(input.num_views_);
   std::vector<mvn::shape_t> kernel2_shapes(input.num_views_);
@@ -174,11 +174,11 @@ void serial_inplace_cpu_deconvolve(imageType* psi,
   for( int v = 0;v<input.num_views_;++v){
     kernel1_shapes[v] = mvn::shape_t(input.data_[v].kernel1_dims_, 
 				     input.data_[v].kernel1_dims_ + mvn::image_stack_ref::dimensionality);
-    kernel1_ptr[v] = mvn::image_stack_ref(input.data_[v].kernel1_, kernel1_shapes[v]);
+    kernel1_ptr.push_back(mvn::image_stack_ref(input.data_[v].kernel1_, kernel1_shapes[v]));
 
     kernel2_shapes[v] = mvn::shape_t(input.data_[v].kernel2_dims_, 
 				     input.data_[v].kernel2_dims_ + mvn::image_stack_ref::dimensionality);
-    kernel2_ptr[v] = mvn::image_stack_ref(input.data_[v].kernel2_, kernel2_shapes[v]);
+    kernel2_ptr.push_back(mvn::image_stack_ref(input.data_[v].kernel2_, kernel2_shapes[v]));
   }
 
   //create the kernels in memory (this will double the memory consumption)

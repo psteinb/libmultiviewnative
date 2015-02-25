@@ -227,28 +227,33 @@ namespace multiviewnative {
       return *this;
     }
 
-    void padd_with_kernels(){
-      
-      std::vector<unsigned> max_kernel_shape(kernel1_.stack_.shape(),
-					     kernel1_.stack_.shape() + tiff_stack::dimensionality);
-      unsigned count = 0;
-      for( unsigned& d : max_kernel_shape ){
-	d = std::max(d,(unsigned)kernel2_.stack_.shape()[count]);
-	count++;
-      }
+    template <typename container_type>
+    void padd_with_shape(const container_type& _shape,unsigned _num_kernel_widths=1){
 
-
+      //create new image shapes
       std::vector<unsigned> new_image_shape(image_.stack_.shape(),
 					    image_.stack_.shape() + tiff_stack::dimensionality);
+      std::vector<unsigned> offsets(tiff_stack::dimensionality,0);
 
-      count = 0;
+      //indices of interest :)
+      std::vector<range> ioi(tiff_stack::dimensionality);
+      unsigned count = 0;
       for( unsigned& d : new_image_shape ){
-	d = d + 2*(max_kernel_shape[count]/2);
+	offsets[count] = _num_kernel_widths*(_shape[count]/2);
+	d = d + 2*offsets[count];
+	ioi[count] = range(offsets[count],d - offsets[count]);
 	count++;
       }
       
+      image_stack padded_image_(new_image_shape);
+      padded_image_[ boost::indices[ioi[0]][ioi[1]][ioi[2]] ] = image_.stack_;
       image_.stack_.resize( new_image_shape );
+      image_.stack_ = padded_image_;
+      std::copy(&image_.stack_.shape()[0], &image_.stack_.shape()[0] + 3, image_dims_.begin());
+
+      padded_image_[ boost::indices[ioi[0]][ioi[1]][ioi[2]] ] = weights_.stack_;
       weights_.stack_.resize( new_image_shape );
+      weights_.stack_ = padded_image_;
       
     }
 
@@ -358,21 +363,29 @@ namespace multiviewnative {
 
   };
 
-  template<bool padd_input_by_kernel = false>
+  template<int num_views = 6, bool padd_input_by_kernel = false>
   struct ReferenceData_Impl {
     
     std::vector<ViewFromDisk> views_;
+    static const int size = num_views;
 
     ReferenceData_Impl():
-      views_(6){
+      views_(size){
       
       //check how many views are available on disk
       //boost file system
 
-      for(int i = 0;i<6;++i){
+      for(unsigned i = 0;i<views_.size();++i){
 	views_[i].load(i);
-	if(padd_input_by_kernel)
-	  views_[i].padd_with_kernels();
+      }
+
+      if(padd_input_by_kernel){
+	std::vector<int> extents;
+	min_kernel_shape(extents);
+	
+	for(unsigned i = 0;i<views_.size();++i){
+	  views_[i].padd_with_shape(extents);
+	}
       }
     }
 
@@ -385,15 +398,61 @@ namespace multiviewnative {
 	views_[i] = _other.views_[i];
     }
 
+    template <typename container_type>
+    void max_kernel_shape(container_type& _shape){
+      typedef typename container_type::value_type int_type;
+      
+      _shape.clear();
+      _shape.resize(views_[0].image_dims_.size());
+      std::fill(_shape.begin(), _shape.end(), 0);
+      
+      for( const ViewFromDisk& _v : views_ ){
+	for(int i = 0;i<_shape.size();++i)
+	  _shape[i] = std::max(_shape[i], (int_type)_v.kernel1_dims()[i]);
+      }
+      
+    }
+
+    
+    template <typename container_type>
+    void min_kernel_shape(container_type& _shape){
+      
+      typedef typename container_type::value_type int_type;
+      _shape.clear();
+      _shape.resize(views_[0].image_dims_.size());
+      std::fill(_shape.begin(), _shape.end(), std::numeric_limits<typename container_type::value_type>::max());
+      
+      for( const ViewFromDisk& _v : views_ ){
+	for(int i = 0;i<_shape.size();++i)
+	  _shape[i] = std::min(_shape[i], (int_type)_v.kernel1_dims()[i]);
+      }
+      
+    }
+
+    template <typename container_type>
+    void min_image_shape(container_type& _shape){
+      _shape.clear();
+      _shape.resize(views_[0].image_dims_.size());
+      std::fill(_shape.begin(), _shape.end(), std::numeric_limits<typename container_type::value_type>::max());
+      
+      for( const ViewFromDisk& _v : views_ ){
+	for(int i = 0;i<_shape.size();++i)
+	  _shape[i] = std::min(_shape[i], _v.image_dims()[i]);
+      }
+      
+    }
+
+    
   };
 
-  typedef ReferenceData_Impl<true> PaddedReferenceData;
-  typedef ReferenceData_Impl<> RawReferenceData;
+  typedef ReferenceData_Impl<6,true> PaddedReferenceData;
+  typedef ReferenceData_Impl<6> RawReferenceData;
 
-  template <unsigned max_num_psi = 2>
+  template <unsigned max_num_psi = 2, bool padded_images = false>
   struct IterationData {
     
     std::vector<tiff_stack> psi_;
+    std::vector<image_stack> padded_psi_;
     std::vector<std::string> psi_paths_;
 
     std::string path_to_images;
@@ -405,6 +464,7 @@ namespace multiviewnative {
 
     IterationData(std::string _basename="psi_"):
       psi_(),
+      padded_psi_(),
       psi_paths_(max_num_psi),
       path_to_images(path_to_test_images),
       iteration_basename_before_id(_basename),
@@ -413,6 +473,7 @@ namespace multiviewnative {
       psi0_avg_(0)
     {
       psi_.reserve(max_num_psi);
+      padded_psi_.resize(max_num_psi);
 
       for(unsigned i = 0;i<max_num_psi;++i){
 	std::stringstream path("");
@@ -421,6 +482,10 @@ namespace multiviewnative {
 
 	psi_.push_back(tiff_stack(path.str()));
 
+	// if(padded_images){
+	  
+	// }
+	  
       }
 
       float sum = std::accumulate(psi_[0].stack_.data(), psi_[0].stack_.data() + psi_[0].stack_.num_elements(), 0.f);
@@ -429,6 +494,7 @@ namespace multiviewnative {
 
     IterationData(const IterationData& _rhs):
       psi_(_rhs.psi_.begin(), _rhs.psi_.end()),
+      padded_psi_(_rhs.padded_psi_.begin(), _rhs.padded_psi_.end()),
       psi_paths_(_rhs.psi_paths_.begin(), _rhs.psi_paths_.end()),
       lambda_(_rhs.lambda_),
       minValue_(_rhs.minValue_),
@@ -438,6 +504,7 @@ namespace multiviewnative {
 
     void copy_in(const IterationData& _other){
       std::copy(_other.psi_.begin(), _other.psi_.end(), psi_.begin());
+      std::copy(_other.padded_psi_.begin(), _other.padded_psi_.end(), padded_psi_.begin());
       std::copy(_other.psi_paths_.begin(), _other.psi_paths_.end(), psi_paths_.begin());
       lambda_ = (_other.lambda_);
       minValue_ = (_other.minValue_);
@@ -451,6 +518,29 @@ namespace multiviewnative {
     const image_stack* psi(const int& _index) const {
       return &(psi_.at(_index).stack_);
     }
+
+    template <typename container_type>
+    image_stack* padded_psi(const int& _index, const container_type& _shape){
+      if(padded_psi_.at(_index).num_elements()<=psi_.at(_index).stack_.num_elements() ){
+
+	container_type extended(psi_.at(_index).stack_.shape(), psi_.at(_index).stack_.shape() + image_stack::dimensionality);
+	std::vector<range> index_of_interest(image_stack::dimensionality);
+
+	for (int d = 0; d < extended.size(); ++d)
+	  {
+	    extended[d] = extended[d] + 2*(_shape[d]/2);
+	    index_of_interest[d] = range(_shape[d]/2,extended[d] - (_shape[d]/2));
+	  }
+	
+	padded_psi_.at(_index).resize(extended);
+	padded_psi_.at(_index)[ boost::indices[index_of_interest[0]][index_of_interest[1]][index_of_interest[2]]] = psi_.at(_index).stack_;
+	
+      }
+      
+      return &(padded_psi_.at(_index));
+      
+    }
+
   };
   
   typedef IterationData<3> first_2_iterations;
