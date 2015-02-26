@@ -18,6 +18,7 @@
 using namespace multiviewnative;
 
 static const PaddedReferenceData reference;
+static const first_2_iterations local_guesses_of_2;
 
 BOOST_AUTO_TEST_SUITE( deconvolve  )
    
@@ -25,7 +26,7 @@ BOOST_AUTO_TEST_CASE( loaded_data_is_of_same_size )
 {
   //setup
   PaddedReferenceData local_ref(reference);
-  first_5_iterations local_guesses(guesses);
+  first_2_iterations local_guesses(local_guesses_of_2);
   
   for (int i = 1; i < PaddedReferenceData::size; ++i)
     {
@@ -44,11 +45,11 @@ BOOST_AUTO_TEST_CASE( loaded_data_is_of_same_size )
 				local_guesses.padded_psi(0,shape_to_padd_with)->shape() + 3);
 }
 
-BOOST_AUTO_TEST_CASE( check_1_iteration )
+BOOST_AUTO_TEST_CASE( check_1st_two_iterations )
 {
   //setup
   PaddedReferenceData local_ref(reference);
-  first_2_iterations local_guesses;
+  first_2_iterations local_guesses(local_guesses_of_2);
   
   //padd the psi to the same shape as the input images
   std::vector<int> shape_to_padd_with;
@@ -74,9 +75,21 @@ BOOST_AUTO_TEST_CASE( check_1_iteration )
   const float upper_ratio = 1- bottom_ratio;
   l2norm = multiviewnative::l2norm_within_limits(input_psi, *padded_psi_1, bottom_ratio ,upper_ratio);
   std::cout << "central norms: ["<< bottom_ratio << "e,"<< upper_ratio << "e]**3\n"
-    	    << "l2norm within limits \t" << l2norm << "\n";
+    	    << "1-iter l2norm within limits \t" << l2norm << "\n";
   BOOST_REQUIRE_LT(l2norm, 1e-2);
 
+  input_psi = *local_guesses.padded_psi(0,shape_to_padd_with);
+  input.num_iterations_ = 2;
+  inplace_cpu_deconvolve(input_psi.data(), input, 1);
+  image_stack* padded_psi_2 = local_guesses.padded_psi(2,shape_to_padd_with);
+  l2norm = multiviewnative::l2norm(input_psi.data(), 
+				   padded_psi_2->data(), 
+				   input_psi.num_elements());
+  BOOST_CHECK_LT(l2norm, 70);
+  l2norm = multiviewnative::l2norm_within_limits(input_psi, *padded_psi_2, bottom_ratio ,upper_ratio);
+  std::cout << "central norms: ["<< bottom_ratio << "e,"<< upper_ratio << "e]**3\n"
+    	    << "2-iter l2norm within limits \t" << l2norm << "\n";
+  BOOST_REQUIRE_LT(l2norm, 1e-2);
   //tear-down
   delete [] input.data_;
 
