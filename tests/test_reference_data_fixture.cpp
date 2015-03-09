@@ -9,12 +9,12 @@
 
 namespace fs = boost::filesystem;
 
-static const multiviewnative::ReferenceData ref;
+static const multiviewnative::RawReferenceData ref;
 
 BOOST_AUTO_TEST_SUITE(ref_suite)
 
 BOOST_AUTO_TEST_CASE(ref_paths_not_empty) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
 
   for (int i = 0; i < 6; i++)
     BOOST_CHECK_MESSAGE(local_ref.views_[i].image_path_.str().empty() != true,
@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(ref_paths_not_empty) {
 }
 
 BOOST_AUTO_TEST_CASE(ref_stacks_equal) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
 
   for (int i = 0; i < 6; i++)
     BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(),
@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE(ref_stacks_equal) {
 }
 
 BOOST_AUTO_TEST_CASE(ref_stacks_equal_views_files) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
   std::stringstream path("");
   for (int i = 0; i < 6; i++) {
     path.str("");
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(ref_stacks_equal_views_files) {
 }
 
 BOOST_AUTO_TEST_CASE(ref_stacks_equal_kernel1_files) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
   std::stringstream path("");
   for (int i = 0; i < 6; i++) {
     path.str("");
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(ref_stacks_equal_kernel1_files) {
 }
 
 BOOST_AUTO_TEST_CASE(ref_stacks_equal_kernel2_files) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
   std::stringstream path("");
   for (int i = 0; i < 6; i++) {
     path.str("");
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(ref_stacks_equal_kernel2_files) {
 }
 
 BOOST_AUTO_TEST_CASE(ref_stacks_equal_weights_files) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
   std::stringstream path("");
   for (int i = 0; i < 6; i++) {
     path.str("");
@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(convert_suite)
 BOOST_AUTO_TEST_CASE(workspace_data_nonzero) {
-  multiviewnative::ReferenceData local_ref(ref);
+  multiviewnative::RawReferenceData local_ref(ref);
 
   workspace input;
   input.data_ = 0;
