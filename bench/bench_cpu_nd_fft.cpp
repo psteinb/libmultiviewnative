@@ -9,6 +9,7 @@
 #include "synthetic_data.hpp"
 #include "cpu_nd_fft.hpp"
 #include "fftw_interface.h"
+#include "logging.hpp"
 
 #include <boost/chrono.hpp>
 #include <boost/thread.hpp>
@@ -34,31 +35,39 @@ int main(int argc, char* argv[]) {
   bool out_of_place = false;
   bool use_global_plan = false;
   int num_threads = 0;
-
+  std::string cpu_name;
+  
   fftw_api::plan_type* global_plan = 0;
 
   int num_repeats = 5;
   std::string stack_dims = "";
 
+  //clang-format off
   po::options_description desc("Allowed options");
-  desc.add_options()("help,h", "produce help message")(
-      "verbose,v", "print lots of information in between")(
-      "stack_dimensions,s",
-      po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")("global_plan,g",
-                                               "use a global plan, rather than "
-                                               "creating a plan everytime a "
-                                               "transformation is performed")(
-      "reuse_global_plan,a",
-      "use a global plan, and reuse it for all transforms")(
-      "out-of-place,o", "perform out-of-place transforms")(
-      "repeats,r", po::value<int>(&num_repeats)->default_value(10),
-      "number of repetitions per measurement")(
-      "num_threads,t", po::value<int>(&num_threads)->default_value(1),
-      "number of threads to use")  //
-      // ("input-files", po::value<std::vector<std::string> >()->composing(),
-      // "")
+  desc.add_options()
+    ("help,h", "produce help message")
+    ("verbose,v", "print lots of information in between")
+    ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed")
+    ("reuse_global_plan,a","use a global plan, and reuse it for all transforms")
+    ("out-of-place,o", "perform out-of-place transforms")
+
+    ("stack_dimensions,s", 
+     po::value<std::string>(&stack_dims)->default_value("512x512x64"),
+      "HxWxD of synthetic stacks to generate")
+
+    ("repeats,r", 
+     po::value<int>(&num_repeats)->default_value(10),
+     "number of repetitions per measurement")
+
+    ("num_threads,t", 
+     po::value<int>(&num_threads)->default_value(1),
+     "number of threads to use") 
+    
+    ("cpu_name,c", 
+     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),
+     "cpu name to use in output")  
       ;
+  //clang-format on
 
   po::variables_map vm;
 
@@ -229,16 +238,32 @@ int main(int argc, char* argv[]) {
     delete global_plan;
   }
 
-  std::string device_name = "CPU";
+  static const std::string device_name = "CPU";
 
-  std::cout << num_threads << "x" << device_name << " "
-            << "excl_alloc"
-            << " "
-            << "incl_tx"
-            << " " << ((out_of_place) ? "out-of-place" : "inplace") << " "
-            << num_repeats << " " << time_ns.count() / double(1e6) << " "
-            << stack_dims << " " << data_size_byte / float(1 << 20) << " "
-            << exp_mem_mb << "\n";
+  if(verbose)
+    print_header();
+
+  std::string comments = "excl_alloc,incl_tx";
+  comments += ((out_of_place) ? ",out-of-place" : ",inplace");
+  
+  print_info(num_threads,
+	     device_name,
+	     cpu_name,
+	     num_repeats,
+	     time_ns.count() / double(1e6),
+	     numeric_stack_dims,
+	     sizeof(float),
+	     comments
+	     );
+
+  // std::cout << num_threads << "x" << device_name << " "
+  //           << "excl_alloc"
+  //           << " "
+  //           << "incl_tx"
+  //           << " " <<  << " "
+  //           << num_repeats << " " << time_ns.count() / double(1e6) << " "
+  //           << stack_dims << " " << data_size_byte / float(1 << 20) << " "
+  //           << exp_mem_mb << "\n";
 
   if (num_threads > 1 && num_threads <= max_threads)
     fftw_api::cleanup_threads();

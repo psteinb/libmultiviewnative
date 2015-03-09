@@ -10,6 +10,8 @@
 #include "cpu_nd_fft.hpp"
 #include "fftw_interface.h"
 
+#include "logging.hpp"
+
 #include <boost/chrono.hpp>
 #include <boost/thread.hpp>
 
@@ -33,30 +35,43 @@ int main(int argc, char* argv[]) {
   // bool out_of_place = false;
   bool batched_plan = false;
   int num_threads = 0;
-
+  std::string cpu_name;
+  
   fftw_api::plan_type* global_plan = 0;
 
   int num_repeats = 5;
   std::string stack_dims = "";
 
   po::options_description desc("Allowed options");
-  desc.add_options()("help,h", "produce help message")(
-      "verbose,v", "print lots of information in between")(
-      "stack_dimensions,s",
-      po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")("batched_plan,b",
-                                               "use a batched plan")
-      // ("out-of-place,o", "perform out-of-place transforms" )
-      ("repeats,r", po::value<int>(&num_repeats)->default_value(10),
-       "number of repetitions per measurement")(
-          "num_replicas,n", po::value<int>(&num_replicas)->default_value(4),
-          "number of replicas to use for batched processing")(
-          "num_threads,t", po::value<int>(&num_threads)->default_value(1),
-          "number of threads to use")  //
-      // ("input-files", po::value<std::vector<std::string> >()->composing(),
-      // "")
-      ;
+  
+  //clang-format off
+  desc.add_options()
+    ("help,h", "produce help message")
+    ("verbose,v", "print lots of information in between")
+    ("batched_plan,b","use a batched plan")
+    
+    ("stack_dimensions,s", 
+     po::value<std::string>(&stack_dims)->default_value("512x512x64"), 
+     "HxWxD of synthetic stacks to generate")
+    
+    ("repeats,r", 
+     po::value<int>(&num_repeats)->default_value(10),
+     "number of repetitions per measurement")
+    
+    ("num_replicas,n", 
+     po::value<int>(&num_replicas)->default_value(4), 
+     "number of replicas to use for batched processing")
+    
+    ("num_threads,t", 
+     po::value<int>(&num_threads)->default_value(1),
+     "number of threads to use")  
 
+    ("cpu_name,c", 
+     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),
+     "cpu name to use in output")  
+    ;
+  //clang-format on
+  
   po::variables_map vm;
 
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -213,16 +228,20 @@ int main(int argc, char* argv[]) {
   delete global_plan;
 
   std::string device_name = "CPU";
+  std::string comments = "";
+  
+  if(verbose)
+    print_header();
 
-  std::cout << num_threads << "x" << device_name << " "
-            << "excl_alloc"
-            << " "
-            << "incl_tx"
-            << " "
-            << "inplace"
-            << " " << num_repeats << " " << time_ns.count() / double(1e6) << " "
-            << stack_dims << " " << data_size_byte / float(1 << 20) << " "
-            << exp_mem_mb << "\n";
+  print_info(num_threads,
+	     device_name,
+	     cpu_name,
+	     num_repeats,
+	     time_ns.count() / double(1e6),
+	     numeric_stack_dims,
+	     sizeof(float),
+	     comments
+	     );
 
   if (num_threads > 1 && num_threads <= max_threads)
     fftw_api::cleanup_threads();

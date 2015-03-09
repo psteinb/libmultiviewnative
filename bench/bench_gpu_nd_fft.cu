@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <algorithm>
 
 #include "boost/program_options.hpp"
@@ -10,7 +11,7 @@
 
 #include "cuda_profiler_api.h"
 #include "gpu_nd_fft.cuh"
-// #include "cufft.h"
+#include "logging.hpp"
 
 #include <boost/timer/timer.hpp>
 
@@ -243,15 +244,20 @@ int main(int argc, char* argv[]) {
     delete global_plan;
   }
 
+  
   std::string device_name = get_cuda_device_name(device_id);
   std::replace(device_name.begin(), device_name.end(), ' ', '_');
+  
+  if(verbose)
+    print_header();
 
-  std::cout << device_name << " "
-            << ((with_allocation) ? "incl_alloc" : "excl_alloc") << " "
-            << ((with_transfers) ? "incl_tx" : "excl_tx") << " "
-            << ((out_of_place) ? "out-of-place" : "inplace") << " "
-            << num_repeats << " " << time_ms << " " << stack_dims << " "
-            << data_size_byte / float(1 << 20) << " " << exp_mem_mb << "\n";
+  std::stringstream comments;
+  comments << ((with_allocation) ? "incl_alloc" : "excl_alloc") << ","
+	   << ((with_transfers) ? "incl_tx" : "excl_tx") << ","
+	   << ((out_of_place) ? "out-of-place" : "inplace") ;
+
+  print_info(1,"GPU",device_name,num_repeats,time_ms,numeric_stack_dims,sizeof(float),comments.str());
+
 
   return 0;
 }
