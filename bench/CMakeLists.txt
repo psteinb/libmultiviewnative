@@ -36,6 +36,12 @@ CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_nd_fft)
 target_link_libraries(bench_gpu_nd_fft boost_program_options boost_system boost_timer)
 set_target_properties(bench_gpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
+CUDA_ADD_EXECUTABLE(bench_gpu_many_nd_fft bench_gpu_many_nd_fft.cu)
+CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_fft)
+target_link_libraries(bench_gpu_many_nd_fft boost_program_options boost_system boost_timer)
+set_target_properties(bench_gpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+
+
 ENDIF()
 
 find_package(OpenMP)

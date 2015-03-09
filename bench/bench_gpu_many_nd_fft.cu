@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       cpu_timer timer;
-      batched_fft_incl_alloc(data.stack_,
+      batched_fft_incl_alloc(stacks,
 			     out_of_place ? d_dest_buffer : 0,
 			     global_plan);
       durations[r] = timer.elapsed();

@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_CASE(divide) {
   std::fill(cpu_quarter.begin(), cpu_quarter.end(), .25);
   std::vector<float> gpu_quarter_results(num_elements, 0.f);
 
-  parallel_divide(view_0.image()->data(), &cpu_quarter[0], cpu_quarter.size());
+  cpu::par::compute_quotient(view_0.image()->data(), &cpu_quarter[0], cpu_quarter.size());
 
   multiviewnative::stack_on_device<multiviewnative::image_stack> image(
       *view_0.image());
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(final_values) {
 
   multiviewnative::image_stack gpu_view_times_2(cpu_view_times_2);
   const float minValue = 1e-4;
-  parallel_final_values(cpu_view_times_2.data(), view_0.image()->data(),
+  cpu::par::final_values(cpu_view_times_2.data(), view_0.image()->data(),
                         view_0.weights()->data(), num_elements, -1, minValue);
 
   multiviewnative::stack_on_device<multiviewnative::image_stack> d_image(
@@ -124,9 +124,8 @@ BOOST_AUTO_TEST_CASE(regularized_final_values) {
   multiviewnative::image_stack gpu_view_times_2(cpu_view_times_2);
   const float minValue = 1e-4;
   const double lambda = .006;
-  parallel_regularized_final_values(
-      cpu_view_times_2.data(), view_0.image()->data(), view_0.weights()->data(),
-      num_elements, lambda, -1, minValue);
+  cpu::par::regularized_final_values(cpu_view_times_2.data(), view_0.image()->data(), view_0.weights()->data(),
+				     num_elements, lambda, -1, minValue);
 
   multiviewnative::stack_on_device<multiviewnative::image_stack> d_image(
       *view_0.image());

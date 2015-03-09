@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(compare_to_cpu) {
 
   // test
   inplace_gpu_deconvolve(gpu_input_psi.data(), input, -1);
-  inplace_cpu_deconvolve_iteration(cpu_input_psi.data(), input, 2);
+  inplace_cpu_deconvolve(cpu_input_psi.data(), input, 1);
 
   // check norms
   float l2norm_to_guesses = multiviewnative::l2norm(
