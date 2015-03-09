@@ -1,6 +1,8 @@
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE CPU_DECONVOLVE
 
+#include <chrono>
+
 #include "boost/test/unit_test.hpp"
 #include "boost/test/detail/unit_test_parameters.hpp"
 #include "boost/thread.hpp"
@@ -95,5 +97,43 @@ BOOST_AUTO_TEST_CASE(check_1st_two_iterations) {
   // tear-down
   delete[] input.data_;
 }
+
+BOOST_AUTO_TEST_CASE(serial_vs_parallel_two_iterations_) {
+  // setup
+  PaddedReferenceData local_ref(reference);
+  first_2_iterations local_guesses(local_guesses_of_2);
+
+  // padd the psi to the same shape as the input images
+  std::vector<int> shape_to_padd_with;
+  local_ref.min_kernel_shape(shape_to_padd_with);
+
+  workspace input;
+  input.data_ = 0;
+  fill_workspace(local_ref, input, local_guesses.lambda_,
+                 local_guesses.minValue_);
+  input.num_iterations_ = 1;
+  image_stack serial_psi = *local_guesses.padded_psi(0, shape_to_padd_with);
+  image_stack parallel_psi = serial_psi;
+
+  //serial
+  auto start = std::chrono::high_resolution_clock::now();
+  inplace_cpu_deconvolve(serial_psi.data(), input, 1);
+  auto serial_time = std::chrono::high_resolution_clock::now() - start;
+  
+  //parallel
+  start = std::chrono::high_resolution_clock::now();
+  inplace_cpu_deconvolve(parallel_psi.data(), input, boost::thread::hardware_concurrency());
+  auto parallel_time = std::chrono::high_resolution_clock::now() - start;
+  
+  BOOST_CHECK_EQUAL_COLLECTIONS(serial_psi.data(),
+				serial_psi.data() + serial_psi.num_elements(),
+				parallel_psi.data(),
+				parallel_psi.data() + parallel_psi.num_elements());
+
+  BOOST_CHECK_LT(std::chrono::duration_cast<std::chrono::microseconds>(parallel_time).count(),
+		 std::chrono::duration_cast<std::chrono::microseconds>(serial_time).count());
+  delete[] input.data_;
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

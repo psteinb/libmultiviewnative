@@ -45,12 +45,6 @@ FUNCTION_PREFIX void inplace_cpu_convolution(imageType* im, int* imDim,
                                              int nthreads);
 
 /*
-   Function for debug/benchmark purposes (not really needed in library
-*/
-FUNCTION_PREFIX void inplace_cpu_deconvolve_iteration(imageType* psi,
-                                                      workspace input,
-                                                      int nthreads);
-/*
    To be used for multi-view deconvolution
 */
 FUNCTION_PREFIX void inplace_cpu_deconvolve(imageType* psi, workspace input,
