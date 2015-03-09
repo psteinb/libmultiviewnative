@@ -34,6 +34,14 @@ unsigned long cufft_r2c_memory(const std::vector<unsigned>& _shape) {
   return value;
 }
 
+std::vector<int> cufft_r2c_shape(const std::vector<unsigned>& _shape){
+  
+  std::vector<int> value(_shape.begin(), _shape.end());
+  value[value.size()-1] = 2*(std::floor(_shape.back() / 2.) + 1);
+  return value;
+  
+}
+
 /**
    \brief calculates the expected memory consumption for an inplace r-2-c
    transform according to
@@ -54,6 +62,15 @@ unsigned long cufft_r2c_memory(Iter _shape_begin, Iter _shape_end) {
                                         std::multiplies<unsigned long>());
   value *= (std::floor(*(_shape_end - 1) / 2.) + 1) * sizeof(cufftComplex);
   return value;
+}
+
+template <typename Iter>
+std::vector<int> cufft_r2c_shape(Iter _shape_begin, Iter _shape_end) {
+
+  std::vector<int> value(_shape_begin, _shape_end);
+  value[value.size()-1] = 2*(std::floor(value.back() / 2.) + 1);
+  return value;
+  
 }
 
 /**
@@ -218,49 +235,75 @@ unsigned long cufft_3d_estimated_memory_consumption(
   return std::max(refined_requirement, coarse_requirement);
 }
 
-void batched_fft_excl_alloc(std::vector<multiviewnative::image_stack>& _stacks,
-			    float* _d_src_buffer,
-			    float* _d_dest_buffer = 0,
-			    cufftHandle* _plan = 0) {
+void batched_fft_synced(std::vector<multiviewnative::image_stack>& _stacks,
+			float* _d_src_buffer,
+			float* _d_dest_buffer = 0,
+			cufftHandle* _plan = 0) {
 
-  unsigned stack_size_in_byte = _stack.num_elements() * sizeof(float);
+  unsigned stack_size_in_byte = _stacks[0].num_elements() * sizeof(float);
 
-  HANDLE_ERROR(cudaHostRegister((void*)_stack.data(), stack_size_in_byte,
-                                cudaHostRegisterPortable));
-  HANDLE_ERROR(cudaMemcpy(_d_src_buffer, _stack.data(), stack_size_in_byte,
-                          cudaMemcpyHostToDevice));
 
   cufftComplex* dest_buffer = (cufftComplex*)_d_src_buffer;
   if (_d_dest_buffer) dest_buffer = (cufftComplex*)_d_dest_buffer;
 
-  // perform FFT
-  fft_excl_transfer_excl_alloc(_stack, _d_src_buffer, _d_dest_buffer, _plan);
+  for( multiviewnative::image_stack& stack : _stacks ){
+    HANDLE_ERROR(cudaHostRegister((void*)stack.data(), stack_size_in_byte,
+				  cudaHostRegisterPortable));
+    HANDLE_ERROR(cudaMemcpy(_d_src_buffer, stack.data(), stack_size_in_byte,
+			    cudaMemcpyHostToDevice));
+    
+    if (_d_dest_buffer)
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*_plan, _d_src_buffer, dest_buffer));
+    else
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*_plan, _d_src_buffer, dest_buffer));
 
-  // to host
-  if (_d_dest_buffer)
-    HANDLE_ERROR(cudaMemcpy((void*)_stack.data(), dest_buffer,
-                            stack_size_in_byte, cudaMemcpyDeviceToHost));
-  else
-    HANDLE_ERROR(cudaMemcpy((void*)_stack.data(), _d_src_buffer,
-                            stack_size_in_byte, cudaMemcpyDeviceToHost));
+    HANDLE_ERROR(cudaMemcpy(stack.data(), 
+			    (_d_dest_buffer ? _d_dest_buffer : _d_src_buffer),
+			    stack_size_in_byte,
+			    cudaMemcpyDeviceToHost));
 
-  HANDLE_ERROR(cudaHostUnregister((void*)_stack.data()));
-}
+    HANDLE_ERROR(cudaHostUnregister((void*)stack.data()));
+  }
 
-void batched_fft_incl_alloc(std::vector<multiviewnative::image_stack>& _stacks,
-			    float* _d_dest_buffer = 0,
-			    cufftHandle* _plan = 0) {
-
-  float* src_buffer = 0;
-  unsigned cufft_size_in_byte = cufft_r2c_memory(
-      &_stack.shape()[0],
-      &_stack.shape()[0] + multiviewnative::image_stack::dimensionality);
-  // alloc on device
-  HANDLE_ERROR(cudaMalloc((void**)&(src_buffer), cufft_size_in_byte));
-
-  batched_fft_excl_alloc(_stacks, src_buffer, _d_dest_buffer, _plan);
-  // to clean-up
-  HANDLE_ERROR(cudaFree(src_buffer));
   
 }
+
+void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks,
+			 float* _d_src_buffer,
+			 float* _d_dest_buffer = 0,
+			 cufftHandle* _plan = 0) {
+
+  unsigned stack_size_in_byte = _stacks[0].num_elements() * sizeof(float);
+  cufftComplex* dest_buffer = (cufftComplex*)_d_src_buffer;
+  if (_d_dest_buffer) dest_buffer = (cufftComplex*)_d_dest_buffer;
+  cufftReal* current_src = 0;
+  
+  for( multiviewnative::image_stack& stack : _stacks ){
+    HANDLE_ERROR(cudaHostRegister((void*)stack.data(), stack_size_in_byte,
+				  cudaHostRegisterPortable));
+    HANDLE_ERROR(cudaHostGetDevicePointer((void**)&current_src, (void*)stack.data(), 0));
+
+    if (_d_dest_buffer){
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*_plan, current_src, dest_buffer));
+      HANDLE_ERROR(cudaMemcpy(stack.data(), 
+			      _d_dest_buffer,
+			      stack_size_in_byte,
+			      cudaMemcpyDeviceToHost));
+    }
+    else
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*_plan, current_src, dest_buffer));
+
+    
+
+    HANDLE_ERROR(cudaHostUnregister((void*)stack.data()));
+  }
+  
+
+
+}
+
 #endif /* _CUDA_ND_FFT_H_ */

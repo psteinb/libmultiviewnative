@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <cctype>
 
 #include "boost/program_options.hpp"
 #include "synthetic_data.hpp"
@@ -24,11 +25,9 @@ namespace po = boost::program_options;
 int main(int argc, char* argv[]) {
 
   bool verbose = false;
-  bool with_transfers = false;
-  bool with_allocation = false;
   bool out_of_place = false;
-  bool use_global_plan = false;
   cufftHandle* global_plan = 0;
+  std::string tx_mode = "sync";
 
   int num_repeats = 5;
   std::string stack_dims = "";
@@ -37,18 +36,18 @@ int main(int argc, char* argv[]) {
 
   // clang-format off
   desc.add_options()("help,h", "produce help message")(
-      "verbose,v", "print lots of information in between")(
-      "with_transfers,t", "include host-device transfers in timings")(
-      "global_plan,g",
-      "use a global plan, rather than creating a plan everytime a "
-      "transformation is performed")("out-of-place,o",
-                                     "perform out-of-place transforms")(
-      "with_allocation,a", "include host-device memory allocation in timings")(
-      "stack_dimensions,s",
+      "verbose,v", "print lots of information in between")
+    ("global_plan,g",
+     "use a global plan, rather than creating a plan everytime a transformation is performed")
+    ("out-of-place,o","perform out-of-place transforms")
+    ("stack_dimensions,s",
       po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")(
-      "repeats,r", po::value<int>(&num_repeats)->default_value(10),
-      "number of repetitions per measurement");
+      "HxWxD of synthetic stacks to generate")
+    ("repeats,r", po::value<int>(&num_repeats)->default_value(10),
+      "number of repetitions per measurement")
+    ("tx_mode,t", po::value<std::string>(&tx_mode)->default_value("sync"),
+      "transfer mode of data (possible values: sync, async, man, evts)")
+    ;
   // clang-format on
 
   po::variables_map vm;
@@ -63,11 +62,18 @@ int main(int argc, char* argv[]) {
   }
 
   verbose = vm.count("verbose");
-  with_transfers = vm.count("with_transfers");
-  with_allocation = vm.count("with_allocation");
   out_of_place = vm.count("out-of-place");
-  use_global_plan = vm.count("global_plan");
+  
+  
+  for(char& c : tx_mode)
+    c = std::tolower(c);
 
+  if(!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "man" || tx_mode == "evts"))
+    {
+      std::cout << "transfer mode: " << tx_mode << " not supported";
+      return 1;
+    }
+  
   std::vector<unsigned> numeric_stack_dims;
   split<'x'>(stack_dims, numeric_stack_dims);
 
@@ -137,8 +143,6 @@ int main(int argc, char* argv[]) {
 
   if (verbose) {
     std::cout << "[config]\t"
-              << ((with_allocation) ? "incl_alloc" : "excl_alloc") << " "
-              << ((with_transfers) ? "incl_tx" : "excl_tx") << " "
               << ((out_of_place) ? "out-of-place" : "inplace") << " "
               << "global_plan "
               << "\n";
@@ -150,14 +154,16 @@ int main(int argc, char* argv[]) {
   double time_ms = 0.f;
   float* d_dest_buffer = 0;
   const unsigned fft_size_in_byte_ = cufft_r2c_memory(numeric_stack_dims);
+  std::vector<int> fft_reshaped = cufft_r2c_shape(numeric_stack_dims);
+
   if (out_of_place)
     HANDLE_ERROR(cudaMalloc((void**)&(d_dest_buffer), fft_size_in_byte_));
-
-  //////////////////////////////////////////////////////////////////////////////
-  // do not include allocations in time measurement
-  if (!with_allocation) {
-
-    float* d_src_buffer = 0;
+  else{
+    for( multiviewnative::image_stack& stack : stacks )
+      stack.resize(fft_reshaped);
+  }
+  
+  float* d_src_buffer = 0;
 
     if (out_of_place)
       HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), data_size_byte));
@@ -168,43 +174,59 @@ int main(int argc, char* argv[]) {
     fft_incl_transfer_excl_alloc(stacks[0], d_src_buffer,
                                  out_of_place ? d_dest_buffer : 0,
                                  global_plan);
+    //undo warm-up
+    stacks[0] = stacks[1];
+    
+  //////////////////////////////////////////////////////////////////////////////
+  // do not include allocations in time measurement
+  if (tx_mode == "sync") {
 
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       cpu_timer timer;
-      batched_fft_excl_alloc(stacks, d_src_buffer,
-			     out_of_place ? d_dest_buffer : 0,
-			     global_plan);
+      batched_fft_synced(stacks, 
+			 d_src_buffer,
+			 out_of_place ? d_dest_buffer : 0,
+			 global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << r << "\t"
+        std::cout << "synced  "
+		  << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
     }
     cudaProfilerStop();
 
-    HANDLE_ERROR(cudaFree(d_src_buffer));
 
-  } else {
-    with_transfers = true;
-    // warm-up
-    fft_incl_transfer_incl_alloc(data.stack_, out_of_place ? d_dest_buffer : 0,
-                                 global_plan);
-    // timing should include allocation, which requires including transfers
+  } 
+  
+  if (tx_mode == "man"){
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, device_id);
+    if (!prop.canMapHostMemory) {
+      std::cerr << "device " << device_id << " cannot map host memory";
+      return 1;
+    }
+    else {
+      HANDLE_ERROR(cudaSetDeviceFlags(cudaDeviceMapHost));
+    }
+    
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       cpu_timer timer;
-      batched_fft_incl_alloc(stacks,
-			     out_of_place ? d_dest_buffer : 0,
-			     global_plan);
+      batched_fft_managed(stacks, 
+			 d_src_buffer,
+			 out_of_place ? d_dest_buffer : 0,
+			 global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << r << "\t"
+        std::cout << "managed "
+		  << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
@@ -212,6 +234,8 @@ int main(int argc, char* argv[]) {
     cudaProfilerStop();
   }
 
+  HANDLE_ERROR(cudaFree(d_src_buffer));
+  
   if (out_of_place) HANDLE_ERROR(cudaFree(d_dest_buffer));
 
   HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
@@ -223,9 +247,8 @@ int main(int argc, char* argv[]) {
   if (verbose) print_header();
 
   std::stringstream comments;
-  comments << ((with_allocation) ? "incl_alloc" : "excl_alloc") << ","
-           << ((with_transfers) ? "incl_tx" : "excl_tx") << ","
-           << ((out_of_place) ? "out-of-place" : "inplace") << " "
+  comments << tx_mode << " "
+	   << ((out_of_place) ? "out-of-place" : "inplace") << " "
            << "global_plan";
 
   print_info(1, __FILE__, device_name, num_repeats, time_ms, numeric_stack_dims,
