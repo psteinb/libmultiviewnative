@@ -36,22 +36,20 @@ int main(int argc, char* argv[]) {
   po::options_description desc("Allowed options");
 
   // clang-format off
-  desc.add_options()
-    ("help,h", "produce help message")
-    ("verbose,v", "print lots of information in between")
-    ("with_transfers,t", "include host-device transfers in timings")
-    ("global_plan,g","use a global plan, rather than creating a plan everytime a transformation is performed")
-    ("out-of-place,o","perform out-of-place transforms")
-    ("with_allocation,a", "include host-device memory allocation in timings")
-
-    ("stack_dimensions,s",
+  desc.add_options()("help,h", "produce help message")(
+      "verbose,v", "print lots of information in between")(
+      "with_transfers,t", "include host-device transfers in timings")(
+      "global_plan,g",
+      "use a global plan, rather than creating a plan everytime a "
+      "transformation is performed")("out-of-place,o",
+                                     "perform out-of-place transforms")(
+      "with_allocation,a", "include host-device memory allocation in timings")(
+      "stack_dimensions,s",
       po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")
-    
-    ("repeats,r", po::value<int>(&num_repeats)->default_value(10),
-      "number of repetitions per measurement")
-    ;
-  //clang-format on
+      "HxWxD of synthetic stacks to generate")(
+      "repeats,r", po::value<int>(&num_repeats)->default_value(10),
+      "number of repetitions per measurement");
+  // clang-format on
 
   po::variables_map vm;
 
@@ -87,6 +85,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  // estimate memory
+
   int device_id = selectDeviceWithHighestComputeCapability();
   HANDLE_ERROR(cudaSetDevice(device_id));
   unsigned long cufft_extra_space =
@@ -113,26 +114,33 @@ int main(int argc, char* argv[]) {
                 << " MB), available: " << av_mem_mb << " MB\n";
   }
 
-  if (use_global_plan) {
-    global_plan = new cufftHandle;
+  //////////////////////////////////////////////////////////////////////////////
+  // PLAN
 
-    HANDLE_CUFFT_ERROR(cufftPlan3d(global_plan, (int)numeric_stack_dims[0],
-                                   (int)numeric_stack_dims[1],
-                                   (int)numeric_stack_dims[2], CUFFT_R2C));
+  global_plan = new cufftHandle;
 
-    HANDLE_CUFFT_ERROR(
-        cufftSetCompatibilityMode(*global_plan, CUFFT_COMPATIBILITY_NATIVE));
-  }
+  HANDLE_CUFFT_ERROR(cufftPlan3d(global_plan, (int)numeric_stack_dims[0],
+                                 (int)numeric_stack_dims[1],
+                                 (int)numeric_stack_dims[2], CUFFT_R2C));
 
+  HANDLE_CUFFT_ERROR(
+      cufftSetCompatibilityMode(*global_plan, CUFFT_COMPATIBILITY_NATIVE));
+
+  //////////////////////////////////////////////////////////////////////////////
+  // generate data
   multiviewnative::image_kernel_data data(numeric_stack_dims);
   std::random_shuffle(data.stack_.data(),
                       data.stack_.data() + data.stack_.num_elements());
+
+  static const int num_stacks = 8;
+  std::vector<multiviewnative::image_stack> stacks(num_stacks, data.stack_);
+
   if (verbose) {
     std::cout << "[config]\t"
               << ((with_allocation) ? "incl_alloc" : "excl_alloc") << " "
               << ((with_transfers) ? "incl_tx" : "excl_tx") << " "
               << ((out_of_place) ? "out-of-place" : "inplace") << " "
-              << ((use_global_plan) ? "global plans" : "local plans") << " "
+              << "global_plan "
               << "\n";
     data.info();
   }
@@ -145,6 +153,8 @@ int main(int argc, char* argv[]) {
   if (out_of_place)
     HANDLE_ERROR(cudaMalloc((void**)&(d_dest_buffer), fft_size_in_byte_));
 
+  //////////////////////////////////////////////////////////////////////////////
+  // do not include allocations in time measurement
   if (!with_allocation) {
 
     float* d_src_buffer = 0;
@@ -154,64 +164,27 @@ int main(int argc, char* argv[]) {
     else
       HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), fft_size_in_byte_));
 
-    if (with_transfers) {
-      // warm-up
-      fft_incl_transfer_excl_alloc(data.stack_, d_src_buffer,
-                                   out_of_place ? d_dest_buffer : 0,
-                                   use_global_plan ? global_plan : 0);
+    // warm-up
+    fft_incl_transfer_excl_alloc(stacks[0], d_src_buffer,
+                                 out_of_place ? d_dest_buffer : 0,
+                                 global_plan);
 
-      cudaProfilerStart();
-      for (int r = 0; r < num_repeats; ++r) {
-        cpu_timer timer;
-        fft_incl_transfer_excl_alloc(data.stack_, d_src_buffer,
-                                     out_of_place ? d_dest_buffer : 0,
-                                     use_global_plan ? global_plan : 0);
-        durations[r] = timer.elapsed();
+    cudaProfilerStart();
+    for (int r = 0; r < num_repeats; ++r) {
+      cpu_timer timer;
+      batched_fft_excl_alloc(stacks, d_src_buffer,
+			     out_of_place ? d_dest_buffer : 0,
+			     global_plan);
+      durations[r] = timer.elapsed();
 
-        time_ms += double(durations[r].system + durations[r].user) / 1e6;
-        if (verbose) {
-          std::cout << r << "\t"
-                    << double(durations[r].system + durations[r].user) / 1e6
-                    << " ms\n";
-        }
+      time_ms += double(durations[r].system + durations[r].user) / 1e6;
+      if (verbose) {
+        std::cout << r << "\t"
+                  << double(durations[r].system + durations[r].user) / 1e6
+                  << " ms\n";
       }
-      cudaProfilerStop();
-
-    } else {
-
-      unsigned stack_size_in_byte = data.stack_.num_elements() * sizeof(float);
-      HANDLE_ERROR(cudaHostRegister((void*)data.stack_.data(),
-                                    stack_size_in_byte,
-                                    cudaHostRegisterPortable));
-      HANDLE_ERROR(cudaMemcpy(d_src_buffer, data.stack_.data(),
-                              stack_size_in_byte, cudaMemcpyHostToDevice));
-      // warm-up
-      fft_excl_transfer_excl_alloc(data.stack_, d_src_buffer,
-                                   out_of_place ? d_dest_buffer : 0,
-                                   use_global_plan ? global_plan : 0);
-
-      cudaProfilerStart();
-      for (int r = 0; r < num_repeats; ++r) {
-        cpu_timer timer;
-        fft_excl_transfer_excl_alloc(data.stack_, d_src_buffer,
-                                     out_of_place ? d_dest_buffer : 0,
-                                     use_global_plan ? global_plan : 0);
-        durations[r] = timer.elapsed();
-
-        time_ms += double(durations[r].system + durations[r].user) / 1e6;
-        if (verbose) {
-          std::cout << r << "\t"
-                    << double(durations[r].system + durations[r].user) / 1e6
-                    << " ms\n";
-        }
-      }
-      cudaProfilerStop();
-
-      // to host
-      HANDLE_ERROR(cudaMemcpy((void*)data.stack_.data(), d_src_buffer,
-                              stack_size_in_byte, cudaMemcpyDeviceToHost));
-      HANDLE_ERROR(cudaHostUnregister((void*)data.stack_.data()));
     }
+    cudaProfilerStop();
 
     HANDLE_ERROR(cudaFree(d_src_buffer));
 
@@ -219,14 +192,14 @@ int main(int argc, char* argv[]) {
     with_transfers = true;
     // warm-up
     fft_incl_transfer_incl_alloc(data.stack_, out_of_place ? d_dest_buffer : 0,
-                                 use_global_plan ? global_plan : 0);
+                                 global_plan);
     // timing should include allocation, which requires including transfers
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       cpu_timer timer;
-      fft_incl_transfer_incl_alloc(data.stack_,
-                                   out_of_place ? d_dest_buffer : 0,
-                                   use_global_plan ? global_plan : 0);
+      batched_fft_incl_alloc(data.stack_,
+			     out_of_place ? d_dest_buffer : 0,
+			     global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
@@ -241,25 +214,22 @@ int main(int argc, char* argv[]) {
 
   if (out_of_place) HANDLE_ERROR(cudaFree(d_dest_buffer));
 
-  if (use_global_plan) {
-    HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
-    delete global_plan;
-  }
+  HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
+  delete global_plan;
 
-  
   std::string device_name = get_cuda_device_name(device_id);
   std::replace(device_name.begin(), device_name.end(), ' ', '_');
-  
-  if(verbose)
-    print_header();
+
+  if (verbose) print_header();
 
   std::stringstream comments;
   comments << ((with_allocation) ? "incl_alloc" : "excl_alloc") << ","
-	   << ((with_transfers) ? "incl_tx" : "excl_tx") << ","
-	   << ((out_of_place) ? "out-of-place" : "inplace") ;
+           << ((with_transfers) ? "incl_tx" : "excl_tx") << ","
+           << ((out_of_place) ? "out-of-place" : "inplace") << " "
+           << "global_plan";
 
-  print_info(1,__FILE__,device_name,num_repeats,time_ms,numeric_stack_dims,sizeof(float),comments.str());
-
+  print_info(1, __FILE__, device_name, num_repeats, time_ms, numeric_stack_dims,
+             sizeof(float), comments.str());
 
   return 0;
 }

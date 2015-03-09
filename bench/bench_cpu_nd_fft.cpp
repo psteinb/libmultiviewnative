@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
     delete global_plan;
   }
 
-  static const std::string device_name = "CPU";
+  static const std::string implementation_name = __FILE__;
 
   if(verbose)
     print_header();
@@ -247,7 +247,7 @@ int main(int argc, char* argv[]) {
   comments += ((out_of_place) ? ",out-of-place" : ",inplace");
   
   print_info(num_threads,
-	     device_name,
+	     implementation_name,
 	     cpu_name,
 	     num_repeats,
 	     time_ns.count() / double(1e6),

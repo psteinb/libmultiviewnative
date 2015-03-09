@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(deconvolve_all_cpus_lambda_6) {
 
   std::string comments = "";
   print_info(boost::thread::hardware_concurrency(),
-	     "CPU", 
+	     __FILE__, 
 	     "NA",
 	     num_repeats,
 	     std::chrono::duration_cast<std::chrono::milliseconds>(parallel_time).count(),

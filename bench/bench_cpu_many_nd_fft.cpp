@@ -227,14 +227,14 @@ int main(int argc, char* argv[]) {
   fftw_api::destroy_plan(*global_plan);
   delete global_plan;
 
-  std::string device_name = "CPU";
+  std::string implementation_name = __FILE__;
   std::string comments = "";
   
   if(verbose)
     print_header();
 
   print_info(num_threads,
-	     device_name,
+	     implementation_name,
 	     cpu_name,
 	     num_repeats,
 	     time_ns.count() / double(1e6),
