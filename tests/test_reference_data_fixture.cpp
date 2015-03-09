@@ -1,4 +1,4 @@
-#define BOOST_TEST_DYN_LINK 
+#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TEST_REFERENCE_DATA_FIXTURE
 #include "boost/test/unit_test.hpp"
 #include <boost/filesystem.hpp>
@@ -11,114 +11,95 @@ namespace fs = boost::filesystem;
 
 static const multiviewnative::ReferenceData ref;
 
-BOOST_AUTO_TEST_SUITE( ref_suite )
-   
-BOOST_AUTO_TEST_CASE( ref_paths_not_empty )
-{
+BOOST_AUTO_TEST_SUITE(ref_suite)
+
+BOOST_AUTO_TEST_CASE(ref_paths_not_empty) {
   multiviewnative::ReferenceData local_ref(ref);
 
-  for(int i = 0;i<6;i++)
-    BOOST_CHECK_MESSAGE(local_ref.views_[i].image_path_.str().empty()!=true, "ref view " << i << " not loaded");
-
+  for (int i = 0; i < 6; i++)
+    BOOST_CHECK_MESSAGE(local_ref.views_[i].image_path_.str().empty() != true,
+                        "ref view " << i << " not loaded");
 }
 
-BOOST_AUTO_TEST_CASE( ref_stacks_equal )
-{
+BOOST_AUTO_TEST_CASE(ref_stacks_equal) {
   multiviewnative::ReferenceData local_ref(ref);
 
-  for(int i = 0;i<6;i++)
-    BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(),ref.views_[i].image()->num_elements());
-
+  for (int i = 0; i < 6; i++)
+    BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(),
+                      ref.views_[i].image()->num_elements());
 }
 
-BOOST_AUTO_TEST_CASE( ref_stacks_equal_views_files )
-{
+BOOST_AUTO_TEST_CASE(ref_stacks_equal_views_files) {
   multiviewnative::ReferenceData local_ref(ref);
   std::stringstream path("");
-  for(int i = 0;i<6;i++){
+  for (int i = 0; i < 6; i++) {
     path.str("");
-    path << multiviewnative::path_to_test_images << "image_view_" << i << ".tif";
+    path << multiviewnative::path_to_test_images << "image_view_" << i
+         << ".tif";
     multiviewnative::tiff_stack current(path.str());
 
-    
-    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
-					      local_ref.views_[i].image()->data(),
-					      local_ref.views_[i].image()->num_elements()),
-		      0.,
-		      1e-2
-		      );
-
+    BOOST_CHECK_CLOSE(
+        multiviewnative::l2norm(current.stack_.data(),
+                                local_ref.views_[i].image()->data(),
+                                local_ref.views_[i].image()->num_elements()),
+        0., 1e-2);
   }
-
 }
 
-BOOST_AUTO_TEST_CASE( ref_stacks_equal_kernel1_files )
-{
+BOOST_AUTO_TEST_CASE(ref_stacks_equal_kernel1_files) {
   multiviewnative::ReferenceData local_ref(ref);
   std::stringstream path("");
-  for(int i = 0;i<6;i++){
+  for (int i = 0; i < 6; i++) {
     path.str("");
-    path << multiviewnative::path_to_test_images << "kernel1_view_" << i << ".tif";
+    path << multiviewnative::path_to_test_images << "kernel1_view_" << i
+         << ".tif";
     multiviewnative::tiff_stack current(path.str());
 
-    
-    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
-					      local_ref.views_[i].kernel1()->data(),
-					      local_ref.views_[i].kernel1()->num_elements()),
-		      0.,
-		      1e-2
-		      );
-
+    BOOST_CHECK_CLOSE(
+        multiviewnative::l2norm(current.stack_.data(),
+                                local_ref.views_[i].kernel1()->data(),
+                                local_ref.views_[i].kernel1()->num_elements()),
+        0., 1e-2);
   }
-
 }
 
-BOOST_AUTO_TEST_CASE( ref_stacks_equal_kernel2_files )
-{
+BOOST_AUTO_TEST_CASE(ref_stacks_equal_kernel2_files) {
   multiviewnative::ReferenceData local_ref(ref);
   std::stringstream path("");
-  for(int i = 0;i<6;i++){
+  for (int i = 0; i < 6; i++) {
     path.str("");
-    path << multiviewnative::path_to_test_images << "kernel2_view_" << i << ".tif";
+    path << multiviewnative::path_to_test_images << "kernel2_view_" << i
+         << ".tif";
     multiviewnative::tiff_stack current(path.str());
 
-    
-    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
-					      local_ref.views_[i].kernel2()->data(),
-					      local_ref.views_[i].kernel2()->num_elements()),
-		      0.,
-		      1e-2
-		      );
-
+    BOOST_CHECK_CLOSE(
+        multiviewnative::l2norm(current.stack_.data(),
+                                local_ref.views_[i].kernel2()->data(),
+                                local_ref.views_[i].kernel2()->num_elements()),
+        0., 1e-2);
   }
-
 }
 
-BOOST_AUTO_TEST_CASE( ref_stacks_equal_weights_files )
-{
+BOOST_AUTO_TEST_CASE(ref_stacks_equal_weights_files) {
   multiviewnative::ReferenceData local_ref(ref);
   std::stringstream path("");
-  for(int i = 0;i<6;i++){
+  for (int i = 0; i < 6; i++) {
     path.str("");
-    path << multiviewnative::path_to_test_images << "weights_view_" << i << ".tif";
+    path << multiviewnative::path_to_test_images << "weights_view_" << i
+         << ".tif";
     multiviewnative::tiff_stack current(path.str());
 
-    
-    BOOST_CHECK_CLOSE(multiviewnative::l2norm(current.stack_.data(), 
-					      local_ref.views_[i].weights()->data(),
-					      local_ref.views_[i].weights()->num_elements()),
-		      0.,
-		      1e-2
-		      );
-
+    BOOST_CHECK_CLOSE(
+        multiviewnative::l2norm(current.stack_.data(),
+                                local_ref.views_[i].weights()->data(),
+                                local_ref.views_[i].weights()->num_elements()),
+        0., 1e-2);
   }
-
 }
 BOOST_AUTO_TEST_SUITE_END()
 
-BOOST_AUTO_TEST_SUITE( convert_suite )
-BOOST_AUTO_TEST_CASE( workspace_data_nonzero )
-{
+BOOST_AUTO_TEST_SUITE(convert_suite)
+BOOST_AUTO_TEST_CASE(workspace_data_nonzero) {
   multiviewnative::ReferenceData local_ref(ref);
 
   workspace input;
@@ -127,19 +108,28 @@ BOOST_AUTO_TEST_CASE( workspace_data_nonzero )
 
   BOOST_CHECK_MESSAGE(input.data_, "input data was not created");
 
-  for(int i = 0;i<6;i++){
-    BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(), (unsigned)input.data_[i].image_dims_[0]*input.data_[i].image_dims_[1]*input.data_[i].image_dims_[2]);
+  for (int i = 0; i < 6; i++) {
+    BOOST_CHECK_EQUAL(local_ref.views_[i].image()->num_elements(),
+                      (unsigned)input.data_[i].image_dims_[0] *
+                          input.data_[i].image_dims_[1] *
+                          input.data_[i].image_dims_[2]);
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(local_ref.views_[i].image()->data(), local_ref.views_[i].image()->data()+64, 
-				  &input.data_[i].image_[0], &input.data_[i].image_[0] + 64);
+    BOOST_CHECK_EQUAL_COLLECTIONS(local_ref.views_[i].image()->data(),
+                                  local_ref.views_[i].image()->data() + 64,
+                                  &input.data_[i].image_[0],
+                                  &input.data_[i].image_[0] + 64);
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(local_ref.views_[i].image()->data() + local_ref.views_[i].image()->num_elements() - 64, 
-				  local_ref.views_[i].image()->data()+local_ref.views_[i].image()->num_elements(),  
-				  &input.data_[i].image_[0]+local_ref.views_[i].image()->num_elements() - 64, 
-				  &input.data_[i].image_[0]+local_ref.views_[i].image()->num_elements());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        local_ref.views_[i].image()->data() +
+            local_ref.views_[i].image()->num_elements() - 64,
+        local_ref.views_[i].image()->data() +
+            local_ref.views_[i].image()->num_elements(),
+        &input.data_[i].image_[0] +
+            local_ref.views_[i].image()->num_elements() - 64,
+        &input.data_[i].image_[0] +
+            local_ref.views_[i].image()->num_elements());
   }
 
-  delete [] input.data_;
-
+  delete[] input.data_;
 }
 BOOST_AUTO_TEST_SUITE_END()
