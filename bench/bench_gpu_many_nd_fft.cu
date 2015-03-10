@@ -146,6 +146,7 @@ int main(int argc, char* argv[]) {
   multiviewnative::image_kernel_data data(numeric_stack_dims);
   std::random_shuffle(data.stack_.data(),
                       data.stack_.data() + data.stack_.num_elements());
+  
 
   static const int num_stacks = 8;
   std::vector<multiviewnative::image_stack> stacks(num_stacks, data.stack_);
@@ -154,8 +155,8 @@ int main(int argc, char* argv[]) {
     std::cout << "[config]\t" << ((out_of_place) ? "out-of-place" : "inplace")
               << " "
               << "global_plan "
+	      << tx_mode << " "
               << "\n";
-    data.info();
   }
 
   std::vector<cpu_times> durations(num_repeats);
@@ -164,12 +165,23 @@ int main(int argc, char* argv[]) {
   float* d_dest_buffer = 0;
   const unsigned fft_size_in_byte_ = cufft_r2c_memory(numeric_stack_dims);
   std::vector<int> fft_reshaped = cufft_r2c_shape(numeric_stack_dims);
+  
 
   if (out_of_place)
     HANDLE_ERROR(cudaMalloc((void**)&(d_dest_buffer), fft_size_in_byte_));
   else {
     for (multiviewnative::image_stack& stack : stacks)
       stack.resize(fft_reshaped);
+
+  }
+  if(verbose){
+    std::cout << "[fftshape]\t" 
+	      << fft_reshaped[0] << "x"
+	      << fft_reshaped[1] << "x"
+      	      << fft_reshaped[2] << "\n[stackshape] "
+	      << stacks[0].shape()[0] << "x"
+	      << stacks[0].shape()[1] << "x"
+      	      << stacks[0].shape()[2] << "\n";
   }
 
   float* d_src_buffer = 0;
@@ -180,10 +192,12 @@ int main(int argc, char* argv[]) {
     HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), fft_size_in_byte_));
 
   // warm-up
-  fft_incl_transfer_excl_alloc(stacks[0], d_src_buffer,
-                               out_of_place ? d_dest_buffer : 0, global_plan);
-  // undo warm-up
-  stacks[0] = stacks[1];
+  multiviewnative::image_stack reference = stacks[0];
+  multiviewnative::image_stack raw = stacks[0];
+  fft_incl_transfer_excl_alloc(reference, 
+			       d_src_buffer,
+                               out_of_place ? d_dest_buffer : 0, 
+			       global_plan);
 
   //////////////////////////////////////////////////////////////////////////////
   // do not include allocations in time measurement
@@ -191,6 +205,7 @@ int main(int argc, char* argv[]) {
 
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
+      std::fill(stacks.begin(), stacks.end(), raw);
       cpu_timer timer;
       batched_fft_synced(stacks, d_src_buffer, out_of_place ? d_dest_buffer : 0,
                          global_plan);
@@ -202,14 +217,18 @@ int main(int argc, char* argv[]) {
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
+      
     }
     cudaProfilerStop();
+
+
   }
 
   if (tx_mode == "man") {
 
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
+      std::fill(stacks.begin(), stacks.end(), raw);
       cpu_timer timer;
       batched_fft_managed(stacks, d_src_buffer,
                           out_of_place ? d_dest_buffer : 0, global_plan);
@@ -221,8 +240,46 @@ int main(int argc, char* argv[]) {
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
+      
     }
     cudaProfilerStop();
+  }
+
+  if (tx_mode == "async") {
+
+    cudaProfilerStart();
+    for (int r = 0; r < num_repeats; ++r) {
+      std::fill(stacks.begin(), stacks.end(), raw);
+      cpu_timer timer;
+      batched_fft_async(stacks, d_src_buffer,
+                          out_of_place ? d_dest_buffer : 0, global_plan);
+      durations[r] = timer.elapsed();
+
+      time_ms += double(durations[r].system + durations[r].user) / 1e6;
+      if (verbose) {
+        std::cout << "async " << r << "\t"
+                  << double(durations[r].system + durations[r].user) / 1e6
+                  << " ms\n";
+      }
+      
+    }
+    cudaProfilerStop();
+  }
+  //check if all transforms worked as expected
+  double ref_sum = std::accumulate(reference.data(), reference.data() + reference.num_elements()/4, 0.);
+  double running_sum = 0.;
+  unsigned matching_results = 0;
+  int count = 0;
+  for ( const multiviewnative::image_stack& stack : stacks ){
+    running_sum = std::accumulate(stack.data(), stack.data() + stack.num_elements()/4, 0.);
+    if(std::abs(running_sum - ref_sum)/ref_sum < 1e-2)
+      matching_results++;
+    if(verbose)
+      std::cout << "checksum " << count++ << " " << running_sum << " (ref: " << ref_sum << ")\n";
+  }
+
+  if(matching_results!=stacks.size()){
+    std::cerr << "ERROR! results do not validate, only " << matching_results << "/"<< stacks.size()<<" image stacks comply with reference\n";
   }
 
   HANDLE_ERROR(cudaFree(d_src_buffer));

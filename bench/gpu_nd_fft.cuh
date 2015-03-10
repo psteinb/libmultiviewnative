@@ -151,12 +151,12 @@ void fft_incl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
   fft_excl_transfer_excl_alloc(_stack, _d_src_buffer, _d_dest_buffer, _plan);
 
   // to host
-  if (_d_dest_buffer)
+  // if (_d_dest_buffer)
     HANDLE_ERROR(cudaMemcpy((void*)_stack.data(), dest_buffer,
                             stack_size_in_byte, cudaMemcpyDeviceToHost));
-  else
-    HANDLE_ERROR(cudaMemcpy((void*)_stack.data(), _d_src_buffer,
-                            stack_size_in_byte, cudaMemcpyDeviceToHost));
+  // else
+  //   HANDLE_ERROR(cudaMemcpy((void*)_stack.data(), _d_src_buffer,
+  //                           stack_size_in_byte, cudaMemcpyDeviceToHost));
 
   HANDLE_ERROR(cudaHostUnregister((void*)_stack.data()));
 }
@@ -252,12 +252,9 @@ void batched_fft_synced(std::vector<multiviewnative::image_stack>& _stacks,
     HANDLE_ERROR(cudaMemcpy(_d_src_buffer, stack.data(), stack_size_in_byte,
 			    cudaMemcpyHostToDevice));
     
-    if (_d_dest_buffer)
-      HANDLE_CUFFT_ERROR(
-			 cufftExecR2C(*_plan, _d_src_buffer, dest_buffer));
-    else
-      HANDLE_CUFFT_ERROR(
-			 cufftExecR2C(*_plan, _d_src_buffer, dest_buffer));
+    HANDLE_CUFFT_ERROR(
+		       cufftExecR2C(*_plan, _d_src_buffer, dest_buffer));
+
 
     HANDLE_ERROR(cudaMemcpy(stack.data(), 
 			    (_d_dest_buffer ? _d_dest_buffer : _d_src_buffer),
@@ -295,9 +292,9 @@ void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks,
     }
     else
       HANDLE_CUFFT_ERROR(
-			 cufftExecR2C(*_plan, current_src, dest_buffer));
+			 cufftExecR2C(*_plan, current_src, (cufftComplex*)current_src));
 
-    
+    //    HANDLE_ERROR(cudaDeviceSynchronize());
 
     HANDLE_ERROR(cudaHostUnregister((void*)stack.data()));
   }
@@ -305,5 +302,62 @@ void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks,
 
 
 }
+
+void batched_fft_async(std::vector<multiviewnative::image_stack>& _stacks,
+		       float* _d_src_buffer,
+		       float* _d_dest_buffer = 0,
+		       cufftHandle* _plan = 0) {
+
+  unsigned stack_size_in_byte = _stacks[0].num_elements() * sizeof(float);
+  cufftComplex* dest_buffer = (cufftComplex*)_d_src_buffer;
+  if (_d_dest_buffer) dest_buffer = (cufftComplex*)_d_dest_buffer;
+  
+  
+  std::vector<cudaStream_t*> streams(_stacks.size());
+
+  for( unsigned count = 0;count < _stacks.size();++count ){
+    HANDLE_ERROR(cudaHostRegister((void*)_stacks[count].data(), 
+				  stack_size_in_byte,
+				  cudaHostRegisterPortable));
+    streams[count] = new cudaStream_t;
+    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+  
+  }
+
+  
+  for( unsigned count = 0;count < _stacks.size();++count ){
+    HANDLE_ERROR(cudaMemcpyAsync(_d_src_buffer,
+				 _stacks[count].data(), 
+				 stack_size_in_byte,
+				 cudaMemcpyHostToDevice,
+				 *streams[count]
+				 ));
+    
+    HANDLE_CUFFT_ERROR(cufftSetStream(*_plan,				 
+				      *streams[count] 
+				      )
+		       );
+
+    HANDLE_CUFFT_ERROR(
+		       cufftExecR2C(*_plan, _d_src_buffer, dest_buffer));
+      
+    HANDLE_ERROR(cudaMemcpyAsync(_stacks[count].data(), 
+				 dest_buffer,
+				 stack_size_in_byte,
+				 cudaMemcpyDeviceToHost,
+				 *streams[count])
+		 );
+  }
+   
+  for (unsigned count = 0;count < _stacks.size();++count){
+    HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
+    HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
+    HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
+  }
+  
+
+
+}
+
 
 #endif /* _CUDA_ND_FFT_H_ */
