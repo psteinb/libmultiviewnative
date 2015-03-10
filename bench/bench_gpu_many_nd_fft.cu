@@ -35,19 +35,18 @@ int main(int argc, char* argv[]) {
   po::options_description desc("Allowed options");
 
   // clang-format off
-  desc.add_options()("help,h", "produce help message")(
-      "verbose,v", "print lots of information in between")
-    ("global_plan,g",
-     "use a global plan, rather than creating a plan everytime a transformation is performed")
-    ("out-of-place,o","perform out-of-place transforms")
-    ("stack_dimensions,s",
-      po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")
-    ("repeats,r", po::value<int>(&num_repeats)->default_value(10),
-      "number of repetitions per measurement")
-    ("tx_mode,t", po::value<std::string>(&tx_mode)->default_value("sync"),
-      "transfer mode of data (possible values: sync, async, man, evts)")
-    ;
+  desc.add_options()                                                          //
+      ("help,h", "produce help message")                                      //
+      ("verbose,v", "print lots of information in between")                   //
+      ("out-of-place,o", "perform out-of-place transforms")                   //
+      ("stack_dimensions,s",                                                  //
+       po::value<std::string>(&stack_dims)->default_value("512x512x64"),      //
+       "DxHxW of synthetic stacks to generate")                               //
+      ("repeats,r", po::value<int>(&num_repeats)->default_value(10),          //
+       "number of repetitions per measurement")                               //
+      ("tx_mode,t", po::value<std::string>(&tx_mode)->default_value("sync"),  //
+       "transfer mode of data\n(possible values: sync, async, man, evts)")    //
+      ;                                                                       //
   // clang-format on
 
   po::variables_map vm;
@@ -63,17 +62,15 @@ int main(int argc, char* argv[]) {
 
   verbose = vm.count("verbose");
   out_of_place = vm.count("out-of-place");
-  
-  
-  for(char& c : tx_mode)
-    c = std::tolower(c);
 
-  if(!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "man" || tx_mode == "evts"))
-    {
-      std::cout << "transfer mode: " << tx_mode << " not supported";
-      return 1;
-    }
-  
+  for (char& c : tx_mode) c = std::tolower(c);
+
+  if (!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "man" ||
+        tx_mode == "evts")) {
+    std::cout << "transfer mode: " << tx_mode << " not supported";
+    return 1;
+  }
+
   std::vector<unsigned> numeric_stack_dims;
   split<'x'>(stack_dims, numeric_stack_dims);
 
@@ -92,9 +89,21 @@ int main(int argc, char* argv[]) {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  // set device flags
+  int device_id = selectDeviceWithHighestComputeCapability();
+  if (tx_mode == "man") {
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, device_id);
+    if (!prop.canMapHostMemory) {
+      std::cerr << "device " << device_id << " cannot map host memory";
+      return 1;
+    } else {
+      HANDLE_ERROR(cudaSetDeviceFlags(cudaDeviceMapHost));
+    }
+  }
+  //////////////////////////////////////////////////////////////////////////////
   // estimate memory
 
-  int device_id = selectDeviceWithHighestComputeCapability();
   HANDLE_ERROR(cudaSetDevice(device_id));
   unsigned long cufft_extra_space =
       cufft_3d_estimated_memory_consumption(numeric_stack_dims);
@@ -142,8 +151,8 @@ int main(int argc, char* argv[]) {
   std::vector<multiviewnative::image_stack> stacks(num_stacks, data.stack_);
 
   if (verbose) {
-    std::cout << "[config]\t"
-              << ((out_of_place) ? "out-of-place" : "inplace") << " "
+    std::cout << "[config]\t" << ((out_of_place) ? "out-of-place" : "inplace")
+              << " "
               << "global_plan "
               << "\n";
     data.info();
@@ -158,25 +167,24 @@ int main(int argc, char* argv[]) {
 
   if (out_of_place)
     HANDLE_ERROR(cudaMalloc((void**)&(d_dest_buffer), fft_size_in_byte_));
-  else{
-    for( multiviewnative::image_stack& stack : stacks )
+  else {
+    for (multiviewnative::image_stack& stack : stacks)
       stack.resize(fft_reshaped);
   }
-  
+
   float* d_src_buffer = 0;
 
-    if (out_of_place)
-      HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), data_size_byte));
-    else
-      HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), fft_size_in_byte_));
+  if (out_of_place)
+    HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), data_size_byte));
+  else
+    HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), fft_size_in_byte_));
 
-    // warm-up
-    fft_incl_transfer_excl_alloc(stacks[0], d_src_buffer,
-                                 out_of_place ? d_dest_buffer : 0,
-                                 global_plan);
-    //undo warm-up
-    stacks[0] = stacks[1];
-    
+  // warm-up
+  fft_incl_transfer_excl_alloc(stacks[0], d_src_buffer,
+                               out_of_place ? d_dest_buffer : 0, global_plan);
+  // undo warm-up
+  stacks[0] = stacks[1];
+
   //////////////////////////////////////////////////////////////////////////////
   // do not include allocations in time measurement
   if (tx_mode == "sync") {
@@ -184,49 +192,32 @@ int main(int argc, char* argv[]) {
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       cpu_timer timer;
-      batched_fft_synced(stacks, 
-			 d_src_buffer,
-			 out_of_place ? d_dest_buffer : 0,
-			 global_plan);
+      batched_fft_synced(stacks, d_src_buffer, out_of_place ? d_dest_buffer : 0,
+                         global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << "synced  "
-		  << r << "\t"
+        std::cout << "synced  " << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
     }
     cudaProfilerStop();
+  }
 
+  if (tx_mode == "man") {
 
-  } 
-  
-  if (tx_mode == "man"){
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, device_id);
-    if (!prop.canMapHostMemory) {
-      std::cerr << "device " << device_id << " cannot map host memory";
-      return 1;
-    }
-    else {
-      HANDLE_ERROR(cudaSetDeviceFlags(cudaDeviceMapHost));
-    }
-    
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       cpu_timer timer;
-      batched_fft_managed(stacks, 
-			 d_src_buffer,
-			 out_of_place ? d_dest_buffer : 0,
-			 global_plan);
+      batched_fft_managed(stacks, d_src_buffer,
+                          out_of_place ? d_dest_buffer : 0, global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << "managed "
-		  << r << "\t"
+        std::cout << "managed " << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
@@ -235,7 +226,7 @@ int main(int argc, char* argv[]) {
   }
 
   HANDLE_ERROR(cudaFree(d_src_buffer));
-  
+
   if (out_of_place) HANDLE_ERROR(cudaFree(d_dest_buffer));
 
   HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
@@ -247,8 +238,8 @@ int main(int argc, char* argv[]) {
   if (verbose) print_header();
 
   std::stringstream comments;
-  comments << tx_mode << " "
-	   << ((out_of_place) ? "out-of-place" : "inplace") << " "
+  comments << tx_mode << "," << ((out_of_place) ? "out-of-place" : "inplace")
+           << ","
            << "global_plan";
 
   print_info(1, __FILE__, device_name, num_repeats, time_ms, numeric_stack_dims,
