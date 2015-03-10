@@ -381,7 +381,11 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
   
   }
 
-  int index_running = -1;
+  std::vector<cudaEvent_t> before_plan_execution(_stacks.size());
+  for( cudaEvent_t& e : before_plan_execution){
+    HANDLE_ERROR(cudaEventCreateWithFlags(&e, cudaEventDisableTiming));
+  }
+    
   float* d_buffer = 0;
   unsigned modulus_index = 0;
   for( unsigned count = 0;count < _stacks.size();++count ){
@@ -395,38 +399,40 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
 				 cudaMemcpyHostToDevice,
 				 *streams[modulus_index]
 				 ));
-    
-    if(index_running > -1 && index_running < streams.size()){
-      HANDLE_ERROR(cudaStreamSynchronize(*streams[index_running]));
-      index_running = -1;
-    }
-    
 
+    
     HANDLE_CUFFT_ERROR(cufftSetStream(*_plans[modulus_index],				 
 				      *streams[modulus_index] )
 		       );
 
+    HANDLE_ERROR(cudaEventRecord(before_plan_execution[count],*streams[modulus_index]));
+    if(count>0)
+      HANDLE_ERROR(cudaStreamWaitEvent(*streams[modulus_index], before_plan_execution[count-1],0));
+    
     HANDLE_CUFFT_ERROR(
 		       cufftExecR2C(*_plans[modulus_index], d_buffer, (cufftComplex*)d_buffer));
-    index_running = modulus_index;
     
+				 
     HANDLE_ERROR(cudaMemcpyAsync(_stacks[count].data(), 
 				 d_buffer,
 				 stack_size_in_byte,
 				 cudaMemcpyDeviceToHost,
 				 *streams[modulus_index])
 		 );
+    
   }
    
-  for (unsigned count = 0;count < _stacks.size();++count)
-    HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
-
+  //clean-up
   for (unsigned count = 0;count < streams.size();++count){
     HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
     HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
   }
   
-
+  for (unsigned count = 0;count < _stacks.size();++count){
+    HANDLE_ERROR(cudaEventDestroy(before_plan_execution[count]));
+    HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
+  }
+  
 
 }
 
