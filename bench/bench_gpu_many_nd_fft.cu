@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
       ("repeats,r", po::value<int>(&num_repeats)->default_value(10),          //
        "number of repetitions per measurement")                               //
       ("tx_mode,t", po::value<std::string>(&tx_mode)->default_value("sync"),  //
-       "transfer mode of data\n(possible values: sync, async, man, evts)")    //
+       "transfer mode of data\n(possible values: sync, async, async2plans, man, evts)")    //
       ;                                                                       //
   // clang-format on
 
@@ -65,9 +65,9 @@ int main(int argc, char* argv[]) {
 
   for (char& c : tx_mode) c = std::tolower(c);
 
-  if (!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "man" ||
+  if (!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "async2plans" || tx_mode == "man" ||
         tx_mode == "evts")) {
-    std::cout << "transfer mode: " << tx_mode << " not supported";
+    std::cout << "transfer mode: " << tx_mode << " not supported\n";
     return 1;
   }
 
@@ -264,6 +264,61 @@ int main(int argc, char* argv[]) {
       
     }
     cudaProfilerStop();
+  }
+
+  if (tx_mode == "async2plans") {
+
+    //creating the plans
+    std::vector<cufftHandle *> plans(2);
+    for (unsigned count = 0; count < plans.size(); ++count) {
+      if(count>0){
+      plans[count] = new cufftHandle;
+      HANDLE_CUFFT_ERROR(cufftPlan3d(plans[count],                 //
+				     (int)numeric_stack_dims[0], //
+				     (int)numeric_stack_dims[1], //
+				     (int)numeric_stack_dims[2], //
+				     CUFFT_R2C)                    //
+			 );
+      
+      HANDLE_CUFFT_ERROR(
+			 cufftSetCompatibilityMode(*plans[count], CUFFT_COMPATIBILITY_NATIVE));
+      }
+      else
+	plans[count] = global_plan;
+    }
+
+    //requesting space on device
+    std::vector<float*> src_buffers(plans.size(), d_src_buffer);
+    for (unsigned count = 1; count < plans.size(); ++count)
+      HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), fft_size_in_byte_));
+
+    //benchmark
+    cudaProfilerStart();
+    for (int r = 0; r < num_repeats; ++r) {
+      std::fill(stacks.begin(), stacks.end(), raw);
+      cpu_timer timer;
+      batched_fft_async2plans(stacks, 
+			      plans,
+			      src_buffers);
+      durations[r] = timer.elapsed();
+
+      time_ms += double(durations[r].system + durations[r].user) / 1e6;
+      if (verbose) {
+        std::cout << "async " << r << "\t"
+                  << double(durations[r].system + durations[r].user) / 1e6
+                  << " ms\n";
+      }
+      
+    }
+    cudaProfilerStop();
+
+    //clean-up
+    for (unsigned count = 1; count < plans.size(); ++count) {
+      HANDLE_CUFFT_ERROR(cufftDestroy(*plans[count]));
+      delete plans[count];
+      HANDLE_ERROR(cudaFree(src_buffers[count]));
+
+    }
   }
   //check if all transforms worked as expected
   double ref_sum = std::accumulate(reference.data(), reference.data() + reference.num_elements()/4, 0.);

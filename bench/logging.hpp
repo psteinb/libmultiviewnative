@@ -40,6 +40,7 @@ void print_info(int		 num_devices			,
 	    << stack_dims[0]     << " "
 	    << stack_dims[1]     << " "
 	    << stack_dims[2]     << " "
+	    << type_width_byte << " "
 	    << comment        << "\n";
 
 }

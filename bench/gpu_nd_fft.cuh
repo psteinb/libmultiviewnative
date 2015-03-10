@@ -347,10 +347,81 @@ void batched_fft_async(std::vector<multiviewnative::image_stack>& _stacks,
 				 cudaMemcpyDeviceToHost,
 				 *streams[count])
 		 );
+    HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
   }
    
   for (unsigned count = 0;count < _stacks.size();++count){
     HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
+    HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
+  }
+  
+
+
+}
+
+
+void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
+			     std::vector<cufftHandle *>& _plans,
+			     std::vector<float*>& _src_buffers) {
+
+
+
+  
+  std::vector<cudaStream_t*> streams(_plans.size());
+  for( unsigned count = 0;count < streams.size();++count ){
+    streams[count] = new cudaStream_t;
+    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+  }
+
+  unsigned stack_size_in_byte = _stacks[0].num_elements() * sizeof(float);
+  for( unsigned count = 0;count < _stacks.size();++count ){
+    HANDLE_ERROR(cudaHostRegister((void*)_stacks[count].data(), 
+				  stack_size_in_byte,
+				  cudaHostRegisterPortable));
+  
+  }
+
+  int index_running = -1;
+  float* d_buffer = 0;
+  unsigned modulus_index = 0;
+  for( unsigned count = 0;count < _stacks.size();++count ){
+
+    modulus_index = count % streams.size();
+    d_buffer = _src_buffers[count % streams.size()];
+    
+    HANDLE_ERROR(cudaMemcpyAsync(d_buffer,
+				 _stacks[count].data(), 
+				 stack_size_in_byte,
+				 cudaMemcpyHostToDevice,
+				 *streams[modulus_index]
+				 ));
+    
+    if(index_running > -1 && index_running < streams.size()){
+      HANDLE_ERROR(cudaStreamSynchronize(*streams[index_running]));
+      index_running = -1;
+    }
+    
+
+    HANDLE_CUFFT_ERROR(cufftSetStream(*_plans[modulus_index],				 
+				      *streams[modulus_index] )
+		       );
+
+    HANDLE_CUFFT_ERROR(
+		       cufftExecR2C(*_plans[modulus_index], d_buffer, (cufftComplex*)d_buffer));
+    index_running = modulus_index;
+    
+    HANDLE_ERROR(cudaMemcpyAsync(_stacks[count].data(), 
+				 d_buffer,
+				 stack_size_in_byte,
+				 cudaMemcpyDeviceToHost,
+				 *streams[modulus_index])
+		 );
+  }
+   
+  for (unsigned count = 0;count < _stacks.size();++count)
+    HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
+
+  for (unsigned count = 0;count < streams.size();++count){
     HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
     HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
   }

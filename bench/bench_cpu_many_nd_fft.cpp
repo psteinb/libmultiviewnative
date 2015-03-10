@@ -45,31 +45,31 @@ int main(int argc, char* argv[]) {
   po::options_description desc("Allowed options");
   
   //clang-format off
-  desc.add_options()
-    ("help,h", "produce help message")
-    ("verbose,v", "print lots of information in between")
-    ("batched_plan,b","use a batched plan")
-    
-    ("stack_dimensions,s", 
-     po::value<std::string>(&stack_dims)->default_value("512x512x64"), 
-     "HxWxD of synthetic stacks to generate")
-    
-    ("repeats,r", 
-     po::value<int>(&num_repeats)->default_value(10),
-     "number of repetitions per measurement")
-    
-    ("num_replicas,n", 
-     po::value<int>(&num_replicas)->default_value(4), 
-     "number of replicas to use for batched processing")
-    
-    ("num_threads,t", 
-     po::value<int>(&num_threads)->default_value(1),
-     "number of threads to use")  
-
-    ("cpu_name,c", 
-     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),
-     "cpu name to use in output")  
-    ;
+  desc.add_options()							//
+    ("help,h", "produce help message")					//		
+    ("verbose,v", "print lots of information in between")		//
+    ("batched_plan,b","use a batched plan")				//
+    									//
+    ("stack_dimensions,s", 						//
+     po::value<std::string>(&stack_dims)->default_value("512x512x64"), 	//
+     "HxWxD of synthetic stacks to generate")				//
+    									//
+    ("repeats,r", 							//
+     po::value<int>(&num_repeats)->default_value(10),			//
+     "number of repetitions per measurement")				//
+    									//
+    ("num_replicas,n", 							//
+     po::value<int>(&num_replicas)->default_value(4), 			//
+     "number of replicas to use for batched processing")		//
+    									//
+    ("num_threads,t", 							//
+     po::value<int>(&num_threads)->default_value(1),			//
+     "number of threads to use")  					//
+									//
+    ("cpu_name,c", 							//
+     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),	//
+     "cpu name to use in output")  					//
+    ;									//
   //clang-format on
   
   po::variables_map vm;
