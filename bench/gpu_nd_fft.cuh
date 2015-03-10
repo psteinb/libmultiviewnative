@@ -267,7 +267,7 @@ void batched_fft_synced(std::vector<multiviewnative::image_stack>& _stacks,
   
 }
 
-void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks,
+void batched_fft_mapped(std::vector<multiviewnative::image_stack>& _stacks,
 			 float* _d_src_buffer,
 			 float* _d_dest_buffer = 0,
 			 cufftHandle* _plan = 0) {
@@ -359,7 +359,7 @@ void batched_fft_async(std::vector<multiviewnative::image_stack>& _stacks,
 
 }
 
-
+//loosely based on nvidia-samples/6_Advanced/concurrentKernels/concurrentKernels.cu
 void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
 			     std::vector<cufftHandle *>& _plans,
 			     std::vector<float*>& _src_buffers) {
@@ -436,5 +436,7 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
 
 }
 
-
+//loosely based on nvidia-samples/./0_Simple/UnifiedMemoryStreams/UnifiedMemoryStreams.cu
+void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks) {
+}
 #endif /* _CUDA_ND_FFT_H_ */

@@ -13,6 +13,7 @@
 #include "cuda_profiler_api.h"
 #include "gpu_nd_fft.cuh"
 #include "logging.hpp"
+#include "managed_allocator.hpp"
 
 #include <boost/timer/timer.hpp>
 
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]) {
       ("repeats,r", po::value<int>(&num_repeats)->default_value(10),          //
        "number of repetitions per measurement")                               //
       ("tx_mode,t", po::value<std::string>(&tx_mode)->default_value("sync"),  //
-       "transfer mode of data\n(possible values: sync, async, async2plans, man, evts)")    //
+       "transfer mode of data\n(possible values: sync, async, async2plans, mapped, mangd)")    //
       ;                                                                       //
   // clang-format on
 
@@ -65,8 +66,8 @@ int main(int argc, char* argv[]) {
 
   for (char& c : tx_mode) c = std::tolower(c);
 
-  if (!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "async2plans" || tx_mode == "man" ||
-        tx_mode == "evts")) {
+  if (!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "async2plans" || tx_mode == "mapped" ||
+        tx_mode == "mangd")) {
     std::cout << "transfer mode: " << tx_mode << " not supported\n";
     return 1;
   }
@@ -91,7 +92,7 @@ int main(int argc, char* argv[]) {
   //////////////////////////////////////////////////////////////////////////////
   // set device flags
   int device_id = selectDeviceWithHighestComputeCapability();
-  if (tx_mode == "man") {
+  if (tx_mode == "mapped") {
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, device_id);
     if (!prop.canMapHostMemory) {
@@ -213,7 +214,7 @@ int main(int argc, char* argv[]) {
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << "synced  " << r << "\t"
+        std::cout << tx_mode << " " << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
@@ -224,19 +225,40 @@ int main(int argc, char* argv[]) {
 
   }
 
-  if (tx_mode == "man") {
+  if (tx_mode == "mapped") {
 
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       std::fill(stacks.begin(), stacks.end(), raw);
       cpu_timer timer;
-      batched_fft_managed(stacks, d_src_buffer,
+      batched_fft_mapped(stacks, d_src_buffer,
                           out_of_place ? d_dest_buffer : 0, global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << "managed " << r << "\t"
+        std::cout << tx_mode << " " << r << "\t"
+                  << double(durations[r].system + durations[r].user) / 1e6
+                  << " ms\n";
+      }
+      
+    }
+    cudaProfilerStop();
+  }
+
+  if (tx_mode == "mangd") {
+    std::vector<managed_image_stack> managed_stacks = stacks;
+    
+    cudaProfilerStart();
+    for (int r = 0; r < num_repeats; ++r) {
+      std::fill(stacks.begin(), stacks.end(), raw);
+      cpu_timer timer;
+      batched_fft_managed(managed_stacks);
+      durations[r] = timer.elapsed();
+
+      time_ms += double(durations[r].system + durations[r].user) / 1e6;
+      if (verbose) {
+        std::cout << tx_mode << " " << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
@@ -257,7 +279,7 @@ int main(int argc, char* argv[]) {
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << "async " << r << "\t"
+        std::cout << tx_mode << " " << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
@@ -304,7 +326,7 @@ int main(int argc, char* argv[]) {
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
       if (verbose) {
-        std::cout << "async " << r << "\t"
+        std::cout << tx_mode << " " << r << "\t"
                   << double(durations[r].system + durations[r].user) / 1e6
                   << " ms\n";
       }
