@@ -437,6 +437,12 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
 }
 
 //loosely based on nvidia-samples/./0_Simple/UnifiedMemoryStreams/UnifiedMemoryStreams.cu
-void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks) {
+void batched_fft_managed(std::vector<multiviewnative::image_stack>& _stacks,
+			 cufftHandle* _plan) {
+
+  for( unsigned count = 0;count < _stacks.size();++count ){
+    HANDLE_CUFFT_ERROR(
+		       cufftExecR2C(*_plan, _stacks[count].data(), (cufftComplex*)_stacks[count].data()));
+  }
 }
 #endif /* _CUDA_ND_FFT_H_ */

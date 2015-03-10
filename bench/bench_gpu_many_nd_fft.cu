@@ -13,7 +13,7 @@
 #include "cuda_profiler_api.h"
 #include "gpu_nd_fft.cuh"
 #include "logging.hpp"
-#include "managed_allocator.hpp"
+#include "managed_allocator.cuh"
 
 #include <boost/timer/timer.hpp>
 
@@ -247,13 +247,13 @@ int main(int argc, char* argv[]) {
   }
 
   if (tx_mode == "mangd") {
-    std::vector<managed_image_stack> managed_stacks = stacks;
+    std::vector<managed_image_stack> managed_stacks(stacks.begin(), stacks.end());
     
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
-      std::fill(stacks.begin(), stacks.end(), raw);
+      std::fill(managed_stacks.begin(), managed_stacks.end(), raw);
       cpu_timer timer;
-      batched_fft_managed(managed_stacks);
+      batched_fft_managed(managed_stacks, global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
