@@ -44,7 +44,7 @@ if __name__ == '__main__':
                         dest='end_exponent',
                         action='store',
                         type=int,
-                        default=10,
+                        default=11,
                         help="""
                         exponent to 2^<exponent> with which last stack size will be generated (default: %(default)s)
                         """)
