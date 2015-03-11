@@ -9,10 +9,10 @@ fi
 if [[ -n $2 ]];then
     CPU_ID="-c $2"
 else
-    CPU_ID="-c "`egrep "^model name" /proc/cpuinfo |sed -e 's/.*\([Ei].*\) \@.*/\1/'|tr -d ' '`
+    CPU_ID="-c "`egrep "^model name" /proc/cpuinfo |sed -e 's/.*\([Ei].*\) \@.*/\1/'|tr -d ' '|sort -u`
 fi
 
-TAG=`echo $HOSTNAME|sed -e 's/\(.*\)\..*/\1/'`
+TAG=`echo $HOSTNAME|egrep -o "^[a-Z0-9]+\."|tr -d '.'`
 
 python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_nd_fft $CPU_ID >>  ${TAG}_cpu.data
 python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft $CPU_ID >>  ${TAG}_cpu_many_fft.data
