@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
     modes = [" "]
     if bench_util_cmd.count("bench_gpu_nd_fft"):
-        modes = ["-o -t -a", "-o -t", "-o ", "-t -a", "-t", ""]
+        modes = ["-o -t -a", "-o -t", "-o ", "-t -a", "-t", "", "-g", "-g -o", "-g -t -a"]
 
     if bench_util_cmd.count("bench_gpu_many_nd_fft"):
         to_check = "sync async async2plans mapped mangd".split(" ")
