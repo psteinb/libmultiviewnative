@@ -23,7 +23,7 @@ unsigned long fftw_r2c_memory(const std::vector<unsigned>& _shape) {
   c_ordering[1] = 1;
   c_ordering[2] = 0;
 
-  multiviewnative::adapt_shape_for_fftw_inplace(_shape, adapted, c_ordering);
+  multiviewnative::adapt_shape_for_fftw_inplace(c_ordering, _shape, adapted );
 
   unsigned long value = std::accumulate(adapted.begin(), adapted.end(), 1u,
                                         std::multiplies<unsigned long>());
@@ -33,13 +33,15 @@ unsigned long fftw_r2c_memory(const std::vector<unsigned>& _shape) {
 
 void fftw_r2c_reshape(std::vector<unsigned>& _shape) {
 
+  static multiviewnative::image_stack dummy;
   std::vector<unsigned> adapted(_shape);
   static std::vector<int> c_ordering(3);
-  c_ordering[0] = 2;
-  c_ordering[1] = 1;
-  c_ordering[2] = 0;
+  c_ordering[0] = dummy.storage_order().ordering(0);
+  c_ordering[1] = dummy.storage_order().ordering(1);
+  c_ordering[2] = dummy.storage_order().ordering(2);
+    
 
-  multiviewnative::adapt_shape_for_fftw_inplace(_shape, adapted, c_ordering);
+  multiviewnative::adapt_shape_for_fftw_inplace(c_ordering, _shape, adapted );
 
   std::copy(adapted.begin(), adapted.end(), _shape.begin());
 }
