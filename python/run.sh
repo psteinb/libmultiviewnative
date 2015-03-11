@@ -12,7 +12,12 @@ else
     CPU_ID="-c "`egrep "^model name" /proc/cpuinfo |sed -e 's/.*\([Ei].*\) \@.*/\1/'|tr -d ' '|sort -u`
 fi
 
+if [[ $HOSTNAME == *.* ]];then
 TAG=`echo $HOSTNAME|egrep -o "^[a-Z0-9]+\."|tr -d '.'`
+else
+TAG=$HOSTNAME
+fi
+
 NCORES=`grep "core id" /proc/cpuinfo |wc -l`
 
 python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_nd_fft $CPU_ID >>  ${TAG}_cpu.data
