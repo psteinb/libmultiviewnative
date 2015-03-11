@@ -36,21 +36,22 @@ int main(int argc, char* argv[]) {
   po::options_description desc("Allowed options");
 
   // clang-format off
-  desc.add_options()
-    ("help,h", "produce help message")
-    ("verbose,v", "print lots of information in between")
-    ("with_transfers,t", "include host-device transfers in timings")
-    ("global_plan,g","use a global plan, rather than creating a plan everytime a transformation is performed")
-    ("out-of-place,o","perform out-of-place transforms")
-    ("with_allocation,a", "include host-device memory allocation in timings")
+  desc.add_options() //
+    ("help,h", "produce help message") //
+    ("header-only,H", "print header of stats only")                   //
+    ("verbose,v", "print lots of information in between") //
+    ("with_transfers,t", "include host-device transfers in timings")//
+    ("global_plan,g","use a global plan, rather than creating a plan everytime a transformation is performed")//
+    ("out-of-place,o","perform out-of-place transforms")//
+    ("with_allocation,a", "include host-device memory allocation in timings")//
 
-    ("stack_dimensions,s",
-      po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")
+    ("stack_dimensions,s",//
+     po::value<std::string>(&stack_dims)->default_value("512x512x64"),//
+     "HxWxD of synthetic stacks to generate")//
     
-    ("repeats,r", po::value<int>(&num_repeats)->default_value(10),
-      "number of repetitions per measurement")
-    ;
+    ("repeats,r", po::value<int>(&num_repeats)->default_value(10),//
+     "number of repetitions per measurement")//
+    ;//
   //clang-format on
 
   po::variables_map vm;
@@ -62,6 +63,11 @@ int main(int argc, char* argv[]) {
   if (vm.count("help")) {
     std::cout << desc << "\n";
     return 1;
+  }
+
+  if (vm.count("header-only")) {
+    print_header();
+    return 0;
   }
 
   verbose = vm.count("verbose");

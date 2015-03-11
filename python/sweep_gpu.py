@@ -5,6 +5,21 @@ import sys
 from generate_dims import produce_size_strings
 from parse_nvprof import expected_cmd, extract_cuda_api_totals
 
+def produce_header_from_app(_app):
+    
+    if not _app.count("-H"):
+        _app += " -H"
+
+
+    p = Popen(_app,
+              stderr=PIPE,
+              stdout=PIPE,
+              shell=True)
+    
+    header_output = p.stdout.read().strip("\n")
+    
+    return header_output.split(" ")
+
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(prog=__file__,
@@ -61,6 +76,24 @@ if __name__ == '__main__':
                         print verbose messages
                         """)
 
+    parser.add_argument('-n,--noheader',
+                        dest='noheader',
+                        action='store_true',
+                        default=False,
+                        help="""
+                        do not print stats header
+                        """)
+
+
+    parser.add_argument('-l,--logfile',
+                        dest='logfile',
+                        action='store',
+                        type=str,
+                        default=None,
+                        help="""
+                        file to pipe output to instead of stdout
+                        """)
+
     parser.add_argument('bench_util',
                         nargs=argparse.REMAINDER,
                         action='store',
@@ -83,38 +116,57 @@ if __name__ == '__main__':
     if args_parsed.verbose:
         if left_over:
             print "[WARNING]\tcli options not recognized: ", left_over
-        print "producing data sizes from %i^%i to %i^%i" % (args_parsed.basis,
-                                                            args_parsed.start_exponent,
-                                                            args_parsed.basis,
-                                                            args_parsed.end_exponent)
+
+        if args_parsed.verbose:
+            print "producing data sizes from %i^%i to %i^%i" % (args_parsed.basis,
+                                                                args_parsed.start_exponent,
+                                                                args_parsed.basis,
+                                                                args_parsed.end_exponent)
     size_str = produce_size_strings(args_parsed.start_exponent,
                                     args_parsed.end_exponent)
 
-    modes = ["-o -t -a", "-o -t", "-o ", "-t -a", "-t", ""]
     nvprof_cmd = expected_cmd.split()
     api_calls_to_check = "cudaFree cudaMemcpy cudaMalloc".split()
+    logfile = args_parsed.logfile
 
-    colnames = ["gpu", "alloc", "tx", "trafo_type", "repeats", "total_time_ms",
-                "shape", "data_in_mb", "exp_gmem_in_mb"]
+    bench_util_cmd = " ".join(args_parsed.bench_util)
 
+    #extract the column names
+    colnames = produce_header_from_app(bench_util_cmd)
+    
     if args_parsed.profile:
         colnames.extend([str(item+"_perc "+item+"_ms") for 
                          item in api_calls_to_check])
 
-    output = [" ".join(colnames)]
-    bench_util_cmd = " ".join(args_parsed.bench_util)
+    if not args_parsed.noheader:
+        output = [" ".join(colnames)]
+
+    modes = [" "]
+    if bench_util_cmd.count("bench_gpu_nd_fft"):
+        modes = ["-o -t -a", "-o -t", "-o ", "-t -a", "-t", ""]
+
+    if bench_util_cmd.count("bench_gpu_many_nd_fft"):
+        to_check = "sync async async2plans mapped mangd".split(" ")
+        flag = ["-t"]*len(to_check)
+        modes = [ str("%s %s" % item) for item in zip(flag, to_check)]
+
+
+    index = 0
+    n_runs = len(modes)*len(size_str)
     for mode in modes:
 
         for size in size_str:
             if args_parsed.profile:
-                cmd = nvprof_cmd + [bench_util_cmd, mode, "-s", size]
+                cmd = nvprof_cmd
+                cmd = cmd + [bench_util_cmd, mode, "-s", size]
             else:
-                cmd = [args_parsed.bench_util, mode, "-s", size]
-                
+                cmd = [bench_util_cmd, mode, "-s", size]
+
             cmd_to_give = " ".join(cmd)
 
             if args_parsed.verbose:
-                print cmd_to_give
+                print "%i/%i %s " % (index, n_runs,cmd_to_give)
+                index += 1
             
             p = Popen(cmd_to_give,
                       stderr=PIPE,
@@ -133,5 +185,12 @@ if __name__ == '__main__':
                         else:
                             bench_output += " %s %s" % (str(0), str(0))
                 output.append(bench_output)
-
-    print "\n".join(output)
+    
+    results = "\n".join(output)
+    if not logfile:
+        print results
+    else:
+        results += "\n"
+        lfile = open(logfile,"a")
+        lfile.writelines(results)
+        lfile.close()

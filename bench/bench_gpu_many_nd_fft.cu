@@ -13,7 +13,7 @@
 #include "cuda_profiler_api.h"
 #include "gpu_nd_fft.cuh"
 #include "logging.hpp"
-#include "managed_allocator.cuh"
+
 
 #include <boost/timer/timer.hpp>
 
@@ -39,6 +39,7 @@ int main(int argc, char* argv[]) {
   desc.add_options()                                                          //
       ("help,h", "produce help message")                                      //
       ("verbose,v", "print lots of information in between")                   //
+      ("header-only,H", "print header of stats only")                   //
       ("out-of-place,o", "perform out-of-place transforms")                   //
       ("stack_dimensions,s",                                                  //
        po::value<std::string>(&stack_dims)->default_value("512x512x64"),      //
@@ -59,6 +60,11 @@ int main(int argc, char* argv[]) {
   if (vm.count("help")) {
     std::cout << desc << "\n";
     return 1;
+  }
+
+  if (vm.count("header-only")) {
+    print_header();
+    return 0;
   }
 
   verbose = vm.count("verbose");
@@ -247,13 +253,28 @@ int main(int argc, char* argv[]) {
   }
 
   if (tx_mode == "mangd") {
-    std::vector<managed_image_stack> managed_stacks(stacks.begin(), stacks.end());
+
+    std::vector<float*> managed_buffers(stacks.size(),0);
+    cudaStream_t stream_0;
     
+    
+    for (unsigned i = 0;i<managed_buffers.size();++i){
+      HANDLE_ERROR(cudaStreamCreate(&stream_0));
+      HANDLE_ERROR(cudaMallocManaged(&managed_buffers[i], sizeof(float)*raw.num_elements()));
+      //HANDLE_ERROR(cudaStreamAttachMemAsync(stream_0, managed_buffers[i], 0, cudaMemAttachHost));
+      HANDLE_ERROR(cudaDeviceSynchronize());
+    }
+
+    cpu_timer total_timer;
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
-      std::fill(managed_stacks.begin(), managed_stacks.end(), raw);
+      for (unsigned i = 0;i<stacks.size();++i){
+	//HANDLE_ERROR(cudaStreamSynchronize(stream_0));
+	std::copy(raw.data(),raw.data() + raw.num_elements(), managed_buffers[i]);
+      }
+
       cpu_timer timer;
-      batched_fft_managed(managed_stacks, global_plan);
+      batched_fft_managed(managed_buffers, global_plan);
       durations[r] = timer.elapsed();
 
       time_ms += double(durations[r].system + durations[r].user) / 1e6;
@@ -265,6 +286,23 @@ int main(int argc, char* argv[]) {
       
     }
     cudaProfilerStop();
+    
+    for (unsigned i = 0;i<stacks.size();++i){
+      std::copy(managed_buffers[i], managed_buffers[i] + raw.num_elements(), stacks[i].data());
+    }
+    cpu_times total_managed = total_timer.elapsed();
+    if(verbose)
+      {
+	std::cout << tx_mode << " total loop \t"
+                  << double(total_managed.system + total_managed.user) / 1e6
+                  << " ms\n";
+      }
+    
+    for (unsigned i = 0;i<managed_buffers.size();++i){
+      HANDLE_ERROR(cudaFree(managed_buffers[i]));
+    }
+
+    HANDLE_ERROR(cudaStreamDestroy(stream_0));
   }
 
   if (tx_mode == "async") {
@@ -315,6 +353,8 @@ int main(int argc, char* argv[]) {
       HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), fft_size_in_byte_));
 
     //benchmark
+    cpu_timer total_timer;
+
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       std::fill(stacks.begin(), stacks.end(), raw);
@@ -334,6 +374,13 @@ int main(int argc, char* argv[]) {
     }
     cudaProfilerStop();
 
+    cpu_times total_async2plans = total_timer.elapsed();
+    if(verbose)
+      {
+	std::cout << tx_mode << " total loop \t"
+                  << double(total_async2plans.system + total_async2plans.user) / 1e6
+                  << " ms\n";
+      }
     //clean-up
     for (unsigned count = 1; count < plans.size(); ++count) {
       HANDLE_CUFFT_ERROR(cufftDestroy(*plans[count]));
@@ -355,7 +402,8 @@ int main(int argc, char* argv[]) {
       std::cout << "checksum " << count++ << " " << running_sum << " (ref: " << ref_sum << ")\n";
   }
 
-  if(matching_results!=stacks.size()){
+  bool results_validate = (matching_results==stacks.size());
+  if(!results_validate){
     std::cerr << "ERROR! results do not validate, only " << matching_results << "/"<< stacks.size()<<" image stacks comply with reference\n";
   }
 
@@ -374,7 +422,9 @@ int main(int argc, char* argv[]) {
   std::stringstream comments;
   comments << tx_mode << "," << ((out_of_place) ? "out-of-place" : "inplace")
            << ","
-           << "global_plan";
+           << "global_plan,"
+	   << (results_validate ? "OK" : "NA" ) 
+    ;
 
   print_info(1, __FILE__, device_name, num_repeats, time_ms, numeric_stack_dims,
              sizeof(float), comments.str());

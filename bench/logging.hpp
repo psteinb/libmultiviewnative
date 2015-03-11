@@ -1,7 +1,7 @@
 #ifndef _LOGGING_H_
 #define _LOGGING_H_
 
-
+#include "boost/filesystem.hpp"
 
 
 #include <iostream>
@@ -21,9 +21,21 @@ void print_header(){
 
 }
 
+std::string strip_to_base(const std::string& _string){
+
+  if(!boost::filesystem::is_regular_file(_string))
+    return _string;
+  else
+    {
+      boost::filesystem::path alg_path = _string;
+      return alg_path.stem().string();
+      
+    }
+}
+
 template <typename T>
 void print_info(int		 num_devices			,
-		std::string	 dev_type		,
+		std::string	 alg_type		,
 		std::string	 dev_name		,
 		int		 num_repeats			,
 		double		 total_time_ms		,
@@ -32,8 +44,10 @@ void print_info(int		 num_devices			,
 		std::string	 comment
 		){
 
+  
+
   std::cout << num_devices    << " "
-	    << dev_type       << " "
+	    << strip_to_base(alg_type)       << " "
 	    << dev_name       << " "
 	    << num_repeats    << " "
 	    << total_time_ms  << " "

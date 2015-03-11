@@ -49,6 +49,7 @@ int main(int argc, char* argv[]) {
     ("help,h", "produce help message")					//		
     ("verbose,v", "print lots of information in between")		//
     ("batched_plan,b","use a batched plan")				//
+    ("header-only,H", "print header of stats only")                   //
     									//
     ("stack_dimensions,s", 						//
      po::value<std::string>(&stack_dims)->default_value("512x512x64"), 	//
@@ -59,7 +60,7 @@ int main(int argc, char* argv[]) {
      "number of repetitions per measurement")				//
     									//
     ("num_replicas,n", 							//
-     po::value<int>(&num_replicas)->default_value(4), 			//
+     po::value<int>(&num_replicas)->default_value(8), 			//
      "number of replicas to use for batched processing")		//
     									//
     ("num_threads,t", 							//
@@ -81,6 +82,11 @@ int main(int argc, char* argv[]) {
   if (vm.count("help")) {
     std::cout << desc << "\n";
     return 1;
+  }
+
+  if (vm.count("header-only")) {
+    print_header();
+    return 0;
   }
 
   verbose = vm.count("verbose");

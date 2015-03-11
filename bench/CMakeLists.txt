@@ -33,12 +33,12 @@ IF(CUDA_FOUND)
 
 CUDA_ADD_EXECUTABLE(bench_gpu_nd_fft bench_gpu_nd_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_nd_fft)
-target_link_libraries(bench_gpu_nd_fft boost_program_options boost_system boost_timer)
+target_link_libraries(bench_gpu_nd_fft boost_program_options boost_system boost_filesystem boost_timer)
 set_target_properties(bench_gpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 CUDA_ADD_EXECUTABLE(bench_gpu_many_nd_fft bench_gpu_many_nd_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_fft)
-target_link_libraries(bench_gpu_many_nd_fft boost_program_options boost_system boost_timer)
+target_link_libraries(bench_gpu_many_nd_fft boost_program_options boost_system boost_filesystem boost_timer)
 set_target_properties(bench_gpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 
@@ -68,11 +68,11 @@ MESSAGE(">> [BENCH] Linking against ${FFTW_LIBS_TO_USE}")
 ENDIF()
 
 ADD_EXECUTABLE(bench_cpu_nd_fft bench_cpu_nd_fft.cpp)
-target_link_libraries(bench_cpu_nd_fft boost_program_options boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
+target_link_libraries(bench_cpu_nd_fft boost_program_options boost_filesystem boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
 set_target_properties(bench_cpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 ADD_EXECUTABLE(bench_cpu_many_nd_fft bench_cpu_many_nd_fft.cpp)
-target_link_libraries(bench_cpu_many_nd_fft boost_program_options boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
+target_link_libraries(bench_cpu_many_nd_fft boost_program_options boost_filesystem boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
 set_target_properties(bench_cpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 

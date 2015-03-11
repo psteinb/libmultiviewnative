@@ -44,28 +44,29 @@ int main(int argc, char* argv[]) {
 
   //clang-format off
   po::options_description desc("Allowed options");
-  desc.add_options()
-    ("help,h", "produce help message")
-    ("verbose,v", "print lots of information in between")
-    ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed")
-    ("reuse_global_plan,a","use a global plan, and reuse it for all transforms")
-    ("out-of-place,o", "perform out-of-place transforms")
+  desc.add_options() //
+    ("help,h", "produce help message") //
+    ("header-only,H", "print header of stats only")                   //
+    ("verbose,v", "print lots of information in between")//
+    ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed")//
+    ("reuse_global_plan,a","use a global plan, and reuse it for all transforms")//
+    ("out-of-place,o", "perform out-of-place transforms")//
 
-    ("stack_dimensions,s", 
-     po::value<std::string>(&stack_dims)->default_value("512x512x64"),
-      "HxWxD of synthetic stacks to generate")
+    ("stack_dimensions,s", //
+     po::value<std::string>(&stack_dims)->default_value("512x512x64"),//
+     "HxWxD of synthetic stacks to generate")//
 
-    ("repeats,r", 
-     po::value<int>(&num_repeats)->default_value(10),
-     "number of repetitions per measurement")
+    ("repeats,r", //
+     po::value<int>(&num_repeats)->default_value(10),//
+     "number of repetitions per measurement")//
 
-    ("num_threads,t", 
-     po::value<int>(&num_threads)->default_value(1),
-     "number of threads to use") 
+    ("num_threads,t", //
+     po::value<int>(&num_threads)->default_value(1),//
+     "number of threads to use") //
     
-    ("cpu_name,c", 
-     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),
-     "cpu name to use in output")  
+    ("cpu_name,c", //
+     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),//
+     "cpu name to use in output")  //
       ;
   //clang-format on
 
@@ -78,6 +79,11 @@ int main(int argc, char* argv[]) {
   if (vm.count("help")) {
     std::cout << desc << "\n";
     return 1;
+  }
+
+  if (vm.count("header-only")) {
+    print_header();
+    return 0;
   }
 
   verbose = vm.count("verbose");
