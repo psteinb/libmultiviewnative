@@ -177,18 +177,13 @@ IF(INCLUDE_CUDA)
     ENDIF()
 
     IF(UNIX)
+      #FIXME
+      #the gpu code somewhere has a leak so that cpu code is visible
+      #therefor, march=native does not work if given as host compiler flag
+      #need to set flags by hand now
+      SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
+      list(APPEND CUDA_NVCC_FLAGS_RELEASE -Xcompiler "'-fPIC','-O3','-DNDEBUG','-Wall','-ffast-math','-std=c++11','-msse','-msse2','-msse3','-mssse3','-msse4.1','-msse4.2','-msse4','-msse4a','-fopenmp'")
 
-      IF(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-	EXECUTE_PROCESS( COMMAND ${CMAKE_CXX_COMPILER} -march=native -v -E ${PROJECT_SOURCE_DIR}/cmake/empty.cpp OUTPUT_VARIABLE ARCHCHECK_OUT ERROR_VARIABLE ARCHCHECK_ERR )
-      IF("${CUDA_VERSION_MAJOR}" LESS "7")
-	
-	IF(${ARCHCHECK_ERR} MATCHES "core-avx2")
-	  STRING(REPLACE "-march=native" "" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-	  STRING(REPLACE "-march=native" "" CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
-	ENDIF(${ARCHCHECK_ERR} MATCHES "core-avx2")
-
-      ENDIF("${CUDA_VERSION_MAJOR}" LESS "7")
-    ENDIF(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
     ENDIF(UNIX)
 
 
