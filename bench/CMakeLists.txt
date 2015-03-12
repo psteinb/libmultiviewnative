@@ -1,12 +1,33 @@
 INCLUDE_DIRECTORIES(.)
 
 SET(Boost_USE_MULTITHREADED ON)
-FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS system filesystem unit_test_framework REQUIRED)
+FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS system filesystem unit_test_framework chrono thread timer REQUIRED)
 IF(Boost_FOUND)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 ENDIF()
 
+add_library( ext_boost_system  SHARED IMPORTED )
+set_target_properties( ext_boost_system PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_system.so )
+
+add_library( ext_boost_filesystem  SHARED IMPORTED )
+set_target_properties( ext_boost_filesystem PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_filesystem.so )
+
+add_library( ext_boost_unit_test_framework  SHARED IMPORTED )
+set_target_properties( ext_boost_unit_test_framework PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_unit_test_framework.so )
+
+add_library( ext_boost_chrono  SHARED IMPORTED )
+set_target_properties( ext_boost_chrono PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_chrono.so )
+
+add_library( ext_boost_timer  SHARED IMPORTED )
+set_target_properties( ext_boost_timer PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_timer.so )
+
+add_library( ext_boost_thread  SHARED IMPORTED )
+set_target_properties( ext_boost_thread PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_thread.so )
+
+
+add_library( ext_boost_program_options  SHARED IMPORTED )
+set_target_properties( ext_boost_program_options PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_program_options.so )
 
 #not sure if this line is correct (appending versus setting)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -40,12 +61,12 @@ IF(CUDA_FOUND)
 
 CUDA_ADD_EXECUTABLE(bench_gpu_nd_fft bench_gpu_nd_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_nd_fft)
-target_link_libraries(bench_gpu_nd_fft boost_program_options boost_system boost_filesystem boost_chrono)
+target_link_libraries(bench_gpu_nd_fft ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_chrono)
 set_target_properties(bench_gpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 CUDA_ADD_EXECUTABLE(bench_gpu_many_nd_fft bench_gpu_many_nd_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_fft)
-target_link_libraries(bench_gpu_many_nd_fft boost_program_options boost_system boost_filesystem boost_chrono)
+target_link_libraries(bench_gpu_many_nd_fft ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_chrono)
 set_target_properties(bench_gpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 
@@ -75,11 +96,11 @@ MESSAGE(">> [BENCH] Linking against ${FFTW_LIBS_TO_USE}")
 ENDIF()
 
 ADD_EXECUTABLE(bench_cpu_nd_fft bench_cpu_nd_fft.cpp)
-target_link_libraries(bench_cpu_nd_fft boost_program_options boost_filesystem boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
+target_link_libraries(bench_cpu_nd_fft ext_boost_program_options ext_boost_filesystem ext_boost_system ext_boost_thread ext_boost_chrono ${FFTW_LIBS_TO_USE})
 set_target_properties(bench_cpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 ADD_EXECUTABLE(bench_cpu_many_nd_fft bench_cpu_many_nd_fft.cpp)
-target_link_libraries(bench_cpu_many_nd_fft boost_program_options boost_filesystem boost_system boost_thread boost_chrono ${FFTW_LIBS_TO_USE})
+target_link_libraries(bench_cpu_many_nd_fft ext_boost_program_options ext_boost_filesystem ext_boost_system ext_boost_thread ext_boost_chrono ${FFTW_LIBS_TO_USE})
 set_target_properties(bench_cpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 
@@ -89,7 +110,7 @@ FIND_PACKAGE(TIFF QUIET)
 IF(TIFF_FOUND)
 
 add_executable(bench_cpu_deconvolve bench_cpu_deconvolve.cpp)
-target_link_libraries(bench_cpu_deconvolve boost_system boost_filesystem boost_timer boost_chrono boost_unit_test_framework tiff ${PROJECT_NAME})
+target_link_libraries(bench_cpu_deconvolve ext_boost_system ext_boost_filesystem ext_boost_timer ext_boost_chrono ext_boost_unit_test_framework tiff ${PROJECT_NAME})
 set_target_properties(bench_cpu_deconvolve PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 ELSE()

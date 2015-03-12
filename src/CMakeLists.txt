@@ -35,7 +35,11 @@ IF("${FFTW_LIBRARIES}" MATCHES ".*fftw3f_omp.*" AND "${FFTW_LIBRARIES}" MATCHES 
 endif()
 endif(OPENMP_FOUND)
 
-target_link_libraries(${PROJECT_NAME} ${FFTW_LIBS_TO_USE} boost_thread)
+add_library( ext_boost_thread  SHARED IMPORTED )
+set_target_properties( ext_boost_thread PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_thread.so )
+
+target_link_libraries(${PROJECT_NAME} ${FFTW_LIBS_TO_USE} ext_boost_thread)
+
 
 SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${PROJECT_SOURCE_DIR}/inc/multiviewnative.h") 
 INSTALL(TARGETS ${PROJECT_NAME}
