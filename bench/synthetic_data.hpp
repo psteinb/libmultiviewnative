@@ -109,16 +109,21 @@ struct image_kernel_data {
   multiviewnative::image_stack stack_;
   multiviewnative::image_stack kernel_;
 
+  std::vector<int> stack_shape_;
+  std::vector<int> kernel_shape_;
+
   image_kernel_data(const std::vector<unsigned>& _shape)
-      : stack_(_shape), kernel_() {
+    : stack_(_shape), kernel_(), 
+      stack_shape_(_shape.begin(),_shape.end()),
+      kernel_shape_(3,21)
+  {
 
     std::fill(stack_.data(), stack_.data() + stack_.num_elements(), 0);
     for (unsigned i = 0; i < stack_.num_elements(); ++i) {
       *(stack_.data() + i) = i;
     }
 
-    kernel_.resize(
-        boost::extents[_shape[0] / 10][_shape[1] / 10][_shape[2] / 10]);
+    kernel_.resize(kernel_shape_);
     std::fill(kernel_.data(), kernel_.data() + kernel_.num_elements(), 0);
     kernel_[kernel_.shape()[0] / 2][kernel_.shape()[1] / 2]
            [kernel_.shape()[2] / 2] = 1;
