@@ -13,7 +13,7 @@ else
 fi
 
 if [[ $HOSTNAME == *.* ]];then
-TAG=`echo $HOSTNAME|egrep -o "^[a-Z0-9]+\."|tr -d '.'`
+TAG=`echo $HOSTNAME|egrep -o "^[^\.]+"`
 else
 TAG=$HOSTNAME
 fi
