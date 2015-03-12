@@ -272,7 +272,8 @@ int main(int argc, char* argv[]) {
   std::stringstream comments;
   comments << ((with_allocation) ? "incl_alloc" : "excl_alloc") << ","
 	   << ((with_transfers) ? "incl_tx" : "excl_tx") << ","
-	   << ((out_of_place) ? "out-of-place" : "inplace") ;
+	   << ((out_of_place) ? "out-of-place" : "inplace") << ","
+	   << ((use_global_plan) ? "global_plan" : "local_plan") ;
 
   print_info(1,__FILE__,device_name,num_repeats,time_ns.count() / double(1e6),numeric_stack_dims,sizeof(float),comments.str());
 

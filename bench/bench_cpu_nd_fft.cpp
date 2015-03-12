@@ -48,8 +48,8 @@ int main(int argc, char* argv[]) {
     ("help,h", "produce help message") //
     ("header-only,H", "print header of stats only")                   //
     ("verbose,v", "print lots of information in between")//
-    ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed")//
-    ("reuse_global_plan,a","use a global plan, and reuse it for all transforms")//
+    ("global_plan,g", "use a global plan, rather than creating a plan everytime a transformation is performed, reuse it (create with FFTW_ESTIMATE)")//
+    ("reuse_global_plan,a","use a global plan, and reuse it for all transforms (create with FFTW_MEASURE)")//
     ("out-of-place,o", "perform out-of-place transforms")//
 
     ("stack_dimensions,s", //
@@ -251,6 +251,8 @@ int main(int argc, char* argv[]) {
 
   std::string comments = "excl_alloc,incl_tx";
   comments += ((out_of_place) ? ",out-of-place" : ",inplace");
+  comments += ((use_global_plan) ? ",global_plan" : ",local_plan");
+  comments += ((reuse_global_plan) ? ",FFTW_MEASURE" : ",FFTW_ESTIMATE");
   
   print_info(num_threads,
 	     implementation_name,
