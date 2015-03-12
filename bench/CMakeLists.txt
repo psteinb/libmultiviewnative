@@ -7,27 +7,33 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
 ENDIF()
 
+IF(DEFINED ${BOOST_ROOT} AND ${BOOST_ROOT} MATCHES ".*/.*")
+  SET(BOOST_LIB_DIR ${BOOST_ROOT}/lib)
+ELSE()
+  SET(BOOST_LIB_DIR ${Boost_LIBRARY_DIRS})
+ENDIF()
+
 add_library( ext_boost_system  SHARED IMPORTED )
-set_target_properties( ext_boost_system PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_system.so )
+set_target_properties( ext_boost_system PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_system.so )
 
 add_library( ext_boost_filesystem  SHARED IMPORTED )
-set_target_properties( ext_boost_filesystem PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_filesystem.so )
+set_target_properties( ext_boost_filesystem PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_filesystem.so )
 
 add_library( ext_boost_unit_test_framework  SHARED IMPORTED )
-set_target_properties( ext_boost_unit_test_framework PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_unit_test_framework.so )
+set_target_properties( ext_boost_unit_test_framework PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_unit_test_framework.so )
 
 add_library( ext_boost_chrono  SHARED IMPORTED )
-set_target_properties( ext_boost_chrono PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_chrono.so )
+set_target_properties( ext_boost_chrono PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_chrono.so )
 
 add_library( ext_boost_timer  SHARED IMPORTED )
-set_target_properties( ext_boost_timer PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_timer.so )
+set_target_properties( ext_boost_timer PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_timer.so )
 
 add_library( ext_boost_thread  SHARED IMPORTED )
-set_target_properties( ext_boost_thread PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_thread.so )
+set_target_properties( ext_boost_thread PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_thread.so )
 
 
 add_library( ext_boost_program_options  SHARED IMPORTED )
-set_target_properties( ext_boost_program_options PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_program_options.so )
+set_target_properties( ext_boost_program_options PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_program_options.so )
 
 #not sure if this line is correct (appending versus setting)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)

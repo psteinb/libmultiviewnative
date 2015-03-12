@@ -9,6 +9,12 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 ENDIF()
 
+IF(DEFINED ${BOOST_ROOT} AND ${BOOST_ROOT} MATCHES ".*/.*")
+  SET(BOOST_LIB_DIR ${BOOST_ROOT}/lib)
+ELSE()
+  SET(BOOST_LIB_DIR ${Boost_LIBRARY_DIRS})
+ENDIF()
+
 
 # build and link
 CUDA_ADD_LIBRARY(${PROJECT_NAME} multiviewnative.cu multiviewnative.cpp image_stack_utils.cpp SHARED)
@@ -36,7 +42,7 @@ endif()
 endif(OPENMP_FOUND)
 
 add_library( ext_boost_thread  SHARED IMPORTED )
-set_target_properties( ext_boost_thread PROPERTIES IMPORTED_LOCATION ${BOOST_ROOT}/lib/libboost_thread.so )
+set_target_properties( ext_boost_thread PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_thread.so )
 
 target_link_libraries(${PROJECT_NAME} ${FFTW_LIBS_TO_USE} ext_boost_thread)
 
