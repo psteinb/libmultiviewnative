@@ -7,9 +7,9 @@ else
 fi
 
 if [[ -n $2 ]];then
-    CPU_ID="-c $2"
+    CPU_ID="$2"
 else
-    CPU_ID="-c "`egrep "^model name" /proc/cpuinfo |sed -e 's/.*\([Ei].*\) \@.*/\1/'|tr -d ' '|sort -u`
+    CPU_ID=`egrep "^model name" /proc/cpuinfo |sed -e 's/.*\([Ei].*\) \@.*/\1/'|tr -d ' '|sort -u`
 fi
 
 if [[ $HOSTNAME == *.* ]];then
@@ -20,11 +20,11 @@ fi
 
 NCORES=`grep "core id" /proc/cpuinfo |wc -l`
 
-python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_nd_fft $CPU_ID >>  ${TAG}_cpu.data
-python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft $CPU_ID >>  ${TAG}_cpu_many_fft.data
+python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_nd_fft -c "1x$CPU_ID" >>  ${TAG}_cpu.data
+python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft -c "1x$CPU_ID" >>  ${TAG}_cpu_many_fft.data
 
-python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_nd_fft -t ${NCORES} $CPU_ID >>  ${TAG}_cpu.data
-python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft -t ${NCORES} $CPU_ID >>  ${TAG}_cpu_many_fft.data
+python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_nd_fft -t ${NCORES} -c "${NCORES}x${CPU_ID}" >>  ${TAG}_cpu.data
+python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft -t ${NCORES} -c "${NCORES}x${CPU_ID}" >>  ${TAG}_cpu_many_fft.data
 
 python $RUNPATH/../../python/sweep_gpu.py --prof $RUNPATH/bench_gpu_nd_fft >> ${TAG}_gpu_prof.data
 python $RUNPATH/../../python/sweep_gpu.py --prof $RUNPATH/bench_gpu_many_nd_fft >> ${TAG}_gpu_many_fft_prof.data
