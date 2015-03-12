@@ -183,6 +183,7 @@ IF(INCLUDE_CUDA)
       #need to set flags by hand now
       SET(CUDA_PROPAGATE_HOST_FLAGS OFF)
       list(APPEND CUDA_NVCC_FLAGS_RELEASE -Xcompiler "'-fPIC','-O3','-DNDEBUG','-Wall','-ffast-math','-std=c++11','-msse','-msse2','-msse3','-mssse3','-msse4.1','-msse4.2','-msse4','-msse4a','-fopenmp'")
+      list(APPEND CUDA_NVCC_FLAGS_DEBUG -Xcompiler "'-fPIC','-Wall','-g','-std=c++11','-ggdb3','-fopenmp'")
 
     ENDIF(UNIX)
 
