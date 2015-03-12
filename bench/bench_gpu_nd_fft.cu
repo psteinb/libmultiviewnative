@@ -13,11 +13,16 @@
 #include "gpu_nd_fft.cuh"
 #include "logging.hpp"
 
-#include <boost/timer/timer.hpp>
+#include <boost/chrono.hpp>
+typedef boost::chrono::high_resolution_clock::time_point tp_t;
+typedef boost::chrono::milliseconds ms_t;
+typedef boost::chrono::nanoseconds ns_t;
 
-using boost::timer::cpu_timer;
-using boost::timer::cpu_times;
-using boost::timer::nanosecond_type;
+// #include <boost/timer/timer.hpp>
+
+// using boost::timer::cpu_timer;
+// using boost::timer::cpu_times;
+// using boost::timer::nanosecond_type;
 
 namespace po = boost::program_options;
 
@@ -143,9 +148,10 @@ int main(int argc, char* argv[]) {
     data.info();
   }
 
-  std::vector<cpu_times> durations(num_repeats);
+  std::vector<ns_t> durations(num_repeats);
+  tp_t start, end;
+  ns_t time_ns = ns_t(0);
 
-  double time_ms = 0.f;
   float* d_dest_buffer = 0;
   const unsigned fft_size_in_byte_ = cufft_r2c_memory(numeric_stack_dims);
   if (out_of_place)
@@ -168,16 +174,18 @@ int main(int argc, char* argv[]) {
 
       cudaProfilerStart();
       for (int r = 0; r < num_repeats; ++r) {
-        cpu_timer timer;
+        start = boost::chrono::high_resolution_clock::now();
         fft_incl_transfer_excl_alloc(data.stack_, d_src_buffer,
                                      out_of_place ? d_dest_buffer : 0,
                                      use_global_plan ? global_plan : 0);
-        durations[r] = timer.elapsed();
 
-        time_ms += double(durations[r].system + durations[r].user) / 1e6;
+	end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
+
         if (verbose) {
           std::cout << r << "\t"
-                    << double(durations[r].system + durations[r].user) / 1e6
+                    << durations[r] / 1e6
                     << " ms\n";
         }
       }
@@ -198,16 +206,17 @@ int main(int argc, char* argv[]) {
 
       cudaProfilerStart();
       for (int r = 0; r < num_repeats; ++r) {
-        cpu_timer timer;
+        start = boost::chrono::high_resolution_clock::now();
         fft_excl_transfer_excl_alloc(data.stack_, d_src_buffer,
                                      out_of_place ? d_dest_buffer : 0,
                                      use_global_plan ? global_plan : 0);
-        durations[r] = timer.elapsed();
+        end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-        time_ms += double(durations[r].system + durations[r].user) / 1e6;
         if (verbose) {
           std::cout << r << "\t"
-                    << double(durations[r].system + durations[r].user) / 1e6
+                    << durations[r] / 1e6
                     << " ms\n";
         }
       }
@@ -229,18 +238,19 @@ int main(int argc, char* argv[]) {
     // timing should include allocation, which requires including transfers
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
       fft_incl_transfer_incl_alloc(data.stack_,
                                    out_of_place ? d_dest_buffer : 0,
                                    use_global_plan ? global_plan : 0);
-      durations[r] = timer.elapsed();
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-      time_ms += double(durations[r].system + durations[r].user) / 1e6;
-      if (verbose) {
-        std::cout << r << "\t"
-                  << double(durations[r].system + durations[r].user) / 1e6
-                  << " ms\n";
-      }
+        if (verbose) {
+          std::cout << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
     }
     cudaProfilerStop();
   }
@@ -264,7 +274,7 @@ int main(int argc, char* argv[]) {
 	   << ((with_transfers) ? "incl_tx" : "excl_tx") << ","
 	   << ((out_of_place) ? "out-of-place" : "inplace") ;
 
-  print_info(1,__FILE__,device_name,num_repeats,time_ms,numeric_stack_dims,sizeof(float),comments.str());
+  print_info(1,__FILE__,device_name,num_repeats,time_ns.count() / double(1e6),numeric_stack_dims,sizeof(float),comments.str());
 
 
   return 0;

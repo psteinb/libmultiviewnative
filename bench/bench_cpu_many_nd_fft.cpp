@@ -30,7 +30,7 @@ typedef boost::multi_array<float, 3, fftw_allocator<float> > fftw_image_stack;
 typedef std::vector<float, fftw_allocator<float> > aligned_float_vector;
 
 int main(int argc, char* argv[]) {
-  int num_replicas = 4;
+  unsigned num_replicas = 8;
   bool verbose = false;
   // bool out_of_place = false;
   bool batched_plan = false;
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
      "number of repetitions per measurement")				//
     									//
     ("num_replicas,n", 							//
-     po::value<int>(&num_replicas)->default_value(8), 			//
+     po::value<unsigned>(&num_replicas)->default_value(8), 			//
      "number of replicas to use for batched processing")		//
     									//
     ("num_threads,t", 							//
@@ -136,6 +136,7 @@ int main(int argc, char* argv[]) {
   reshaped.back() = (reshaped.back() / 2 + 1) * 2;
 
   fftw_image_stack aligned_input(reshaped);
+  
   const unsigned long total_pixel_count =
       num_replicas * aligned_input.num_elements();
 
@@ -179,35 +180,47 @@ int main(int argc, char* argv[]) {
   } else {
     global_plan = new fftw_api::plan_type;
     start = boost::chrono::high_resolution_clock::now();
-    *global_plan = fftw_api::dft_r2c_many(
-        numeric_stack_dims.size(),  // int rank
-        (int*)&numeric_stack_dims[0],  // const int* n
-        num_replicas,  // int howmany
-        (fftw_api::real_type*)&many_inputs_flat[0],  // float* in
-        (int*)0,  // const int* inembed
-        1,  // int istride
-        (int)aligned_input.num_elements(),  // int idist
-        (fftw_api::complex_type*)&many_inputs_flat[0],  // fftw_complex* out
-        (int*)0,  // const int* oembed
-        1,  // int ostride,
-        (int)aligned_input.num_elements() / 2,  // int odist
-        FFTW_MEASURE);
+    *global_plan = fftw_api::dft_r2c_many(              //
+        numeric_stack_dims.size(),                      // int rank
+        (int *)&numeric_stack_dims[0],                  // const int* n
+        num_replicas,                                   // int howmany
+        (fftw_api::real_type *)&many_inputs_flat[0],    // float* in
+        (int *)0,                                       // const int* inembed
+        1,                                              // int istride
+        (int)aligned_input.num_elements(),              // int idist
+        (fftw_api::complex_type *)&many_inputs_flat[0], // fftw_complex* out
+        (int *)0,                                       // const int* oembed
+        1,                                              // int ostride,
+        (int)aligned_input.num_elements() / 2,          // int odist
+        FFTW_MEASURE);                                  //
     end = boost::chrono::high_resolution_clock::now();
     if (verbose)
       std::cout << "creating batched plan took (FFTW_MEASURE) "
                 << boost::chrono::duration_cast<ms_t>(end - start) << "\n";
   }
 
-  // for(unsigned long i = 0;i < aligned_input.num_elements();++i)
-  //   aligned_input.data()[i] = float(i);
-  // std::random_shuffle(aligned_input.data(),aligned_input.data() +
-  // aligned_input.num_elements());
+  //fill data
+  for ( unsigned i = 0;i < aligned_input.num_elements();++i )
+    {
+      aligned_input.data()[i] = float(i);
+    }
+  fftw_image_stack original = aligned_input;
+  for ( unsigned i = 0;i < num_replicas;++i){
+    std::copy(aligned_input.data(), aligned_input.data() + aligned_input.num_elements(),
+	      &many_inputs_flat[0] + (i*aligned_input.num_elements()));
+  }
 
+  //start measurement
   std::vector<ns_t> durations(num_repeats);
 
   ns_t time_ns = ns_t(0);
 
   for (int r = 0; r < num_repeats; ++r) {
+
+    for ( unsigned i = 0;i < num_replicas;++i){
+      std::copy(original.data(), original.data() + original.num_elements(),
+		&many_inputs_flat[0] + (i*original.num_elements()));
+    }
 
     start = boost::chrono::high_resolution_clock::now();
     if (!batched_plan) {
@@ -230,12 +243,22 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  bool data_valid = std::equal(&many_inputs_flat[0], &many_inputs_flat[0] + original.num_elements(),
+			       &many_inputs_flat[(num_replicas-1)*original.num_elements()]);
+  
   fftw_api::destroy_plan(*global_plan);
   delete global_plan;
 
   std::string implementation_name = __FILE__;
-  std::string comments = "";
-  
+  std::string comments = "global_plan";
+  if(data_valid)
+    comments += ",OK";
+  else
+    comments += ",NA";
+
+  if(batched_plan)
+    comments += ",batched";
+
   if(verbose)
     print_header();
 

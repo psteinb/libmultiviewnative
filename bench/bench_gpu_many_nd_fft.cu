@@ -14,12 +14,10 @@
 #include "gpu_nd_fft.cuh"
 #include "logging.hpp"
 
-
-#include <boost/timer/timer.hpp>
-
-using boost::timer::cpu_timer;
-using boost::timer::cpu_times;
-using boost::timer::nanosecond_type;
+#include <boost/chrono.hpp>
+typedef boost::chrono::high_resolution_clock::time_point tp_t;
+typedef boost::chrono::milliseconds ms_t;
+typedef boost::chrono::nanoseconds ns_t;
 
 namespace po = boost::program_options;
 
@@ -166,9 +164,11 @@ int main(int argc, char* argv[]) {
               << "\n";
   }
 
-  std::vector<cpu_times> durations(num_repeats);
 
-  double time_ms = 0.f;
+  std::vector<ns_t> durations(num_repeats);
+  tp_t start, end;
+  ns_t time_ns = ns_t(0);
+  
   float* d_dest_buffer = 0;
   const unsigned fft_size_in_byte_ = cufft_r2c_memory(numeric_stack_dims);
   std::vector<int> fft_reshaped = cufft_r2c_shape(numeric_stack_dims);
@@ -213,17 +213,18 @@ int main(int argc, char* argv[]) {
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       std::fill(stacks.begin(), stacks.end(), raw);
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
       batched_fft_synced(stacks, d_src_buffer, out_of_place ? d_dest_buffer : 0,
                          global_plan);
-      durations[r] = timer.elapsed();
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-      time_ms += double(durations[r].system + durations[r].user) / 1e6;
-      if (verbose) {
-        std::cout << tx_mode << " " << r << "\t"
-                  << double(durations[r].system + durations[r].user) / 1e6
-                  << " ms\n";
-      }
+        if (verbose) {
+          std::cout << tx_mode << " " << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
       
     }
     cudaProfilerStop();
@@ -236,17 +237,18 @@ int main(int argc, char* argv[]) {
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       std::fill(stacks.begin(), stacks.end(), raw);
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
       batched_fft_mapped(stacks, d_src_buffer,
                           out_of_place ? d_dest_buffer : 0, global_plan);
-      durations[r] = timer.elapsed();
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-      time_ms += double(durations[r].system + durations[r].user) / 1e6;
-      if (verbose) {
-        std::cout << tx_mode << " " << r << "\t"
-                  << double(durations[r].system + durations[r].user) / 1e6
-                  << " ms\n";
-      }
+        if (verbose) {
+          std::cout << tx_mode << " " << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
       
     }
     cudaProfilerStop();
@@ -265,7 +267,8 @@ int main(int argc, char* argv[]) {
       HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-    cpu_timer total_timer;
+    tp_t total_start, total_end;
+    total_start =  boost::chrono::high_resolution_clock::now();
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       for (unsigned i = 0;i<stacks.size();++i){
@@ -273,16 +276,17 @@ int main(int argc, char* argv[]) {
 	std::copy(raw.data(),raw.data() + raw.num_elements(), managed_buffers[i]);
       }
 
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
       batched_fft_managed(managed_buffers, global_plan);
-      durations[r] = timer.elapsed();
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-      time_ms += double(durations[r].system + durations[r].user) / 1e6;
-      if (verbose) {
-        std::cout << tx_mode << " " << r << "\t"
-                  << double(durations[r].system + durations[r].user) / 1e6
-                  << " ms\n";
-      }
+        if (verbose) {
+          std::cout << tx_mode << " " << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
       
     }
     cudaProfilerStop();
@@ -290,11 +294,11 @@ int main(int argc, char* argv[]) {
     for (unsigned i = 0;i<stacks.size();++i){
       std::copy(managed_buffers[i], managed_buffers[i] + raw.num_elements(), stacks[i].data());
     }
-    cpu_times total_managed = total_timer.elapsed();
+    total_end =  boost::chrono::high_resolution_clock::now();
     if(verbose)
       {
 	std::cout << tx_mode << " total loop \t"
-                  << double(total_managed.system + total_managed.user) / 1e6
+                  << boost::chrono::duration_cast<ns_t>(total_end - total_start)
                   << " ms\n";
       }
     
@@ -310,17 +314,18 @@ int main(int argc, char* argv[]) {
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       std::fill(stacks.begin(), stacks.end(), raw);
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
       batched_fft_async(stacks, d_src_buffer,
                           out_of_place ? d_dest_buffer : 0, global_plan);
-      durations[r] = timer.elapsed();
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-      time_ms += double(durations[r].system + durations[r].user) / 1e6;
-      if (verbose) {
-        std::cout << tx_mode << " " << r << "\t"
-                  << double(durations[r].system + durations[r].user) / 1e6
-                  << " ms\n";
-      }
+        if (verbose) {
+          std::cout << tx_mode << " " << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
       
     }
     cudaProfilerStop();
@@ -353,34 +358,36 @@ int main(int argc, char* argv[]) {
       HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), fft_size_in_byte_));
 
     //benchmark
-    cpu_timer total_timer;
-
+    tp_t total_start, total_end;
+    total_start =  boost::chrono::high_resolution_clock::now();
     cudaProfilerStart();
     for (int r = 0; r < num_repeats; ++r) {
       std::fill(stacks.begin(), stacks.end(), raw);
-      cpu_timer timer;
+      start = boost::chrono::high_resolution_clock::now();
       batched_fft_async2plans(stacks, 
 			      plans,
 			      src_buffers);
-      durations[r] = timer.elapsed();
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
 
-      time_ms += double(durations[r].system + durations[r].user) / 1e6;
-      if (verbose) {
-        std::cout << tx_mode << " " << r << "\t"
-                  << double(durations[r].system + durations[r].user) / 1e6
-                  << " ms\n";
-      }
+        if (verbose) {
+          std::cout << tx_mode << " " << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
       
     }
     cudaProfilerStop();
 
-    cpu_times total_async2plans = total_timer.elapsed();
+    total_end =  boost::chrono::high_resolution_clock::now();
     if(verbose)
       {
 	std::cout << tx_mode << " total loop \t"
-                  << double(total_async2plans.system + total_async2plans.user) / 1e6
+                  << boost::chrono::duration_cast<ns_t>(total_end - total_start)
                   << " ms\n";
       }
+
     //clean-up
     for (unsigned count = 1; count < plans.size(); ++count) {
       HANDLE_CUFFT_ERROR(cufftDestroy(*plans[count]));
@@ -426,7 +433,7 @@ int main(int argc, char* argv[]) {
 	   << (results_validate ? "OK" : "NA" ) 
     ;
 
-  print_info(1, __FILE__, device_name, num_repeats, time_ms, numeric_stack_dims,
+  print_info(1, __FILE__, device_name, num_repeats, time_ns.count() / double(1e6), numeric_stack_dims,
              sizeof(float), comments.str());
 
   return 0;
