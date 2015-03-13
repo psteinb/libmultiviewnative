@@ -84,7 +84,15 @@ struct gpu_convolve : public PaddingT {
 
   typedef TransferT value_type;
   typedef SizeT size_type;
+  typedef PaddingT padding_policy;
+  typedef multiviewnative::image_stack stack_t;
+  typedef multiviewnative::image_stack_ref stack_ref_t;
 
+  static const int num_dims = stack_ref_t::dimensionality;
+
+  //////////////////////////////////////////////////////////////////////////
+  // CONSTRUCTORS OPERATE ON HOST DATA
+  
   gpu_convolve(value_type* _image_stack_arr, size_type* _image_extents_arr,
                value_type* _kernel_stack_arr, size_type* _kernel_extents_arr,
                size_type* _storage_order = 0)
@@ -93,7 +101,9 @@ struct gpu_convolve : public PaddingT {
         padded_image_(0),
         kernel_(0),
         padded_kernel_(0),
-        streams_(2) {
+	cufft_shape_(num_dims,0)// ,
+        // streams_(2) 
+  {
     std::vector<size_type> image_shape(num_dims);
     std::copy(_image_extents_arr, _image_extents_arr + num_dims,
               image_shape.begin());
@@ -108,19 +118,66 @@ struct gpu_convolve : public PaddingT {
       local_order = storage(_storage_order, ascending);
     }
 
-    this->image_ = new multiviewnative::image_stack_ref(
+    this->image_ = new stack_ref_t(
         _image_stack_arr, image_shape, local_order);
-    this->kernel_ = new multiviewnative::image_stack_ref(
+    this->kernel_ = new stack_ref_t(
         _kernel_stack_arr, kernel_shape, local_order);
 
-    // TODO: the following could be on on_device as well
+    
+    adapt_extents_for_cufft_inplace(this->extents_, cufft_shape_);
+    
     this->padded_image_ =
-        new multiviewnative::image_stack(this->extents_, local_order);
+        new stack_t(this->extents_, local_order);
     this->padded_kernel_ =
-        new multiviewnative::image_stack(this->extents_, local_order);
+        new stack_t(this->extents_, local_order);
 
     this->insert_at_offsets(*image_, *padded_image_);
     this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
+
+    
+  };
+
+
+    template <typename int_type>
+    gpu_convolve(value_type* _image_stack_arr,		//
+		 int_type* _image_extents_arr,		//
+		 value_type* _kernel_stack_arr = 0,	//
+		 int_type* _kernel_extents_arr = 0, 	//
+		 size_type* _storage_order = 0)		//
+      : PaddingT(&_image_extents_arr[0], &_kernel_extents_arr[0]),
+        image_(0),
+        padded_image_(0),
+        kernel_(0),
+        padded_kernel_(0),
+	cufft_shape_(num_dims,0)
+  {
+
+    std::vector<size_type> image_shape(_image_extents_arr,
+                                       _image_extents_arr + num_dims);
+    std::vector<size_type> kernel_shape(_kernel_extents_arr,
+                                        _kernel_extents_arr + num_dims);
+
+    multiviewnative::storage local_order = boost::c_storage_order();
+    if (_storage_order) {
+      bool ascending[3] = {true, true, true};
+      local_order = storage(_storage_order, ascending);
+    }
+
+    this->image_ = new stack_ref_t(
+        _image_stack_arr, image_shape, local_order);
+
+    adapt_extents_for_cufft_inplace(this->extents, cufft_shape_);
+
+    this->padded_image_ = new stack_t(this->extents_, local_order);
+
+    this->kernel_ = new stack_ref_t(
+        _kernel_stack_arr, kernel_shape, local_order);
+    this->padded_kernel_ = new stack_t(this->extents_, local_order);
+
+    this->insert_at_offsets(*image_, *padded_image_);
+    this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
+
+    
   };
 
   template <typename TransformT>
@@ -128,11 +185,10 @@ struct gpu_convolve : public PaddingT {
 
     // extend kernel and image according to inplace requirements
     // (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
-    std::vector<unsigned> inplace_extents(this->extents_.size());
-    adapt_extents_for_fftw_inplace(this->extents_, inplace_extents,
-                                   padded_image_->storage_order());
+    this->padded_image_->resize(cufft_shape_);
+    this->padded_kernel_->resize(cufft_shape_);
     size_type device_memory_elements_required =
-        std::accumulate(inplace_extents.begin(), inplace_extents.end(), 1,
+        std::accumulate(cufft_shape_.begin(), cufft_shape_.end(), 1,
                         std::multiplies<size_type>());
 
     // place image and kernel on device (add extra space on device for cufft
@@ -142,11 +198,6 @@ struct gpu_convolve : public PaddingT {
     // asynch_stack_on_device
     // kernel_on_device(padded_kernel_,device_memory_elements_required);
 
-    // for (int i = 0; i < 2; ++i)
-    // 	HANDLE_ERROR(cudaStreamCreate(&streams_[i]));
-
-    // image_on_device.push_to_device(&streams_[0]);
-    // kernel_on_device.push_to_device(&streams_[1]);
     unsigned long padded_size_byte =
         padded_image_->num_elements() * sizeof(value_type);
     unsigned long inplace_size_byte =
@@ -170,24 +221,20 @@ struct gpu_convolve : public PaddingT {
     HANDLE_ERROR(cudaMemcpy(device_ports.at(kernel_id), padded_kernel_->data(),
                             padded_size_byte, cudaMemcpyHostToDevice));
 
-    // device_ports.template send<image_id >(  padded_image_->data() ,
-    // padded_size_byte);
-    // device_ports.template send<kernel_id>(  padded_kernel_->data() ,
-    // padded_size_byte);
-    // std::vector<cudaStream_t*> wave(2);
-    // device_ports.template streams_of_two<image_id,kernel_id>(wave);
 
     multiviewnative::inplace_convolve_on_device<TransformT>(
         device_ports.at(image_id), device_ports.at(kernel_id),
-        &PaddingT::extents_[0], device_memory_elements_required  // ,
-        // wave
+        &PaddingT::extents_[0], device_memory_elements_required  
         );
 
-    // device_ports.template sync_stream<0>();
-    // device_ports.template receive<0>(  padded_image_->data() ,
-    // padded_size_byte );
     HANDLE_ERROR(cudaMemcpy(padded_image_->data(), device_ports.at(image_id),
                             padded_size_byte, cudaMemcpyDeviceToHost));
+
+    HANDLE_ERROR(cudaHostUnregister(padded_image_->data()));
+    HANDLE_ERROR(cudaHostUnregister(padded_kernel_->data()));
+
+    this->padded_image_->resize(this->extents_);
+    this->padded_kernel_->resize(this->extents_);
 
     // cut-out region of interest
     (*image_) = (*padded_image_)
@@ -197,9 +244,27 @@ struct gpu_convolve : public PaddingT {
              [range(this->offsets_[2],
                     this->offsets_[2] + image_->shape()[2])]];
 
-    HANDLE_ERROR(cudaHostUnregister(padded_image_->data()));
-    HANDLE_ERROR(cudaHostUnregister(padded_kernel_->data()));
+
   }
+
+  /**
+     \brief contract is equal to the one of inplace, except that this function
+     expects the padded_kernel buffer is handed in through the function
+     parameters (it is expected to have the same dimensions of the padded image,
+     if not an exception is thrown)
+
+     \param[in] _d_forwarded_padded_kernel forwarded kernel in the same data
+     structure that is used internally
+
+     \return
+     \retval
+
+  */
+  template <typename TransformT>
+  void half_inplace(stack_t* _d_forwarded_padded_kernel, cudaStream_t* _forwarded_kernel_stream) {
+
+  }
+  
 
   ~gpu_convolve() {
     delete image_;
@@ -216,15 +281,15 @@ struct gpu_convolve : public PaddingT {
   };
 
  private:
-  static const int num_dims = 3;
+  
 
-  image_stack_ref* image_;
-  image_stack* padded_image_;
+  stack_ref_t* image_;
+  stack_t* padded_image_;
 
-  image_stack_ref* kernel_;
-  image_stack* padded_kernel_;
+  stack_ref_t* kernel_;
+  stack_t* padded_kernel_;
 
-  std::vector<cudaStream_t> streams_;
+  std::vector<unsigned> cufft_shape_;
 };
 }
 

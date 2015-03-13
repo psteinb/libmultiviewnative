@@ -7,7 +7,6 @@ namespace multiviewnative {
 
   namespace mvn = multiviewnative;
 
-  
 
   namespace gpu {
 
@@ -31,6 +30,9 @@ namespace multiviewnative {
       typedef cufftHandle plan_t;
 
     };
+
+
+    
 
   };
 

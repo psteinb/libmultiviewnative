@@ -5,6 +5,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <memory>
+
 #include "cufft_interface.cuh"
 #include "cufft_utils.cuh"
 #include "point.h"
@@ -17,6 +18,8 @@ namespace multiviewnative {
 
   namespace gpu {
 
+
+    
 
     template <typename fp_type>
     struct plan_store {
@@ -96,24 +99,29 @@ namespace multiviewnative {
 
 
 	if (fwd_store_.find(_shape) == fwd_store_.end()){
-	  fwd_store_[_shape] = new plan_t;
-	  if(_shape.size()==3)
-	    HANDLE_CUFFT_ERROR(cufftPlan3d(fwd_store_[_shape],		//
-					   (int)_shape[0],	//
-					   (int)_shape[1],	//
-					   (int)_shape[2], 	//
-					   CUFFT_R2C));			//
-	}
+          fwd_store_[_shape] = new plan_t;
+          if (_shape.size() == 3)
+            HandleCufftError(cufftPlan3d(fwd_store_[_shape], //
+                                         (int)_shape[0],     //
+                                         (int)_shape[1],     //
+                                         (int)_shape[2],     //
+                                         CUFFT_R2C),         //
+                             __FILE__,                       //
+                             __LINE__);                      //
+        }
 
-	if (bwd_store_.find(_shape) == bwd_store_.end()) {
-	  bwd_store_[_shape] = new plan_t;
-	  if(_shape.size()==3)
-	    HANDLE_CUFFT_ERROR(cufftPlan3d(bwd_store_[_shape],		//
-					   (int)_shape[0],	//
-					   (int)_shape[1],	//
-					   (int)_shape[2], 	//
-					   CUFFT_C2R));			//
-	}
+        if (bwd_store_.find(_shape) == bwd_store_.end()) {
+          bwd_store_[_shape] = new plan_t;
+          if (_shape.size() == 3)
+            HandleCufftError(cufftPlan3d(bwd_store_[_shape], //
+                                         (int)_shape[0],     //
+                                         (int)_shape[1],     //
+                                         (int)_shape[2],     //
+                                         CUFFT_C2R),         //
+                             __FILE__, //
+                             __LINE__ //
+                             );       //
+        }
       }
 
       plan_t* const get_forward(const mvn::shape_t& _key) const {
@@ -188,7 +196,7 @@ namespace multiviewnative {
 	map_iter_t begin = fwd_store_.begin();
 	map_iter_t end = fwd_store_.end();
 	for (; begin != end; ++begin) {
-	  HANDLE_CUFFT_ERROR(cufftDestroy(*begin->second));
+	  HandleCufftError(cufftDestroy(*begin->second), __FILE__, __LINE__);
 	  delete begin->second;
 	  begin->second = 0;
 	  fwd_store_.erase(begin);
@@ -197,7 +205,7 @@ namespace multiviewnative {
 	begin = bwd_store_.begin();
 	end = bwd_store_.end();
 	for (; begin != end; ++begin) {
-	  HANDLE_CUFFT_ERROR(cufftDestroy(*begin->second));
+	  HandleCufftError(cufftDestroy(*begin->second), __FILE__, __LINE__);
 	  delete begin->second;
 	  begin->second = 0;
 	  bwd_store_.erase(begin);
