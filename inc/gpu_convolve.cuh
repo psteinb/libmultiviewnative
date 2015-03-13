@@ -141,8 +141,7 @@ struct gpu_convolve : public PaddingT {
     template <typename int_type>
     gpu_convolve(value_type* _image_stack_arr,		//
 		 int_type* _image_extents_arr,		//
-		 value_type* _kernel_stack_arr = 0,	//
-		 int_type* _kernel_extents_arr = 0, 	//
+		 int_type* _kernel_extents_arr, 	//
 		 size_type* _storage_order = 0)		//
       : PaddingT(&_image_extents_arr[0], &_kernel_extents_arr[0]),
         image_(0),
@@ -166,16 +165,16 @@ struct gpu_convolve : public PaddingT {
     this->image_ = new stack_ref_t(
         _image_stack_arr, image_shape, local_order);
 
-    adapt_extents_for_cufft_inplace(this->extents, cufft_shape_);
+    adapt_extents_for_cufft_inplace(this->extents_, cufft_shape_);
 
     this->padded_image_ = new stack_t(this->extents_, local_order);
 
-    this->kernel_ = new stack_ref_t(
-        _kernel_stack_arr, kernel_shape, local_order);
-    this->padded_kernel_ = new stack_t(this->extents_, local_order);
+    // this->kernel_ = new stack_ref_t(
+    //     _kernel_stack_arr, kernel_shape, local_order);
+    // this->padded_kernel_ = new stack_t(this->extents_, local_order);
 
     this->insert_at_offsets(*image_, *padded_image_);
-    this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
+    // this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
 
     
   };
@@ -200,11 +199,9 @@ struct gpu_convolve : public PaddingT {
 
     unsigned long padded_size_byte =
         padded_image_->num_elements() * sizeof(value_type);
-    unsigned long inplace_size_byte =
-        device_memory_elements_required * sizeof(value_type);
 
     multiviewnative::device_memory_ports<value_type, 2> device_ports;
-    device_ports.create_all_ports(inplace_size_byte);
+    device_ports.create_all_ports(padded_size_byte);
     static const int image_id = 0;
     static const int kernel_id = 1;
 
@@ -261,8 +258,90 @@ struct gpu_convolve : public PaddingT {
 
   */
   template <typename TransformT>
-  void half_inplace(stack_t* _d_forwarded_padded_kernel, cudaStream_t* _forwarded_kernel_stream) {
+  void half_inplace(value_type* _d_forwarded_padded_kernel, 
+		    cudaStream_t* _forwarded_kernel_stream = 0,
+		    cudaStream_t* _image_stream = 0
+		    ) {
+    // extend kernel and image according to inplace requirements
+    // (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
+    this->padded_image_->resize(cufft_shape_);
+    size_type device_memory_elements_required =
+      std::accumulate(cufft_shape_.begin(), cufft_shape_.end(), 1,
+		      std::multiplies<size_type>())*sizeof(value_type);
+    unsigned long padded_size_byte =
+        padded_image_->num_elements() * sizeof(value_type);
 
+    //transfer image to device
+    value_type* image_on_device = 0;
+    cudaStream_t* image_tx = _image_stream;
+    if(!image_tx)
+      image_tx = new cudaStream_t;
+    
+    HANDLE_ERROR(cudaStreamCreate(image_tx));
+    
+    HANDLE_ERROR(cudaHostRegister(padded_image_->data(), padded_size_byte,
+				  cudaHostRegisterPortable));
+
+    HANDLE_ERROR(cudaMemcpyAsync(image_on_device, 
+				 padded_image_->data(),
+				 padded_size_byte, 
+				 cudaMemcpyHostToDevice,
+				 *image_tx));
+
+
+    TransformT image_transform(image_on_device, &this->extents_[0]);
+    image_transform.forward(image_tx);
+
+
+    size_type transform_size =
+      std::accumulate(this->extents_.begin(), this->extents_.end(), 1, std::multiplies<size_type>());
+    size_type eff_fft_num_elements = transform_size / 2;
+
+    TransferT scale = 1.0 / TransferT(transform_size);
+
+    unsigned numThreads = 128;
+    unsigned numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
+
+    HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
+    if(_forwarded_kernel_stream){
+      modulateAndNormalize_kernel <<<numBlocks, numThreads,0,*_forwarded_kernel_stream>>>((cufftComplex*)image_on_device, 
+											  (cufftComplex*)_d_forwarded_padded_kernel,
+											  eff_fft_num_elements, 
+											  scale);
+    }
+    else{
+      modulateAndNormalize_kernel <<<numBlocks, numThreads>>>((cufftComplex*)image_on_device, 
+							      (cufftComplex*)_d_forwarded_padded_kernel,
+							      eff_fft_num_elements, 
+							      scale);
+    }
+    HANDLE_ERROR(cudaPeekAtLastError());
+
+    image_transform.backward(image_tx);
+  
+    //get image back
+    HANDLE_ERROR(cudaMemcpyAsync(padded_image_->data(), 
+				 image_on_device,
+				 padded_size_byte,
+				 cudaMemcpyDeviceToHost,
+				 *image_tx
+				 ));
+    HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
+    
+    this->padded_image_->resize(this->extents_);
+
+    // cut-out region of interest
+    (*image_) = (*padded_image_)
+        [boost::indices
+             [range(this->offsets_[0], this->offsets_[0] + image_->shape()[0])]
+             [range(this->offsets_[1], this->offsets_[1] + image_->shape()[1])]
+             [range(this->offsets_[2],
+                    this->offsets_[2] + image_->shape()[2])]];
+
+    if(!_image_stream){
+      HANDLE_ERROR(cudaStreamDestroy(*image_tx));
+      delete image_tx;
+    }
   }
   
 

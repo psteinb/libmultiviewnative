@@ -16,83 +16,105 @@
 #include <boost/chrono.hpp>
 #include <boost/thread.hpp>
 
-// // #include <boost/timer/timer.hpp>
-// using boost::timer::cpu_timer;
-// using boost::timer::cpu_times;
-// using boost::timer::nanosecond_type;
 
-#include "cpu_convolve.h"
+#include "gpu_convolve.cuh"
 #include "padd_utils.h"
-#include "fft_utils.h"
-#include "cpu_kernels.h"
+#include "gpu_nd_fft.cuh"
+#include "cufft_utils.cuh"
+
 
 namespace mvn = multiviewnative;
+typedef mvn::zero_padd<mvn::image_stack>
+    wrap_around_padding;
+typedef mvn::inplace_3d_transform_on_device<imageType>
+    device_transform;
+typedef mvn::gpu_convolve<wrap_around_padding, imageType, unsigned>
+    device_convolve;
 
-template <typename Tag>
-struct convolve{};
 
-template <>
-struct convolve<mvn::cpu::serial_tag>{
-      
-typedef mvn::cpu_convolve<> type;
-typedef type::transform_policy transform_type;
-typedef type::padding_policy padding_type;
-      
-};
-
-template <>
-struct convolve<mvn::cpu::parallel_tag>{
-      
-typedef mvn::cpu_convolve<mvn::parallel_inplace_3d_transform> type;
-typedef type::transform_policy transform_type;
-typedef type::padding_policy padding_type;
-      
-};    
-
-template <typename Tag, typename Container>
-void inplace_gpu_batched_fold(std::vector<Container>& _data){
-
-  typedef typename convolve<Tag>::transform_type transform_t;
-  typedef typename convolve<Tag>::padding_type padding_t;
-  typedef typename convolve<Tag>::type fold_t;
+template <typename Container>
+void inplace_gpu_batched_fold(std::vector<Container>& _data,
+			      const std::vector<unsigned>& _reshaped){
   
   std::vector<mvn::image_stack_ref> kernel_ptr;
   std::vector<mvn::shape_t> image_shapes(_data.size());
   std::vector<mvn::shape_t> kernel_shapes(_data.size());
+  std::vector<mvn::image_stack> forwarded_kernels(_data.size());
+
+  unsigned long reshaped_buffer_byte = std::accumulate(_reshaped.begin(), _reshaped.end(), 1, std::multiplies<unsigned>())*sizeof(float);
 
   for (int v = 0; v < _data.size(); ++v) {
     kernel_shapes[v] = mvn::shape_t(_data[v].kernel_shape_.begin(),_data[v].kernel_shape_.end());
     kernel_ptr.push_back(
 			 mvn::image_stack_ref(_data[v].kernel_.data(), kernel_shapes[v]));
+    forwarded_kernels[v] = _data[v].kernel_;
+    forwarded_kernels[v].resize(_reshaped);
+    HANDLE_ERROR(cudaHostRegister((void*)forwarded_kernels[v].data(), 
+				  reshaped_buffer_byte,
+				  cudaHostRegisterPortable));
+  }
+  
+  //creating the plans
+  std::vector<cufftHandle *> plans(2 //number of copy engines
+				   );
+  for (unsigned count = 0; count < plans.size(); ++count) {
+
+      plans[count] = new cufftHandle;
+      HANDLE_CUFFT_ERROR(cufftPlan3d(plans[count],                 //
+				     (int)_data[0].stack_shape_[0], //
+				     (int)_data[0].stack_shape_[1], //
+				     (int)_data[0].stack_shape_[2], //
+				     CUFFT_R2C)                    //
+			 );
+      
   }
 
-  std::vector<mvn::fftw_image_stack> forwarded_kernel(_data.size());
+  //requesting space on device
+  std::vector<float*> src_buffers(plans.size(), 0);
+  for (unsigned count = 0; count < plans.size(); ++count){
+    HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), reshaped_buffer_byte));
+    
+  }
+
+  
+  //forward all kernels
+  batched_fft_async2plans(forwarded_kernels,plans,src_buffers,false);
+    
+  //perform convolution
+  std::vector<cudaStream_t*> streams(plans.size());
+  for( unsigned count = 0;count < streams.size();++count ){
+    streams[count] = new cudaStream_t;
+    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+  }
+  
+  float* d_forwarded_kernel = 0;
+  
   for (int v = 0; v < _data.size(); ++v) {
 
-    image_shapes[v] = mvn::shape_t(_data[v].stack_shape_.begin(),_data[v].stack_shape_.end());
+    HANDLE_ERROR(cudaMemcpyAsync(d_forwarded_kernel,
+				 forwarded_kernels[v].data(), 
+				 reshaped_buffer_byte,
+				 cudaMemcpyHostToDevice,
+				 *streams[0]
+				 ));
 
-    transform_t fft(image_shapes[v]);
-
-    padding_t k1_padder(&(image_shapes[v])[0],
-			&(kernel_shapes[v])[0]);
-
-    // prepare the kernels for fft forward transform
-    forwarded_kernel[v].resize(image_shapes[v]);
-    k1_padder.wrapped_insert_at_offsets(kernel_ptr[v],
-					forwarded_kernel[v]);
-    fft.padd_for_fft(&forwarded_kernel[v]);
-    // call fft
-    fft.forward(&forwarded_kernel[v]);
+    device_convolve im_convolve(_data[v].stack_.data(),
+				&(_data[v].stack_shape_[0]),
+				&(_data[v].kernel_shape_[0])
+				);
+    
+    im_convolve.half_inplace<device_transform>(d_forwarded_kernel,streams[0], streams[1]);
+  }
+    
+  //clean-up
+  for (unsigned count = 0;count < streams.size();++count){
+    HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
+    HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
   }
 
   for (int v = 0; v < _data.size(); ++v) {
-
-    fold_t convolver1(_data[v].stack_.data(),
-		      &(image_shapes[v])[0],
-		      &_data[v].kernel_shape_[0]);
-    convolver1.half_inplace(forwarded_kernel[v]);
+    HANDLE_ERROR(cudaHostUnregister((void*)forwarded_kernels[v].data()));
   }
-
 }
 
 typedef boost::chrono::high_resolution_clock::time_point tp_t;
@@ -101,8 +123,8 @@ typedef boost::chrono::nanoseconds ns_t;
 
 namespace po = boost::program_options;
 
-typedef boost::multi_array<float, 3, fftw_allocator<float> > fftw_image_stack;
-typedef std::vector<float, fftw_allocator<float> > aligned_float_vector;
+// typedef boost::multi_array<float, 3, fftw_allocator<float> > fftw_image_stack;
+// typedef std::vector<float, fftw_allocator<float> > aligned_float_vector;
 
 int main(int argc, char* argv[]) {
   unsigned num_replicas = 8;
@@ -215,7 +237,7 @@ po::variables_map vm;
 
   multiviewnative::image_kernel_data raw(numeric_stack_dims);
   multiviewnative::image_kernel_data reference = raw;
-  inplace_cpu_convolution(reference.stack_.data(),
+  inplace_gpu_convolution(reference.stack_.data(),
 			  &reference.stack_shape_[0],
 			  reference.kernel_.data(),
 			  &reference.kernel_shape_[0],
@@ -254,14 +276,7 @@ po::variables_map vm;
     
 
     start = boost::chrono::high_resolution_clock::now();
-
-    //batched fold comes here
-    if (num_threads == 1)
-      inplace_cpu_batched_fold<mvn::cpu::serial_tag>(stacks);
-    else{
-      convolve<mvn::cpu::parallel_tag>::transform_type::set_n_threads(num_threads);
-      inplace_cpu_batched_fold<mvn::cpu::parallel_tag>(stacks);
-    }
+    inplace_gpu_batched_fold(stacks,reshaped);
     end = boost::chrono::high_resolution_clock::now();
     durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
 

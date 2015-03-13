@@ -75,6 +75,11 @@ CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_fft)
 target_link_libraries(bench_gpu_many_nd_fft ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_chrono)
 set_target_properties(bench_gpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
+CUDA_ADD_EXECUTABLE(bench_gpu_many_nd_folds bench_gpu_many_nd_folds.cu)
+CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_folds)
+target_link_libraries(bench_gpu_many_nd_folds ext_boost_program_options ext_boost_filesystem ext_boost_chrono ${PROJECT_NAME})
+set_target_properties(bench_gpu_many_nd_folds PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests -I${PROJECT_SOURCE_DIR}/inc")
+
 
 ENDIF()
 

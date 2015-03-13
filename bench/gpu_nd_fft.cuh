@@ -1,18 +1,19 @@
 #ifndef _CUDA_ND_FFT_H_
 #define _CUDA_ND_FFT_H_
 #include "cuda_helpers.cuh"
+#include "cufft_utils.cuh"
 #include "cufft.h"
 
-static void HandleCufftError(cufftResult_t err, const char* file, int line) {
-  if (err != CUFFT_SUCCESS) {
-    std::cerr << "cufftResult [" << err << "] in " << file << " at line "
-              << line << std::endl;
-    cudaDeviceReset();
-    exit(EXIT_FAILURE);
-  }
-}
+// static void HandleCufftError(cufftResult_t err, const char* file, int line) {
+//   if (err != CUFFT_SUCCESS) {
+//     std::cerr << "cufftResult [" << err << "] in " << file << " at line "
+//               << line << std::endl;
+//     cudaDeviceReset();
+//     exit(EXIT_FAILURE);
+//   }
+// }
 
-#define HANDLE_CUFFT_ERROR(err) (HandleCufftError(err, __FILE__, __LINE__))
+// #define HANDLE_CUFFT_ERROR(err) (HandleCufftError(err, __FILE__, __LINE__))
 
 /**
    \brief calculates the expected memory consumption for an inplace r-2-c
@@ -362,7 +363,8 @@ void batched_fft_async(std::vector<multiviewnative::image_stack>& _stacks,
 //loosely based on nvidia-samples/6_Advanced/concurrentKernels/concurrentKernels.cu
 void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
 			     std::vector<cufftHandle *>& _plans,
-			     std::vector<float*>& _src_buffers) {
+			     std::vector<float*>& _src_buffers,
+			     bool register_input_stacks = true) {
 
 
 
@@ -374,11 +376,13 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
   }
 
   unsigned stack_size_in_byte = _stacks[0].num_elements() * sizeof(float);
-  for( unsigned count = 0;count < _stacks.size();++count ){
-    HANDLE_ERROR(cudaHostRegister((void*)_stacks[count].data(), 
-				  stack_size_in_byte,
-				  cudaHostRegisterPortable));
+  if(register_input_stacks){
+    for( unsigned count = 0;count < _stacks.size();++count ){
+      HANDLE_ERROR(cudaHostRegister((void*)_stacks[count].data(), 
+				    stack_size_in_byte,
+				    cudaHostRegisterPortable));
   
+    }
   }
 
   std::vector<cudaEvent_t> before_plan_execution(_stacks.size());
@@ -430,7 +434,8 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
   
   for (unsigned count = 0;count < _stacks.size();++count){
     HANDLE_ERROR(cudaEventDestroy(before_plan_execution[count]));
-    HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
+    if(register_input_stacks)
+      HANDLE_ERROR(cudaHostUnregister((void*)_stacks[count].data()));
   }
   
 
