@@ -20,9 +20,9 @@ fi
 
 NCORES=`grep "core id" /proc/cpuinfo |wc -l`
 
-python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft -c "1x$CPU_ID" >>  ${TAG}_cpu_many_folds.data
-python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_fft -t ${NCORES} -c "${NCORES}x${CPU_ID}" >>  ${TAG}_cpu_many_folds.data
+python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_folds -c "1x$CPU_ID" >>  ${TAG}_cpu_many_folds.data
+python $RUNPATH/../../python/sweep_gpu.py $RUNPATH/bench_cpu_many_nd_folds -t ${NCORES} -c "${NCORES}x${CPU_ID}" >>  ${TAG}_cpu_many_folds.data
 
-python $RUNPATH/../../python/sweep_gpu.py --prof $RUNPATH/bench_gpu_many_nd_fft >> ${TAG}_gpu_many_folds_prof.data
+python $RUNPATH/../../python/sweep_gpu.py --prof $RUNPATH/bench_gpu_many_nd_folds >> ${TAG}_gpu_many_folds_prof.data
 
 cat ${TAG}_gpu_many_folds_prof.data | cut -f1-10 -d' ' > ${TAG}_gpu_many_folds.data

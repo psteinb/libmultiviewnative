@@ -34,18 +34,12 @@ typedef mvn::gpu_convolve<stack_padding, imageType, unsigned>
 template <typename Container>
 void inplace_gpu_batched_fold(std::vector<Container>& _data){
   
-  std::vector<mvn::image_stack_ref> kernel_ptr;
-  std::vector<mvn::shape_t> image_shapes(_data.size());
-  std::vector<mvn::shape_t> kernel_shapes(_data.size());
   std::vector<mvn::image_stack> forwarded_kernels(_data.size());
 
   std::vector<int> reshaped;
 
 
   for (int v = 0; v < _data.size(); ++v) {
-    kernel_shapes[v] = mvn::shape_t(_data[v].kernel_shape_.begin(),_data[v].kernel_shape_.end());
-    kernel_ptr.push_back(
-			 mvn::image_stack_ref(_data[v].kernel_.data(), kernel_shapes[v]));
 
     stack_padding local_padding(&_data[v].stack_shape_[0],
 				      &_data[v].kernel_shape_[0]);
