@@ -147,7 +147,7 @@ struct gpu_convolve : public PaddingT {
     this->insert_at_offsets(*image_, *padded_image_);
     this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
 
-    
+    this->padded_image_->resize(cufft_shape_);
   };
 
 
@@ -194,7 +194,7 @@ struct gpu_convolve : public PaddingT {
 
     // extend kernel and image according to inplace requirements
     // (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
-    this->padded_image_->resize(cufft_shape_);
+
     this->padded_kernel_->resize(cufft_shape_);
     size_type device_memory_elements_required =
         std::accumulate(cufft_shape_.begin(), cufft_shape_.end(), 1,

@@ -119,6 +119,7 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
   for (unsigned count = 0;count < streams.size();++count){
     HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
     HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
+    HANDLE_ERROR(cudaFree(src_buffers[count]));
   }
 
   for (int v = 0; v < _data.size(); ++v) {
