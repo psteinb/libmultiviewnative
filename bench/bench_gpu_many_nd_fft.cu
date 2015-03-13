@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
   HANDLE_ERROR(cudaSetDevice(device_id));
   unsigned long cufft_extra_space =
       cufft_3d_estimated_memory_consumption(numeric_stack_dims);
-  unsigned long cufft_data_size = cufft_r2c_memory(numeric_stack_dims);
+  unsigned long cufft_data_size = multiviewnative::gpu::cufft_r2c_memory(numeric_stack_dims);
   unsigned long data_size_byte =
       std::accumulate(numeric_stack_dims.begin(), numeric_stack_dims.end(), 1u,
                       std::multiplies<unsigned long>()) *
@@ -170,8 +170,8 @@ int main(int argc, char* argv[]) {
   ns_t time_ns = ns_t(0);
   
   float* d_dest_buffer = 0;
-  const unsigned fft_size_in_byte_ = cufft_r2c_memory(numeric_stack_dims);
-  std::vector<int> fft_reshaped = cufft_r2c_shape(numeric_stack_dims);
+  const unsigned fft_size_in_byte_ = multiviewnative::gpu::cufft_r2c_memory(numeric_stack_dims);
+  std::vector<int> fft_reshaped = multiviewnative::gpu::cufft_r2c_shape(numeric_stack_dims);
   
 
   if (out_of_place)

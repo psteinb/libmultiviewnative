@@ -48,7 +48,7 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
     local_padding.wrapped_insert_at_offsets(_data[v].kernel_, forwarded_kernels[v]);
 
     //prepare for fft
-    reshaped = cufft_r2c_shape(forwarded_kernels[v].shape(),forwarded_kernels[v].shape() + 3);
+    reshaped = multiviewnative::gpu::cufft_r2c_shape(forwarded_kernels[v].shape(),forwarded_kernels[v].shape() + 3);
     forwarded_kernels[v].resize(reshaped);
     HANDLE_ERROR(cudaHostRegister((void*)forwarded_kernels[v].data(), 
 				    forwarded_kernels[v].num_elements()*sizeof(float),
@@ -228,7 +228,7 @@ po::variables_map vm;
   HANDLE_ERROR(cudaSetDevice(device_id));
   unsigned long cufft_extra_space =
       cufft_3d_estimated_memory_consumption(numeric_stack_dims);
-  unsigned long cufft_data_size = cufft_r2c_memory(numeric_stack_dims);
+  unsigned long cufft_data_size = multiviewnative::gpu::cufft_r2c_memory(numeric_stack_dims);
   // unsigned long data_size_byte =
   //     std::accumulate(numeric_stack_dims.begin(), numeric_stack_dims.end(), 1u,
   //                     std::multiplies<unsigned long>()) *

@@ -15,64 +15,9 @@
 
 // #define HANDLE_CUFFT_ERROR(err) (HandleCufftError(err, __FILE__, __LINE__))
 
-/**
-   \brief calculates the expected memory consumption for an inplace r-2-c
-   transform according to
-   http://docs.nvidia.com/cuda/cufft/index.html#data-layout
 
-   \param[in] _shape std::vector that contains the dimensions
 
-   \return numbe of bytes consumed
-   \retval
 
-*/
-unsigned long cufft_r2c_memory(const std::vector<unsigned>& _shape) {
-
-  unsigned long start = 1;
-  unsigned long value = std::accumulate(_shape.begin(), _shape.end() - 1, start,
-                                        std::multiplies<unsigned long>());
-  value *= (std::floor(_shape.back() / 2.) + 1) * sizeof(cufftComplex);
-  return value;
-}
-
-std::vector<int> cufft_r2c_shape(const std::vector<unsigned>& _shape){
-  
-  std::vector<int> value(_shape.begin(), _shape.end());
-  value[value.size()-1] = 2*(std::floor(_shape.back() / 2.) + 1);
-  return value;
-  
-}
-
-/**
-   \brief calculates the expected memory consumption for an inplace r-2-c
-   transform according to
-   http://docs.nvidia.com/cuda/cufft/index.html#data-layout
-
-   \param[in] _shape_begin begin iterator of shape array
-   \param[in] _shape_end end iterator of shape array
-
-   \return numbe of bytes consumed
-   \retval
-
-*/
-template <typename Iter>
-unsigned long cufft_r2c_memory(Iter _shape_begin, Iter _shape_end) {
-
-  unsigned long start = 1;
-  unsigned long value = std::accumulate(_shape_begin, _shape_end - 1, start,
-                                        std::multiplies<unsigned long>());
-  value *= (std::floor(*(_shape_end - 1) / 2.) + 1) * sizeof(cufftComplex);
-  return value;
-}
-
-template <typename Iter>
-std::vector<int> cufft_r2c_shape(Iter _shape_begin, Iter _shape_end) {
-
-  std::vector<int> value(_shape_begin, _shape_end);
-  value[value.size()-1] = 2*(std::floor(value.back() / 2.) + 1);
-  return value;
-  
-}
 
 /**
    \brief function that computes a r-2-c float32 FFT
@@ -178,7 +123,7 @@ void fft_incl_transfer_incl_alloc(const multiviewnative::image_stack& _stack,
                                   cufftHandle* _plan = 0) {
 
   float* src_buffer = 0;
-  unsigned cufft_size_in_byte = cufft_r2c_memory(
+  unsigned cufft_size_in_byte = multiviewnative::gpu::cufft_r2c_memory(
       &_stack.shape()[0],
       &_stack.shape()[0] + multiviewnative::image_stack::dimensionality);
   // alloc on device
