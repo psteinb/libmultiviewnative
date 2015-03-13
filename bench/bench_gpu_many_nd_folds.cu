@@ -63,6 +63,15 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
   }
 
   unsigned long reshaped_buffer_byte = forwarded_kernels[0].num_elements()*sizeof(float);
+  
+  std::vector<device_convolve*> image_folds(_data.size(),0);
+  for (int v = 0; v < _data.size(); ++v) {
+    image_folds[v] = new device_convolve(_data[v].stack_.data(),
+				      &(_data[v].stack_shape_[0]),
+				      &(_data[v].kernel_shape_[0])
+				      );
+		     
+  }
 
   //creating the plans
   std::vector<cufftHandle *> plans(2 //number of copy engines
@@ -97,6 +106,8 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
     HANDLE_ERROR(cudaStreamCreate(streams[count]));
   }
   
+  
+
   for (int v = 0; v < _data.size(); ++v) {
 
     HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
@@ -106,13 +117,9 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
 				 *streams[0]
 				 ));
 
-    device_convolve im_convolve(_data[v].stack_.data(),
-				&(_data[v].stack_shape_[0]),
-				&(_data[v].kernel_shape_[0])
-				);
     
-    im_convolve.half_inplace<device_transform>(src_buffers[0],src_buffers[1],
-					       streams[0], streams[1]);
+    image_folds[v]->half_inplace<device_transform>(src_buffers[0],src_buffers[1],
+						   streams[0], streams[1]);
   }
     
   //clean-up
@@ -123,6 +130,7 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
 
   for (int v = 0; v < _data.size(); ++v) {
     HANDLE_ERROR(cudaHostUnregister((void*)forwarded_kernels[v].data()));
+    delete image_folds[v];
   }
 }
 

@@ -90,6 +90,19 @@ struct gpu_convolve : public PaddingT {
 
   static const int num_dims = stack_ref_t::dimensionality;
 
+
+  gpu_convolve()
+      : PaddingT(),
+        image_(0),
+        padded_image_(0),
+        kernel_(0),
+        padded_kernel_(0),
+	cufft_shape_(num_dims,0)// ,
+        // streams_(2) 
+  {
+  }
+
+
   //////////////////////////////////////////////////////////////////////////
   // CONSTRUCTORS OPERATE ON HOST DATA
   
@@ -165,17 +178,14 @@ struct gpu_convolve : public PaddingT {
     this->image_ = new stack_ref_t(
         _image_stack_arr, image_shape, local_order);
 
-    adapt_extents_for_cufft_inplace(this->extents_, cufft_shape_);
+
 
     this->padded_image_ = new stack_t(this->extents_, local_order);
 
-    // this->kernel_ = new stack_ref_t(
-    //     _kernel_stack_arr, kernel_shape, local_order);
-    // this->padded_kernel_ = new stack_t(this->extents_, local_order);
-
     this->insert_at_offsets(*image_, *padded_image_);
-    // this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
 
+    adapt_extents_for_cufft_inplace(this->extents_, cufft_shape_);
+    this->padded_image_->resize(cufft_shape_);
     
   }
 
@@ -251,7 +261,9 @@ struct gpu_convolve : public PaddingT {
      if not an exception is thrown)
 
      \param[in] _d_forwarded_padded_kernel forwarded kernel in the same data
-     structure that is used internally
+     structure that is used internally (it is assumed _d_forwarded_padded_kernel has the right shape for a cufft inplace transform)
+
+     \param[in] _d_image memory on device to be foreseen for the actual image data (it is assumed _d_image has the right shape for a cufft inplace transform)
 
      \return
      \retval
@@ -266,10 +278,7 @@ struct gpu_convolve : public PaddingT {
     // extend kernel and image according to inplace requirements
     // (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
 
-    this->padded_image_->resize(cufft_shape_);
-    size_type device_memory_elements_required =
-      std::accumulate(cufft_shape_.begin(), cufft_shape_.end(), 1,
-		      std::multiplies<size_type>())*sizeof(value_type);
+    
     unsigned long padded_size_byte =
         padded_image_->num_elements() * sizeof(value_type);
 
@@ -341,15 +350,15 @@ struct gpu_convolve : public PaddingT {
     HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
     HANDLE_ERROR(cudaHostUnregister(padded_image_->data()));
     
-    this->padded_image_->resize(this->extents_);
+    // this->padded_image_->resize(this->extents_);
 
-    // cut-out region of interest
-    (*image_) = (*padded_image_)
-        [boost::indices
-             [range(this->offsets_[0], this->offsets_[0] + image_->shape()[0])]
-             [range(this->offsets_[1], this->offsets_[1] + image_->shape()[1])]
-             [range(this->offsets_[2],
-                    this->offsets_[2] + image_->shape()[2])]];
+    // // cut-out region of interest
+    // (*image_) = (*padded_image_)
+    //     [boost::indices
+    //          [range(this->offsets_[0], this->offsets_[0] + image_->shape()[0])]
+    //          [range(this->offsets_[1], this->offsets_[1] + image_->shape()[1])]
+    //          [range(this->offsets_[2],
+    //                 this->offsets_[2] + image_->shape()[2])]];
 
     if(!_image_stream){
       HANDLE_ERROR(cudaStreamDestroy(*image_tx));
@@ -360,10 +369,14 @@ struct gpu_convolve : public PaddingT {
   
 
   ~gpu_convolve() {
-    delete image_;
-    delete kernel_;
-    delete padded_image_;
-    delete padded_kernel_;
+    if(image_)
+      delete image_;
+    if(kernel_)
+      delete kernel_;
+    if(padded_image_)
+      delete padded_image_;
+    if(padded_kernel_)
+      delete padded_kernel_;
 
     // for (int i = 0; i < 2; ++i)
     // 	HANDLE_ERROR(cudaStreamDestroy(streams_[i]));
