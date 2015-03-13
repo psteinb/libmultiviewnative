@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
   
   float* d_dest_buffer = 0;
   const unsigned fft_size_in_byte_ = multiviewnative::gpu::cufft_r2c_memory(numeric_stack_dims);
-  std::vector<int> fft_reshaped = multiviewnative::gpu::cufft_r2c_shape(numeric_stack_dims);
+  std::vector<unsigned> fft_reshaped = multiviewnative::gpu::cufft_r2c_shape(numeric_stack_dims);
   
 
   if (out_of_place)
