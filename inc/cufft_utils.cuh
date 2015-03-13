@@ -3,21 +3,15 @@
 #include <vector>
 #include <algorithm>
 
-#include "cuda_helpers.cuh"
 #include "cufft.h"
+
+#include "point.h"
+#include "cuda_helpers.cuh"
+
 #include "cufft_interface.cuh"
 #include "plan_store.cuh"
 
-static void HandleCufftError(cufftResult_t err, const char* file, int line) {
-  if (err != CUFFT_SUCCESS) {
-    std::cerr << "cufftResult [" << err << "] in " << file << " at line "
-              << line << std::endl;
-    cudaDeviceReset();
-    exit(EXIT_FAILURE);
-  }
-}
-
-#define HANDLE_CUFFT_ERROR(err) (HandleCufftError(err, __FILE__, __LINE__))
+#define HANDLE_CUFFT_ERROR(err) (multiviewnative::gpu::HandleCufftError(err, __FILE__, __LINE__))
 
 namespace multiviewnative {
 
@@ -33,6 +27,7 @@ class inplace_3d_transform_on_device {
   typedef typename api::real_t real_type;
   typedef typename api::complex_t complex_type;
   typedef typename api::plan_t plan_type;
+  typedef gpu::plan_store<real_type> plan_store;
 
   typedef long size_type;
 
@@ -46,10 +41,10 @@ class inplace_3d_transform_on_device {
   void forward(cudaStream_t* _stream = 0) {
 
     
-    if(!gpu::plan_store<real_type>::get()->has_key(shape_))
-      gpu::plan_store<real_type>::get()->add(shape_);
+    if(!plan_store::get()->has_key(shape_))
+      plan_store::get()->add(shape_);
     
-    plan_type* plan = gpu::plan_store<real_type>::get()->get_forward(shape_);
+    plan_type* plan = plan_store::get()->get_forward(shape_);
 
     if (_stream) 
       HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
@@ -62,10 +57,10 @@ class inplace_3d_transform_on_device {
 
   void backward(cudaStream_t* _stream = 0) {
 
-    if(!gpu::plan_store<real_type>::get()->has_key(shape_))
-      gpu::plan_store<real_type>::get()->add(shape_);
+    if(!plan_store::get()->has_key(shape_))
+      plan_store::get()->add(shape_);
     
-    plan_type* plan = gpu::plan_store<real_type>::get()->get_backward(shape_);
+    plan_type* plan = plan_store::get()->get_backward(shape_);
 
     if (_stream) 
       HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));

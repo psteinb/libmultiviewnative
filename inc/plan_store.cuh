@@ -7,14 +7,10 @@
 #include <memory>
 
 #include "cufft_interface.cuh"
-#include "cufft_utils.cuh"
 #include "point.h"
 
 namespace multiviewnative {
 
-  namespace mvn = multiviewnative;
-
-  
 
   namespace gpu {
 
@@ -24,11 +20,12 @@ namespace multiviewnative {
     template <typename fp_type>
     struct plan_store {
 
+
       typedef typename cufft_api<fp_type>::plan_t       plan_t		;
       typedef typename cufft_api<fp_type>::complex_t    complex_t	;
       typedef typename cufft_api<fp_type>::real_t       real_t		;
 
-      typedef std::map<mvn::shape_t, plan_t*> map_t;
+      typedef std::map<shape_t, plan_t*> map_t;
       typedef typename map_t::iterator map_iter_t;
       typedef typename map_t::const_iterator map_citer_t;
 
@@ -47,7 +44,7 @@ namespace multiviewnative {
 	return std::max(fwd_store_.size(), bwd_store_.size());
       }
 
-      bool has_key(const mvn::shape_t& _key) const {
+      bool has_key(const shape_t& _key) const {
 	map_citer_t fwd_found = fwd_store_.find(_key);
 	map_citer_t bwd_found = bwd_store_.find(_key);
 
@@ -95,13 +92,13 @@ namespace multiviewnative {
 	 \retval
 
       */
-      void add(const mvn::shape_t& _shape) {
+      void add(const shape_t& _shape) {
 
 
 	if (fwd_store_.find(_shape) == fwd_store_.end()){
           fwd_store_[_shape] = new plan_t;
           if (_shape.size() == 3)
-            HandleCufftError(cufftPlan3d(fwd_store_[_shape], //
+            multiviewnative::gpu::HandleCufftError(cufftPlan3d(fwd_store_[_shape], //
                                          (int)_shape[0],     //
                                          (int)_shape[1],     //
                                          (int)_shape[2],     //
@@ -113,7 +110,7 @@ namespace multiviewnative {
         if (bwd_store_.find(_shape) == bwd_store_.end()) {
           bwd_store_[_shape] = new plan_t;
           if (_shape.size() == 3)
-            HandleCufftError(cufftPlan3d(bwd_store_[_shape], //
+            multiviewnative::gpu::HandleCufftError(cufftPlan3d(bwd_store_[_shape], //
                                          (int)_shape[0],     //
                                          (int)_shape[1],     //
                                          (int)_shape[2],     //
@@ -124,7 +121,7 @@ namespace multiviewnative {
         }
       }
 
-      plan_t* const get_forward(const mvn::shape_t& _key) const {
+      plan_t* const get_forward(const shape_t& _key) const {
 	map_citer_t found = fwd_store_.find(_key);
 
 	if (found != fwd_store_.end())
@@ -141,7 +138,7 @@ namespace multiviewnative {
 	};
       }
 
-      plan_t* get_forward(const mvn::shape_t& _key) {
+      plan_t* get_forward(const shape_t& _key) {
 	map_iter_t found = fwd_store_.find(_key);
 
 	if (found != fwd_store_.end())
@@ -158,7 +155,7 @@ namespace multiviewnative {
 	};
       }
 
-      plan_t const* get_backward(const mvn::shape_t& _key) const {
+      plan_t const* get_backward(const shape_t& _key) const {
 	map_citer_t found = bwd_store_.find(_key);
 
 	if (found != bwd_store_.end())
@@ -175,7 +172,7 @@ namespace multiviewnative {
 	};
       }
 
-      plan_t* get_backward(const mvn::shape_t& _key) {
+      plan_t* get_backward(const shape_t& _key) {
 	map_iter_t found = bwd_store_.find(_key);
 
 	if (found != bwd_store_.end())
@@ -196,7 +193,7 @@ namespace multiviewnative {
 	map_iter_t begin = fwd_store_.begin();
 	map_iter_t end = fwd_store_.end();
 	for (; begin != end; ++begin) {
-	  HandleCufftError(cufftDestroy(*begin->second), __FILE__, __LINE__);
+	  multiviewnative::gpu::HandleCufftError(cufftDestroy(*begin->second), __FILE__, __LINE__);
 	  delete begin->second;
 	  begin->second = 0;
 	  fwd_store_.erase(begin);
@@ -205,7 +202,7 @@ namespace multiviewnative {
 	begin = bwd_store_.begin();
 	end = bwd_store_.end();
 	for (; begin != end; ++begin) {
-	  HandleCufftError(cufftDestroy(*begin->second), __FILE__, __LINE__);
+	  multiviewnative::gpu::HandleCufftError(cufftDestroy(*begin->second), __FILE__, __LINE__);
 	  delete begin->second;
 	  begin->second = 0;
 	  bwd_store_.erase(begin);
@@ -219,6 +216,6 @@ namespace multiviewnative {
 
     };
 
-  };
-};
+  }; //gpu
+}; //mvn
 #endif /* _PLAN_STORE_CUH_ */

@@ -273,7 +273,8 @@ struct gpu_convolve : public PaddingT {
   void half_inplace(value_type* _d_forwarded_padded_kernel, 
 		    value_type* _d_image, 
 		    cudaStream_t* _forwarded_kernel_stream = 0,
-		    cudaStream_t* _image_stream = 0
+		    cudaStream_t* _image_stream = 0,
+		    value_type* _next_kernel = 0
 		    ) {
     // extend kernel and image according to inplace requirements
     // (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
@@ -338,6 +339,15 @@ struct gpu_convolve : public PaddingT {
     }
     HANDLE_ERROR(cudaPeekAtLastError());
 
+    if(_next_kernel){
+      HANDLE_ERROR(cudaMemcpyAsync(_d_forwarded_padded_kernel,
+				   _next_kernel, 
+				   padded_size_byte,
+				   cudaMemcpyHostToDevice,
+				   *_forwarded_kernel_stream
+				   ));
+    }
+
     image_transform.backward(image_tx);
   
     //get image back
@@ -350,7 +360,7 @@ struct gpu_convolve : public PaddingT {
     HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
     HANDLE_ERROR(cudaHostUnregister(padded_image_->data()));
     
-    // this->padded_image_->resize(this->extents_);
+    this->padded_image_->resize(this->extents_);
 
     // // cut-out region of interest
     // (*image_) = (*padded_image_)

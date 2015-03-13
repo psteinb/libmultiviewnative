@@ -24,11 +24,10 @@
 
 
 namespace mvn = multiviewnative;
-typedef mvn::zero_padd<mvn::image_stack>
-    wrap_around_padding;
+typedef mvn::no_padd<mvn::image_stack> stack_padding;
 typedef mvn::inplace_3d_transform_on_device<imageType>
     device_transform;
-typedef mvn::gpu_convolve<wrap_around_padding, imageType, unsigned>
+typedef mvn::gpu_convolve<stack_padding, imageType, unsigned>
     device_convolve;
 
 
@@ -48,7 +47,7 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
     kernel_ptr.push_back(
 			 mvn::image_stack_ref(_data[v].kernel_.data(), kernel_shapes[v]));
 
-    wrap_around_padding local_padding(&_data[v].stack_shape_[0],
+    stack_padding local_padding(&_data[v].stack_shape_[0],
 				      &_data[v].kernel_shape_[0]);
 
     forwarded_kernels[v].resize(local_padding.extents_);
@@ -106,20 +105,20 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
     HANDLE_ERROR(cudaStreamCreate(streams[count]));
   }
   
-  
-
-  for (int v = 0; v < _data.size(); ++v) {
 
     HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
-				 forwarded_kernels[v].data(), 
+				 forwarded_kernels[0].data(), 
 				 reshaped_buffer_byte,
 				 cudaMemcpyHostToDevice,
 				 *streams[0]
 				 ));
+  
 
-    
+  for (int v = 0; v < _data.size(); ++v) {
+
     image_folds[v]->half_inplace<device_transform>(src_buffers[0],src_buffers[1],
-						   streams[0], streams[1]);
+						   streams[0], streams[1],
+						   v+1 < _data.size() ? forwarded_kernels[v+1].data() : 0);
   }
     
   //clean-up
