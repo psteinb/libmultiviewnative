@@ -99,8 +99,8 @@ void fft_excl_transfer_excl_alloc(const multiviewnative::image_stack& _stack,
     HANDLE_CUFFT_ERROR(cufftPlan3d(_plan, (int)_stack.shape()[0],
                                    (int)_stack.shape()[1],
                                    (int)_stack.shape()[2], CUFFT_R2C));
-    HANDLE_CUFFT_ERROR(
-        cufftSetCompatibilityMode(*_plan, CUFFT_COMPATIBILITY_NATIVE));
+    // HANDLE_CUFFT_ERROR(
+    //     cufftSetCompatibilityMode(*_plan, CUFFT_COMPATIBILITY_NATIVE));
   }
 
   if (_d_dest_buffer)
@@ -206,8 +206,8 @@ unsigned long cufft_3d_estimated_memory_consumption(
     HANDLE_CUFFT_ERROR(cufftPlan3d(_plan, (int)_shape[0], (int)_shape[1],
                                    (int)_shape[2], CUFFT_R2C));
 
-    HANDLE_CUFFT_ERROR(
-        cufftSetCompatibilityMode(*_plan, CUFFT_COMPATIBILITY_NATIVE));
+    // HANDLE_CUFFT_ERROR(
+    //     cufftSetCompatibilityMode(*_plan, CUFFT_COMPATIBILITY_NATIVE));
   }
 
   size_t coarse_requirement = 0;

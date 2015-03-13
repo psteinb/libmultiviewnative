@@ -50,7 +50,7 @@ typedef type::padding_policy padding_type;
 };    
 
 template <typename Tag, typename Container>
-void inplace_cpu_batched_fold(std::vector<Container>& _data){
+void inplace_gpu_batched_fold(std::vector<Container>& _data){
 
   typedef typename convolve<Tag>::transform_type transform_t;
   typedef typename convolve<Tag>::padding_type padding_t;

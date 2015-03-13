@@ -140,6 +140,10 @@ CUDA_ADD_EXECUTABLE(test_gpu_deconvolve_single_stepped test_gpu_deconvolve_singl
 target_link_libraries(test_gpu_deconvolve_single_stepped ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff ${PROJECT_NAME})
 
 
+CUDA_ADD_EXECUTABLE(test_gpu_plan_store test_plan_store.cu)
+CUDA_ADD_CUFFT_TO_TARGET(test_gpu_plan_store)
+target_link_libraries(test_gpu_plan_store ext_boost_unit_test_framework)
+
 ELSE()
 MESSAGE(WARNING ">> libtiff not found, skipping tests test_gpu_deconvolve and test_gpu_deconvolve_single_stepped")
 ENDIF()
