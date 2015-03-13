@@ -33,27 +33,37 @@ typedef mvn::gpu_convolve<wrap_around_padding, imageType, unsigned>
 
 
 template <typename Container>
-void inplace_gpu_batched_fold(std::vector<Container>& _data,
-			      const std::vector<unsigned>& _reshaped){
+void inplace_gpu_batched_fold(std::vector<Container>& _data){
   
   std::vector<mvn::image_stack_ref> kernel_ptr;
   std::vector<mvn::shape_t> image_shapes(_data.size());
   std::vector<mvn::shape_t> kernel_shapes(_data.size());
   std::vector<mvn::image_stack> forwarded_kernels(_data.size());
 
-  unsigned long reshaped_buffer_byte = std::accumulate(_reshaped.begin(), _reshaped.end(), 1, std::multiplies<unsigned>())*sizeof(float);
+  std::vector<int> reshaped;
+
 
   for (int v = 0; v < _data.size(); ++v) {
     kernel_shapes[v] = mvn::shape_t(_data[v].kernel_shape_.begin(),_data[v].kernel_shape_.end());
     kernel_ptr.push_back(
 			 mvn::image_stack_ref(_data[v].kernel_.data(), kernel_shapes[v]));
-    forwarded_kernels[v] = _data[v].kernel_;
-    forwarded_kernels[v].resize(_reshaped);
+
+    wrap_around_padding local_padding(&_data[v].stack_shape_[0],
+				      &_data[v].kernel_shape_[0]);
+
+    forwarded_kernels[v].resize(local_padding.extents_);
+    local_padding.wrapped_insert_at_offsets(_data[v].kernel_, forwarded_kernels[v]);
+
+    //prepare for fft
+    reshaped = cufft_r2c_shape(forwarded_kernels[v].shape(),forwarded_kernels[v].shape() + 3);
+    forwarded_kernels[v].resize(reshaped);
     HANDLE_ERROR(cudaHostRegister((void*)forwarded_kernels[v].data(), 
-				  reshaped_buffer_byte,
-				  cudaHostRegisterPortable));
+				    forwarded_kernels[v].num_elements()*sizeof(float),
+				    cudaHostRegisterPortable));
   }
-  
+
+  unsigned long reshaped_buffer_byte = forwarded_kernels[0].num_elements()*sizeof(float);
+
   //creating the plans
   std::vector<cufftHandle *> plans(2 //number of copy engines
 				   );
@@ -70,7 +80,7 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data,
   }
 
   //requesting space on device
-  std::vector<float*> src_buffers(plans.size(), 0);
+  std::vector<float*> src_buffers(plans.size());
   for (unsigned count = 0; count < plans.size(); ++count){
     HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), reshaped_buffer_byte));
     
@@ -87,11 +97,9 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data,
     HANDLE_ERROR(cudaStreamCreate(streams[count]));
   }
   
-  float* d_forwarded_kernel = 0;
-  
   for (int v = 0; v < _data.size(); ++v) {
 
-    HANDLE_ERROR(cudaMemcpyAsync(d_forwarded_kernel,
+    HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
 				 forwarded_kernels[v].data(), 
 				 reshaped_buffer_byte,
 				 cudaMemcpyHostToDevice,
@@ -103,7 +111,8 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data,
 				&(_data[v].kernel_shape_[0])
 				);
     
-    im_convolve.half_inplace<device_transform>(d_forwarded_kernel,streams[0], streams[1]);
+    im_convolve.half_inplace<device_transform>(src_buffers[0],src_buffers[1],
+					       streams[0], streams[1]);
   }
     
   //clean-up
@@ -131,7 +140,7 @@ int main(int argc, char* argv[]) {
   bool verbose = false;
   // bool out_of_place = false;
   bool batched_plan = false;
-  int num_threads = 0;
+  int device_id = -1;
   std::string cpu_name;
   
 
@@ -159,9 +168,9 @@ int main(int argc, char* argv[]) {
      po::value<unsigned>(&num_replicas)->default_value(8), 			//
      "number of replicas to use for batched processing")		//
     									//
-    ("num_threads,t", 							//
-     po::value<int>(&num_threads)->default_value(1),			//
-     "number of threads to use")  					//
+    ("device_id,d", 							//
+     po::value<int>(&device_id)->default_value(-1),			//
+     "cuda device to use")  					//
 									//
     ("cpu_name,c", 							//
      po::value<std::string>(&cpu_name)->default_value("i7-3520M"),	//
@@ -185,9 +194,6 @@ po::variables_map vm;
     return 0;
   }
 
-  static const int max_threads = boost::thread::hardware_concurrency();
-  if(num_threads > max_threads)
-    num_threads = max_threads;
 
   verbose = vm.count("verbose");
   // out_of_place = vm.count("out-of-place");
@@ -210,30 +216,40 @@ po::variables_map vm;
     return 1;
   }
 
-  unsigned long data_size_byte =
-      std::accumulate(numeric_stack_dims.begin(), numeric_stack_dims.end(), 1u,
-                      std::multiplies<unsigned long>()) *
-      sizeof(float);
-  unsigned long memory_available = data_size_byte;  // later
-
-  float exp_mem_mb = (data_size_byte) / float(1 << 20);
-  exp_mem_mb *= num_replicas;
-
-  float av_mem_mb = memory_available / float(1 << 20);
-
-  // if(exp_mem_mb>av_mem_mb){
-  //   std::cerr << "not enough memory available on device, needed " <<
-  // exp_mem_mb
-  // 	      <<" MB), available: " << av_mem_mb << " MB\n";
-  //   return 1;
-  // } else {
-  if (verbose)
-    std::cout << "[NOT IMPLEMENTED YET] memory estimate: needed " << exp_mem_mb
-              << " MB), available: " << av_mem_mb << " MB\n";
-  // }
-
   std::vector<unsigned> reshaped(numeric_stack_dims);
   reshaped.back() = (reshaped.back() / 2 + 1) * 2;
+
+  //////////////////////////////////////////////////////////////////////////////
+  // set device flags
+  if(device_id<0)
+    device_id = selectDeviceWithHighestComputeCapability();
+  
+  HANDLE_ERROR(cudaSetDevice(device_id));
+  unsigned long cufft_extra_space =
+      cufft_3d_estimated_memory_consumption(numeric_stack_dims);
+  unsigned long cufft_data_size = cufft_r2c_memory(numeric_stack_dims);
+  // unsigned long data_size_byte =
+  //     std::accumulate(numeric_stack_dims.begin(), numeric_stack_dims.end(), 1u,
+  //                     std::multiplies<unsigned long>()) *
+  //     sizeof(float);
+  unsigned long memory_available_on_device = getAvailableGMemOnCurrentDevice();
+
+  float exp_mem_mb = (cufft_extra_space + cufft_data_size) / float(1 << 20);
+  float av_mem_mb = memory_available_on_device / float(1 << 20);
+
+  if (exp_mem_mb > av_mem_mb) {
+    std::cerr << "not enough memory available on device, needed " << exp_mem_mb
+              << " MB (data only: " << cufft_data_size / float(1 << 20)
+              << " MB), available: " << av_mem_mb << " MB\n";
+    return 1;
+  } else {
+    if (verbose)
+      std::cout << "cufft memory estimate: needed " << exp_mem_mb
+                << " MB (data only: " << cufft_data_size / float(1 << 20)
+                << " MB), available: " << av_mem_mb << " MB\n";
+  }
+
+
 
   multiviewnative::image_kernel_data raw(numeric_stack_dims);
   multiviewnative::image_kernel_data reference = raw;
@@ -241,7 +257,7 @@ po::variables_map vm;
 			  &reference.stack_shape_[0],
 			  reference.kernel_.data(),
 			  &reference.kernel_shape_[0],
-			  num_threads);
+			  device_id);
 
   std::vector<multiviewnative::image_kernel_data> stacks(num_replicas,raw);
 
@@ -276,7 +292,7 @@ po::variables_map vm;
     
 
     start = boost::chrono::high_resolution_clock::now();
-    inplace_gpu_batched_fold(stacks,reshaped);
+    inplace_gpu_batched_fold(stacks);
     end = boost::chrono::high_resolution_clock::now();
     durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
 
@@ -302,12 +318,17 @@ po::variables_map vm;
   if(batched_plan)
     comments += ",batched";
 
+
+  std::string device_name = get_cuda_device_name(device_id);
+  std::replace(device_name.begin(), device_name.end(), ' ', '_');
+
   if(verbose)
     print_header();
 
-  print_info(num_threads,
+
+  print_info(1,
 	     implementation_name,
-	     cpu_name,
+	     device_name,
 	     num_repeats,
 	     time_ns.count() / double(1e6),
 	     numeric_stack_dims,

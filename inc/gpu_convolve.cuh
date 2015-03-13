@@ -177,7 +177,7 @@ struct gpu_convolve : public PaddingT {
     // this->wrapped_insert_at_offsets(*kernel_, *padded_kernel_);
 
     
-  };
+  }
 
   template <typename TransformT>
   void inplace() {
@@ -259,11 +259,13 @@ struct gpu_convolve : public PaddingT {
   */
   template <typename TransformT>
   void half_inplace(value_type* _d_forwarded_padded_kernel, 
+		    value_type* _d_image, 
 		    cudaStream_t* _forwarded_kernel_stream = 0,
 		    cudaStream_t* _image_stream = 0
 		    ) {
     // extend kernel and image according to inplace requirements
     // (docs.nvidia.com/cuda/cufft/index.html#multi-dimensional)
+
     this->padded_image_->resize(cufft_shape_);
     size_type device_memory_elements_required =
       std::accumulate(cufft_shape_.begin(), cufft_shape_.end(), 1,
@@ -272,21 +274,29 @@ struct gpu_convolve : public PaddingT {
         padded_image_->num_elements() * sizeof(value_type);
 
     //transfer image to device
-    value_type* image_on_device = 0;
+    value_type* image_on_device = _d_image;
     cudaStream_t* image_tx = _image_stream;
-    if(!image_tx)
+    if(!_image_stream){
       image_tx = new cudaStream_t;
-    
-    HANDLE_ERROR(cudaStreamCreate(image_tx));
-    
-    HANDLE_ERROR(cudaHostRegister(padded_image_->data(), padded_size_byte,
-				  cudaHostRegisterPortable));
+      HANDLE_ERROR(cudaStreamCreate(image_tx));
+    }
 
-    HANDLE_ERROR(cudaMemcpyAsync(image_on_device, 
-				 padded_image_->data(),
-				 padded_size_byte, 
-				 cudaMemcpyHostToDevice,
-				 *image_tx));
+    unsigned int flags = 0;
+
+
+    if(cudaHostGetFlags(&flags,padded_image_->data())!=cudaSuccess){
+      HANDLE_ERROR(cudaHostRegister(padded_image_->data(), padded_size_byte,
+				    cudaHostRegisterPortable));
+      cudaGetLastError();
+    }
+    HANDLE_ERROR(cudaPeekAtLastError());
+
+    HANDLE_ERROR(cudaMemcpyAsync(// image_on_device
+    				 _d_image, 
+    				 padded_image_->data(),
+    				 padded_size_byte, 
+    				 cudaMemcpyHostToDevice,
+    				 *image_tx));
 
 
     TransformT image_transform(image_on_device, &this->extents_[0]);
@@ -295,7 +305,7 @@ struct gpu_convolve : public PaddingT {
 
     size_type transform_size =
       std::accumulate(this->extents_.begin(), this->extents_.end(), 1, std::multiplies<size_type>());
-    size_type eff_fft_num_elements = transform_size / 2;
+    size_type eff_fft_num_elements = padded_size_byte/(sizeof(value_type)*2);
 
     TransferT scale = 1.0 / TransferT(transform_size);
 
@@ -303,11 +313,13 @@ struct gpu_convolve : public PaddingT {
     unsigned numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
 
     HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
+    HANDLE_ERROR(cudaStreamSynchronize(*_forwarded_kernel_stream));
+
     if(_forwarded_kernel_stream){
       modulateAndNormalize_kernel <<<numBlocks, numThreads,0,*_forwarded_kernel_stream>>>((cufftComplex*)image_on_device, 
-											  (cufftComplex*)_d_forwarded_padded_kernel,
-											  eff_fft_num_elements, 
-											  scale);
+    											  (cufftComplex*)_d_forwarded_padded_kernel,
+    											  eff_fft_num_elements, 
+    											  scale);
     }
     else{
       modulateAndNormalize_kernel <<<numBlocks, numThreads>>>((cufftComplex*)image_on_device, 
@@ -327,6 +339,7 @@ struct gpu_convolve : public PaddingT {
 				 *image_tx
 				 ));
     HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
+    HANDLE_ERROR(cudaHostUnregister(padded_image_->data()));
     
     this->padded_image_->resize(this->extents_);
 
@@ -342,6 +355,7 @@ struct gpu_convolve : public PaddingT {
       HANDLE_ERROR(cudaStreamDestroy(*image_tx));
       delete image_tx;
     }
+
   }
   
 
