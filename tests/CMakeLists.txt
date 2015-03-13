@@ -100,12 +100,10 @@ MESSAGE(">> [TESTS] Linking against ${FFTW_LIBS_TO_USE}")
 ENDIF()
 
 add_executable(test_point test_point.cpp)
-target_link_libraries(test_point ext_boost_filesystem ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
+target_link_libraries(test_point ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
 
 add_executable(test_plan_store test_plan_store.cpp)
-target_link_libraries(test_plan_store ext_boost_filesystem ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
-
-
+target_link_libraries(test_plan_store ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
 
 add_executable(test_fftw_convolve test_fftw_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_fftw_convolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
