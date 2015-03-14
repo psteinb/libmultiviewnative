@@ -61,24 +61,31 @@ ENDIF()
 ENDIF()
 
 IF(CUDA_FOUND)
-# CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
-# target_link_libraries(bench_gpu_deconvolve boost_program_options boost_regex boost_system boost_timer ${PROJECT_NAME})
-# set_target_properties(bench_gpu_deconvolve PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+
+#TODO: CHECK IF tests is in ${CUDA_NVCC_FLAGS}
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/tests)
+
+
+CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
+CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_deconvolve)
+target_link_libraries(bench_gpu_deconvolve ext_boost_system ext_boost_filesystem ext_boost_timer ext_boost_chrono ext_boost_unit_test_framework tiff ${PROJECT_NAME})
+#set_target_properties(bench_gpu_deconvolve PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+
 
 CUDA_ADD_EXECUTABLE(bench_gpu_nd_fft bench_gpu_nd_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_nd_fft)
 target_link_libraries(bench_gpu_nd_fft ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_chrono)
-set_target_properties(bench_gpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+#set_target_properties(bench_gpu_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 CUDA_ADD_EXECUTABLE(bench_gpu_many_nd_fft bench_gpu_many_nd_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_fft)
 target_link_libraries(bench_gpu_many_nd_fft ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_chrono)
-set_target_properties(bench_gpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
+#set_target_properties(bench_gpu_many_nd_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 CUDA_ADD_EXECUTABLE(bench_gpu_many_nd_folds bench_gpu_many_nd_folds.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_many_nd_folds)
 target_link_libraries(bench_gpu_many_nd_folds ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_chrono ${PROJECT_NAME})
-set_target_properties(bench_gpu_many_nd_folds PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests -I${PROJECT_SOURCE_DIR}/inc")
+#set_target_properties(bench_gpu_many_nd_folds PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests -I${PROJECT_SOURCE_DIR}/inc")
 
 
 ENDIF()

@@ -518,9 +518,9 @@ void inplace_gpu_deconvolve(imageType* psi, workspace input, int device) {
   float memory_fft_step_mb = 2*single_stack_in_mb + cufft_workarea;
   float regularisation_step_mb = 3*single_stack_in_mb;
   float min_memory_budget_mb = std::max(regularisation_step_mb,memory_fft_step_mb);
+
   // decide if the incoming data fills the memory on device too much
-  // at no point, the
-  float memory_all_on_device_mb = 4*input.num_views_*single_stack_in_mb + cufft_workarea_mb;
+  float memory_all_on_device_mb = (4*input.num_views_ + 2)*single_stack_in_mb + cufft_workarea_mb;
   
 
   // cufft is memory hungry, that is why we only push all stacks to device mem
