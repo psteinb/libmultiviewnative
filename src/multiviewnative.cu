@@ -515,7 +515,7 @@ void inplace_gpu_deconvolve(imageType* psi, workspace input, int device) {
                                           std::multiplies<int>());
   float single_stack_in_mb = single_stack_in_byte / (1024*1024.);
 
-  float memory_fft_step_mb = 2*single_stack_in_mb + cufft_workarea;
+  float memory_fft_step_mb = 2*single_stack_in_mb + cufft_workarea_mb;
   float regularisation_step_mb = 3*single_stack_in_mb;
   float min_memory_budget_mb = std::max(regularisation_step_mb,memory_fft_step_mb);
 
@@ -527,7 +527,8 @@ void inplace_gpu_deconvolve(imageType* psi, workspace input, int device) {
   // if the total budget does not exceed 1/3 device mem
   bool all_on_device = memory_all_on_device_mb < (device_gmem_mb * .9);
   std::cout << "[lmvn::inplace_gpu_deconvolve] FFT: "
-            << memory_all_on_device_mb << " MB, "
+            << memory_all_on_device_mb << " MB (all-on-device), "
+	    << min_memory_budget_mb << " MB (min-mem interleaved), "
             << " available on GPU: " << device_gmem_mb
             << " MB ... ";
 

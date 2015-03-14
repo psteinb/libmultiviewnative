@@ -70,6 +70,8 @@ BOOST_AUTO_TEST_CASE(deconvolve_interleaved_gpus_lambda_6){
   workspace input;
   input.data_ = 0;
 std::vector<int> shape(3,256);
+ shape[0] = 512;
+ shape[1] = 512;
 multiviewnative::multiview_data syn(shape);
 syn.fill_workspace(input);
   input.num_iterations_ = 10;
