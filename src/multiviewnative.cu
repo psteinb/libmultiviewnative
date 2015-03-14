@@ -73,7 +73,7 @@ void inplace_gpu_convolution(imageType* im, int* imDim, imageType* kernel,
 
 
 template <typename padding_type>
-void generate_forwarded_kernels(std::vector<image_stack>& _result,
+void generate_forwarded_kernels(std::vector<multiviewnative::image_stack>& _result,
 				workspace input, 
 				int kernel_id = 1
 				)
@@ -82,7 +82,7 @@ void generate_forwarded_kernels(std::vector<image_stack>& _result,
     _result.resize(input.num_views_);
 
   int * kernel_dims = 0;
-  float * kernel_ = 0;
+  float * kernel = 0;
   std::vector<int> reshaped;
 
   for (unsigned v = 0;v < _result.size();++v){
@@ -94,7 +94,7 @@ void generate_forwarded_kernels(std::vector<image_stack>& _result,
 					  kernel_dims + multiviewnative::image_stack::dimensionality);
     
     multiviewnative::image_stack_ref kernel_ref(kernel, kernel_shape);
-    padding_type padding(input.data_[v].image_dims_, kernel_dims_);
+    padding_type padding(input.data_[v].image_dims_, kernel_dims);
     
     //resize to image size
     _result[v].resize(padding.extents_);
@@ -137,37 +137,39 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   std::vector<image_stack> forwarded_kernels1(n_views);
   std::vector<image_stack> forwarded_kernels2(n_views);
 
-  //prepare kernels
+  //prepare kernels (padd for cufft)
   generate_forwarded_kernels<as_is_padding>(forwarded_kernels1,input,1);
   generate_forwarded_kernels<as_is_padding>(forwarded_kernels2,input,2);
 
   std::vector<target_convolve*> view_folds(n_views,0);
   std::vector<image_stack> weights(n_views);
 
+  shape_t input_shape(input.data_[0].image_dims_,input.data_[0].image_dims_ + 3);
+  shape_t common_shape(forwarded_kernels1[0].shape(), forwarded_kernels1[0].shape() + 3);
+  unsigned long padded_size_byte = forwarded_kernels1[0].num_elements()*sizeof(imageType);
+
   //prepare image, weights
-  for (int v = 0; v < view_folds.size(); ++v) {
+  for (unsigned v = 0; v < view_folds.size(); ++v) {
     view_folds[v] = new target_convolve(input.data_[v].image_,
 					input.data_[v].image_dims_,
 					input.data_[v].kernel1_dims_
 					);
-    weights[v].resize(view_folds[v].image_->shape());
-    std::copy(input.data_[v].weights_, input.data_[v].weights_ + image_->num_elements(),
+    weights[v].resize(input_shape);
+    std::copy(input.data_[v].weights_, input.data_[v].weights_ + weights[v].num_elements(),
 	      weights[v].data());
-    weights[v].resize(view_folds[v].padded_image_->shape());
+    weights[v].resize(common_shape);
   }
 
   //prepare space on device
   std::vector<float*> src_buffers(2);
-  unsigned long padded_size_byte = forwarded_kernels1[0].num_elements()*sizeof(imageType);
+
   for (unsigned count = 0; count < src_buffers.size(); ++count){
     HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), padded_size_byte));
   }
   
-  shape_t common_shape(forwarded_kernels1.shape(), forwarded_kernels1.shape() + 3);
-  batched_fft_async2plans(forwarded_kernels1, common_shape, src_buffers, false);
-
-  std::copy(forwarded_kernels2.shape(), forwarded_kernels2.shape() + 3,common_shape.begin());
-  batched_fft_async2plans(forwarded_kernels2, common_shape, src_buffers, false);
+  
+  gpu::batched_fft_async2plans(forwarded_kernels1, common_shape, src_buffers, false);
+  gpu::batched_fft_async2plans(forwarded_kernels2, common_shape, src_buffers, false);
 
   //expand memory on device
   src_buffers.reserve(4);
@@ -177,54 +179,131 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     src_buffers.push_back(temp);
   }
 
-  const int psi = 3;
-  const int intgr = 2;
+  std::vector<cudaStream_t*> streams(2 // TODO: number of copy engines
+				     );
+  for( unsigned count = 0;count < streams.size();++count ){
+    streams[count] = new cudaStream_t;
+    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+  }
+
+  //src_buffers is 4 items large
+  //use 
+  // 0 .. any content 
+  // 1 .. any content (mostly kernels)
+  // 2 .. integral
+  // 3 .. psi
+  //fix the indices here
+  const int psi_ = 3;
+  const int intgr_ = 2;
   
-  shape_t input_shape(input.data_[0].image_dims_,input.data_[0].image_dims_ + 3);
+
   image_stack_ref input_psi(psi, input_shape);
   image_stack psi_stack = input_psi;
   psi_stack.resize(common_shape);
   
-  HANDLE_ERROR(cudaMemcpy(src_buffers[psi],
+  HANDLE_ERROR(cudaMemcpy(src_buffers[psi_],
 			  psi_stack.data(), 
 			  padded_size_byte,
 			  cudaMemcpyHostToDevice
 			  ));
+  
+  const unsigned fft_num_elements = forwarded_kernels1[0].num_elements();
+  const unsigned eff_fft_num_elements = fft_num_elements / 2;
 
+  unsigned Threads = 128;//optimize later
+  unsigned Blocks = largestDivisor(eff_fft_num_elements, Threads);
 
   for ( int i = 0; i < input.num_iterations_; ++i){
 
-    HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
+    HANDLE_ERROR(cudaMemcpyAsync(src_buffers[1],
 				 forwarded_kernels1[0].data(), 
 				 padded_size_byte,
 				 cudaMemcpyHostToDevice,
 				 *streams[0]
 				 ));
 
-    for (int v = 0; v < n_views; ++v) {
+    for (unsigned v = 0; v < n_views; ++v) {
 
-      HANDLE_ERROR(cudaMemcpy(src_buffers[intgr],
-			      src_buffers[psi], 
+      //integral = psi
+      HANDLE_ERROR(cudaMemcpy(src_buffers[intgr_],
+			      src_buffers[psi_], 
 			      padded_size_byte,
 			      cudaMemcpyDeviceToDevice
 			      ));
 
-      //would load internal  
-      image_folds[v]->half_inplace<device_transform>(src_buffers[0],src_buffers[1],
-						     streams[0], streams[1],
-						     view_folds[v].padded_image_->data()// on stream 0
-						     );
-
+      //would load internal from host
+      // convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
+      inplace_asynch_convolve_on_device_and_kick<device_transform>(src_buffers[intgr_], 
+						 src_buffers[1],
+						 &input_shape[0],
+						 fft_num_elements,
+						 streams,
+						 //goes to stream 1, src_buffer 1
+						 view_folds[v]->padded_image_->data()
+						 );
       
+      //get kernel2 into buffer0
+      HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
+				 forwarded_kernels2[v].data(), 
+				 padded_size_byte,
+				 cudaMemcpyHostToDevice,
+				 *streams[0]
+				 ));
+
+      // view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
+      device_divide << <Blocks, Threads, 0, *streams[1] >>>
+          (src_buffers[1], src_buffers[intgr_], fft_num_elements);
+      HANDLE_LAST_ERROR();
+
+      // convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) *
+      // P_v^{compound}
+      inplace_asynch_convolve_on_device_and_kick<device_transform>(src_buffers[intgr_], 
+						 src_buffers[0],
+						 &input_shape[0],
+						 fft_num_elements,
+						 streams,
+						 //goes to stream 1, src_buffer 1
+						 weights[v].data()
+						 );
+      
+      // computeFinalValues(input_psi,integral,weights)
+      // studied impact of different techniques on how to implement this
+      // decision (decision in object, decision in if clause)
+      // compiler opt & branch prediction seems to suggest this solution
+      if (input.lambda_ > 0) {
+        device_regularized_final_values <<<Blocks, Threads, 0 , *streams[1]>>>
+	  (src_buffers[psi_], src_buffers[intgr_], src_buffers[1],
+	   input.lambda_, input.minValue_, fft_num_elements);
+
+      } else {
+        device_final_values <<<Blocks, Threads, 0 , *streams[1]>>>
+	  (src_buffers[psi_], src_buffers[intgr_], src_buffers[1],
+	   input.minValue_, fft_num_elements);
+      }
+      HANDLE_LAST_ERROR();
+	
+      //TODO: can this be removed?
+      HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
-
+    
   }
 
   //clean-up
-  for (int v = 0; v < n_views; ++v) {
+  for (unsigned v = 0; v < n_views; ++v) {
     delete view_folds[v];
   }
+
+  for (unsigned b = 0; b < src_buffers.size(); ++b) {
+    HANDLE_ERROR(cudaFree(src_buffers[b]));
+  }
+
+  //convert all data to what it was
+  psi_stack.resize(input_shape);
+  
+  //copy result
+  input_psi = psi_stack;
+    
 }
 
 /**
@@ -267,7 +346,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   //
   // PREPARE THE DATA (INCL PADDING)
   //
-  for (int v = 0; v < input.num_views_; ++v) {
+  for (unsigned v = 0; v < input.num_views_; ++v) {
 
     padding[v] = wrap_around_padding(input.data_[v].image_dims_,
                                      input.data_[v].kernel1_dims_);

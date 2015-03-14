@@ -121,7 +121,7 @@ namespace multiviewnative {
         }
       }
 
-      plan_t* const get_forward(const shape_t& _key) const {
+      plan_t const*  get_forward(const shape_t& _key) const {
 	map_citer_t found = fwd_store_.find(_key);
 
 	if (found != fwd_store_.end())

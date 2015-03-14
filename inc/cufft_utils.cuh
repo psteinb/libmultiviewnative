@@ -81,13 +81,13 @@ class inplace_3d_transform_on_device {
 
   namespace gpu {
     //loosely based on nvidia-samples/6_Advanced/concurrentKernels/concurrentKernels.cu
-    typename <typename stack_type>
+    template <typename stack_type>
     void batched_fft_async2plans(std::vector<stack_type>& _prepared_stacks,
 				 const multiviewnative::shape_t& _transform_shape,
 				 std::vector<float*>& _src_buffers,
 				 bool register_input_stacks = true) {
 
-      typedef gpu::plan_store<real_type> plan_store;
+      typedef plan_store<float> plan_store;
 
       //create 2! plans to satisfy 2 streams
       if(!plan_store::get()->has_key(_transform_shape))
@@ -176,7 +176,9 @@ class inplace_3d_transform_on_device {
 	  HANDLE_ERROR(cudaHostUnregister((void*)_prepared_stacks[count].data()));
       }
   
-
+      HANDLE_CUFFT_ERROR(cufftDestroy(*_plans.back()));
+      delete _plans.back();
+      
     }
   } // gpu
 

@@ -23,10 +23,12 @@ typedef multiviewnative::stack_on_device<
     multiviewnative::image_stack, multiviewnative::synch> synch_stack_on_device;
 
 template <typename TransformT, typename TransferT, typename DimT>
-void inplace_asynch_convolve_on_device(
-    TransferT* _image_on_device, TransferT* _kernel_on_device, DimT* _extents,
-    const unsigned& _fft_num_elements,
-    const std::vector<cudaStream_t*>& _streams) {
+void inplace_asynch_convolve_on_device(TransferT* _image_on_device, 
+				       TransferT* _kernel_on_device, 
+				       DimT* _extents,
+				       const unsigned& _fft_num_elements,
+				       const std::vector<cudaStream_t*>& _streams) 
+{
 
   TransformT image_transform(_image_on_device, _extents);
   TransformT kernel_transform(_kernel_on_device, _extents);
@@ -51,6 +53,51 @@ void inplace_asynch_convolve_on_device(
 
   image_transform.backward(_streams[0]);
 }
+
+template <typename TransformT, typename TransferT, typename DimT>
+void inplace_asynch_convolve_on_device_and_kick(TransferT* _image_on_device, 
+						TransferT* _kernel_on_device, 
+						DimT* _extents,
+						const unsigned& _fft_num_elements,
+						const std::vector<cudaStream_t*>& _streams,
+						TransferT* _kick_to_kernel_stream = 0) 
+{
+
+  TransformT image_transform(_image_on_device, _extents);
+  TransformT kernel_transform(_kernel_on_device, _extents);
+  image_transform.forward(_streams[0]);
+  kernel_transform.forward(_streams[1]);
+
+  DimT transform_size =
+      std::accumulate(_extents, _extents + 3, 1, std::multiplies<DimT>());
+  unsigned eff_fft_num_elements = _fft_num_elements / 2;
+  
+  TransferT scale = 1.0 / TransferT(transform_size);
+
+  unsigned numThreads = 128;
+  unsigned numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
+
+  HANDLE_ERROR(cudaStreamSynchronize(*_streams[1]));
+  HANDLE_ERROR(cudaStreamSynchronize(*_streams[0]));
+  modulateAndNormalize_kernel << <numBlocks, numThreads>>>
+      ((cufftComplex*)_image_on_device, (cufftComplex*)_kernel_on_device,
+       eff_fft_num_elements, scale);
+  HANDLE_ERROR(cudaPeekAtLastError());
+  if(_kick_to_kernel_stream){
+    
+    HANDLE_ERROR(cudaMemcpyAsync(_kernel_on_device,
+				 _kick_to_kernel_stream, 
+				 eff_fft_num_elements*sizeof(cufftComplex),
+				 cudaMemcpyHostToDevice,
+				 *_streams[1]
+				 ));
+  }
+
+  image_transform.backward(_streams[0]);
+  HANDLE_ERROR(cudaStreamSynchronize(*_streams[0]));
+}
+
+
 
 template <typename TransformT, typename TransferT, typename DimT>
 void inplace_convolve_on_device(TransferT* _image_on_device,
@@ -396,16 +443,16 @@ struct gpu_convolve : public PaddingT {
     HANDLE_ERROR(cudaSetDevice(_device));
   };
 
+  //REFACTOR THIS!
+  stack_t* padded_image_;
+  stack_t* padded_kernel_;
+  std::vector<unsigned> cufft_shape_;
+
  private:
   
-
   stack_ref_t* image_;
-  stack_t* padded_image_;
-
   stack_ref_t* kernel_;
-  stack_t* padded_kernel_;
 
-  std::vector<unsigned> cufft_shape_;
 };
 }
 
