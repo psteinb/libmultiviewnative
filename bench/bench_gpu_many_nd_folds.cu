@@ -82,8 +82,8 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
   }
 
   //requesting space on device
-  std::vector<float*> src_buffers(plans.size());
-  for (unsigned count = 0; count < plans.size(); ++count){
+  std::vector<float*> src_buffers(plans.size(),0);
+  for (unsigned count = 0; count < src_buffers.size(); ++count){
     HANDLE_ERROR(cudaMalloc((void**)&(src_buffers[count]), reshaped_buffer_byte));
     
   }
@@ -119,13 +119,25 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
   for (unsigned count = 0;count < streams.size();++count){
     HANDLE_ERROR(cudaStreamSynchronize(*streams[count]));
     HANDLE_ERROR(cudaStreamDestroy(*streams[count]));
+  }
+
+  for (unsigned count = 0;count < src_buffers.size();++count){
     HANDLE_ERROR(cudaFree(src_buffers[count]));
   }
+
+  for (unsigned count = 0;count < plans.size();++count){
+
+    HANDLE_CUFFT_ERROR(cufftDestroy(*plans[count]));
+    delete plans[count];
+    plans[count] = 0;
+  }
+
 
   for (int v = 0; v < _data.size(); ++v) {
     HANDLE_ERROR(cudaHostUnregister((void*)forwarded_kernels[v].data()));
     delete image_folds[v];
   }
+
 }
 
 typedef boost::chrono::high_resolution_clock::time_point tp_t;
