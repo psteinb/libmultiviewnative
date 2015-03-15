@@ -13,7 +13,7 @@
 #include "cufft.h"
 
 // ------- Project ----------
-
+#include "multiviewnative.h"
 #include "cuda_helpers.cuh"
 #include "cuda_kernels.cuh"
 #include "gpu_convolve.cuh"

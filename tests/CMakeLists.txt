@@ -123,6 +123,10 @@ target_link_libraries(test_cpu_asymm_convolve ext_boost_system ext_boost_filesys
 FIND_PACKAGE(TIFF QUIET)
 
 IF(CUDA_FOUND)
+
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/src)
+
+
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
 target_link_libraries(test_gpu_convolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ${PROJECT_NAME})
 
@@ -133,6 +137,10 @@ IF(TIFF_FOUND AND TEST_TIFF_FILES_AVAILABLE)
 CUDA_ADD_EXECUTABLE(test_gpu_deconvolve test_gpu_deconvolve.cpp)
 target_link_libraries(test_gpu_deconvolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff ${PROJECT_NAME})
 
+CUDA_ADD_EXECUTABLE(test_gpu_deconvolve_impl test_gpu_deconvolve_impl.cu)
+CUDA_ADD_CUFFT_TO_TARGET(test_gpu_deconvolve_impl)
+target_link_libraries(test_gpu_deconvolve_impl ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff ${PROJECT_NAME})
+set_target_properties(test_gpu_deconvolve_impl PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/src -I${PROJECT_SOURCE_DIR}/tests")
 
 CUDA_ADD_EXECUTABLE(test_gpu_deconvolve_single_stepped test_gpu_deconvolve_single_stepped.cu)
 target_link_libraries(test_gpu_deconvolve_single_stepped ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff ${PROJECT_NAME})
