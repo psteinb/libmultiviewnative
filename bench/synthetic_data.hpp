@@ -4,8 +4,9 @@
 #include <sstream>
 #include <vector>
 #include <string>
-
+#include "multiviewnative.h"
 #include "image_stack_utils.h"
+
 
 template <const char token, typename T>
 void split(const std::string& _s, std::vector<T>& _tgt) {
@@ -103,6 +104,25 @@ struct multiview_data {
               << kernel2_[0].shape()[1] << "x" << kernel2_[0].shape()[2]
               << "\n";
   }
+		 
+		 void fill_workspace(workspace& _space){
+_space.num_views_ = views_.size();
+if (_space.data_ != 0) delete[] _space.data_;
+
+_space.data_ = new view_data[_space.num_views_];
+
+for (unsigned num = 0; num < _space.num_views_; ++num) {
+_space.data_[num].image_ = views_[num].data();
+_space.data_[num].kernel1_ = kernel1_[num].data();
+_space.data_[num].kernel2_ = kernel2_[num].data();
+_space.data_[num].weights_ = weights_[num].data();
+
+_space.data_[num].image_dims_ = (int*)&stack_dims_[0];
+  _space.data_[num].kernel1_dims_ = (int*)&kernel1_dims_[0];
+  _space.data_[num].kernel2_dims_ = (int*)&kernel2_dims_[0];
+  _space.data_[num].weights_dims_ = (int*)&stack_dims_[0];
+}
+}
 };
 
 struct image_kernel_data {
