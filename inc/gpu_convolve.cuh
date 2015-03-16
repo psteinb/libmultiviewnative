@@ -340,6 +340,7 @@ struct gpu_convolve : public PaddingT {
 
     unsigned int flags = 0;
 
+    HANDLE_ERROR(cudaPeekAtLastError());
 
     if(cudaHostGetFlags(&flags,padded_image_->data())!=cudaSuccess){
       HANDLE_ERROR(cudaHostRegister(padded_image_->data(), padded_size_byte,

@@ -428,6 +428,8 @@ po::variables_map vm;
 
   multiviewnative::image_kernel_data raw(numeric_stack_dims);
   multiviewnative::image_kernel_data reference = raw;
+  
+  HANDLE_ERROR(cudaPeekAtLastError());
   inplace_gpu_convolution(reference.stack_.data(),
 			  &reference.stack_shape_[0],
 			  reference.kernel_.data(),
