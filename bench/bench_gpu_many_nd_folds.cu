@@ -31,7 +31,7 @@ typedef mvn::gpu_convolve<stack_padding, imageType, unsigned>
     device_convolve;
 
 template <typename Container>
-void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
+void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
 
     std::vector<mvn::image_stack> forwarded_kernels(_data.size());
     std::vector<int> reshaped;
@@ -52,7 +52,7 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
 				    cudaHostRegisterPortable));
   }
 
-      unsigned long reshaped_buffer_byte = forwarded_kernels[0].num_elements()*sizeof(float);
+      //unsigned long reshaped_buffer_byte = forwarded_kernels[0].num_elements()*sizeof(float);
   
       std::vector<device_convolve*> image_folds(_data.size(),0);
       
@@ -77,31 +77,69 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
       }
 
       //create plan
-      cufftHandle* global_plan = new cufftHandle;
       std::vector<int> fftready_shape( forwarded_kernels[0].shape(), 
 				       forwarded_kernels[0].shape() + 3);
       unsigned fft_size_in_byte_ = sizeof(float)*std::accumulate(fftready_shape.begin(), fftready_shape.end(),1,std::multiplies<int>());
+
       std::vector<int> fft_shape(_data[0].stack_shape_.begin(), 
 				 _data[0].stack_shape_.end());
+
+      std::cout << ":: " << getMemDeviceCUDA(device) << "\n";
+
+      // std::vector<int> fftready_shape_as_cufftcomplex(fftready_shape.begin(),
+      // 						      fftready_shape.end());
+      // for ( int & i : fftready_shape_as_cufftcomplex )
+      // 	i/=2;
+
       
-      HANDLE_CUFFT_ERROR(cufftPlanMany(global_plan,  //plan
-				       3, //n
-				       (int*)&fft_shape[0], //
-				       (int*)&fftready_shape[0],//inembed
+      std::vector<int> iembed(fft_shape.begin(),
+			      fft_shape.end());
+      std::vector<int> oembed(iembed);
+      for ( int & i : oembed )
+      	i/=2;
+
+
+      std::copy(fft_shape.rbegin(), fft_shape.rend(),fft_shape.begin());
+      
+      cufftHandle* image_plan = new cufftHandle;
+      cufftHandle* kernel_plan = new cufftHandle;
+      
+      HANDLE_CUFFT_ERROR(cufftPlanMany(image_plan,  //plan
+				       3, //rank
+				       (int*)&fft_shape[0], //n
+				       (int*)&iembed[0],//inembed
 				       1, //istride
-				       fft_size_in_byte_/sizeof(float),//idist
-				       (int*)&fftready_shape[0],//onembed
+				       fft_size_in_byte_/sizeof(cufftReal),//idist
+				       (int*)&oembed[0],//onembed
 				       1, //ostride
-				       fft_size_in_byte_/sizeof(float),//odist
+				       fft_size_in_byte_/sizeof(cufftComplex),//odist
 				       CUFFT_R2C,
 				       _data.size()
 				       ));
-      
+
+      HANDLE_CUFFT_ERROR(cufftPlanMany(kernel_plan,  //plan
+				       3, //rank
+				       (int*)&fft_shape[0], //n
+				       (int*)&iembed[0],//inembed
+				       1, //istride
+				       fft_size_in_byte_/sizeof(cufftReal),//idist
+				       (int*)&oembed[0],//onembed
+				       1, //ostride
+				       fft_size_in_byte_/sizeof(cufftComplex),//odist
+				       CUFFT_R2C,
+				       _data.size()
+				       ));
+
+      std::cout << ":: " << getMemDeviceCUDA(device) << " cufftPlanMany\n";
+
       //alloc on device
       float* d_images = 0;
       HANDLE_ERROR(cudaMalloc((void**)&(d_images), _data.size()*fft_size_in_byte_));
+      std::cout << ":: " << getMemDeviceCUDA(device) << " cudaMalloc(images)\n";
+
       float* d_kernels = 0;
       HANDLE_ERROR(cudaMalloc((void**)&(d_kernels), _data.size()*fft_size_in_byte_));
+      std::cout << ":: " << getMemDeviceCUDA(device) << " cudaMalloc(kernels)\n";
 
       //transfer to device
       HANDLE_ERROR(cudaMemcpy(d_images,
@@ -119,14 +157,17 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
 
       //transform forward
       HANDLE_CUFFT_ERROR(
-			 cufftExecR2C(*global_plan, d_images, (cufftComplex*)d_images));
+			 cufftExecR2C(*image_plan, d_images, (cufftComplex*)d_images));
 
       HANDLE_ERROR(cudaDeviceSynchronize());
+      std::cout << ":: " << getMemDeviceCUDA(device) << " exec(image_plan)\n";
 
       HANDLE_CUFFT_ERROR(
-			 cufftExecR2C(*global_plan, d_kernels, (cufftComplex*)d_kernels));
+			 cufftExecR2C(*kernel_plan, d_kernels, (cufftComplex*)d_kernels));
 
       HANDLE_ERROR(cudaDeviceSynchronize());
+      
+      std::cout << ":: " << getMemDeviceCUDA(device) << " exec(kernel_plan)\n";
 
       //multiply
       unsigned eff_fft_num_elements = fft_size_in_byte_/(2*sizeof(float));
@@ -149,24 +190,27 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
       }
 
       
-  //destroy old plan
-      HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
-      HANDLE_CUFFT_ERROR(cufftPlanMany(global_plan,  //plan
+  //destroy old plan(s)
+      HANDLE_CUFFT_ERROR(cufftDestroy(*kernel_plan));
+      delete kernel_plan;
+
+      HANDLE_CUFFT_ERROR(cufftDestroy(*image_plan));
+      HANDLE_CUFFT_ERROR(cufftPlanMany(image_plan,  //plan
 				       3, //n
-				       (int*)&fft_shape[0], //
-				       (int*)&fftready_shape[0],//inembed
+				       (int*)&oembed[0], //
+				       (int*)&oembed[0],//inembed
 				       1, //istride
-				       fft_size_in_byte_/sizeof(float),//idist
-				       (int*)&fftready_shape[0],//onembed
+				       fft_size_in_byte_/sizeof(cufftComplex),//idist
+				       (int*)&iembed[0],//onembed
 				       1, //ostride
-				       fft_size_in_byte_/sizeof(float),//odist
+				       fft_size_in_byte_/sizeof(cufftReal),//odist
 				       CUFFT_C2R,
 				       _data.size()
 				       ));
   
   //transform back
       HANDLE_CUFFT_ERROR(
-			 cufftExecC2R(*global_plan, 
+			 cufftExecC2R(*image_plan, 
 				      (cufftComplex*)d_images, 
 				      d_images));
 
@@ -193,7 +237,10 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
 	
       } 
       
-
+      //clean-up
+      HANDLE_CUFFT_ERROR(cufftDestroy(*image_plan));
+      delete image_plan;
+      
 }
 
 template <typename Container>
@@ -429,7 +476,6 @@ po::variables_map vm;
   multiviewnative::image_kernel_data raw(numeric_stack_dims);
   multiviewnative::image_kernel_data reference = raw;
   
-  HANDLE_ERROR(cudaPeekAtLastError());
   inplace_gpu_convolution(reference.stack_.data(),
 			  &reference.stack_shape_[0],
 			  reference.kernel_.data(),
@@ -474,7 +520,8 @@ po::variables_map vm;
     if(!plan_many)
       inplace_gpu_batched_fold(stacks);
     else
-      inplace_gpu_plan_many_fold(stacks);
+      inplace_gpu_plan_many_fold(stacks, device_id);
+    
     end = boost::chrono::high_resolution_clock::now();
     durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
 
