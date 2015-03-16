@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     ("out-of-place,o", "perform out-of-place transforms")//
 
     ("stack_dimensions,s", //
-     po::value<std::string>(&stack_dims)->default_value("512x512x64"),//
+     po::value<std::string>(&stack_dims)->default_value("64x64x64"),//
      "HxWxD of synthetic stacks to generate")//
 
     ("repeats,r", //

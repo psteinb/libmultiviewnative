@@ -336,7 +336,7 @@ int main(int argc, char* argv[]) {
       ("header-only,H", "print header of stats only")                     //
                                                                           //
       ("stack_dimensions,s",                                              //
-       po::value<std::string>(&stack_dims)->default_value("512x512x64"),  //
+       po::value<std::string>(&stack_dims)->default_value("64x64x64"),  //
        "HxWxD of synthetic stacks to generate")                           //
                                                                           //
       ("repeats,r",                                                       //

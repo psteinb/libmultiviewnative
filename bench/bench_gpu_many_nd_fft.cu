@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
       ("header-only,H", "print header of stats only")                   //
       ("out-of-place,o", "perform out-of-place transforms")                   //
       ("stack_dimensions,s",                                                  //
-       po::value<std::string>(&stack_dims)->default_value("512x512x64"),      //
+       po::value<std::string>(&stack_dims)->default_value("64x64x64"),      //
        "DxHxW of synthetic stacks to generate")                               //
       ("repeats,r", po::value<int>(&num_repeats)->default_value(10),          //
        "number of repetitions per measurement")                               //

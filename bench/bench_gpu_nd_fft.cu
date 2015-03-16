@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     ("with_allocation,a", "include host-device memory allocation in timings")//
 
     ("stack_dimensions,s",//
-     po::value<std::string>(&stack_dims)->default_value("512x512x64"),//
+     po::value<std::string>(&stack_dims)->default_value("64x64x64"),//
      "HxWxD of synthetic stacks to generate")//
     
     ("repeats,r", po::value<int>(&num_repeats)->default_value(10),//
