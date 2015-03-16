@@ -397,4 +397,6 @@ void batched_fft_managed(std::vector<float*>& _stacks,
   }
   HANDLE_ERROR(cudaDeviceSynchronize());
 }
+
+
 #endif /* _CUDA_ND_FFT_H_ */

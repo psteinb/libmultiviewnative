@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
       ("repeats,r", po::value<int>(&num_repeats)->default_value(10),          //
        "number of repetitions per measurement")                               //
       ("tx_mode,t", po::value<std::string>(&tx_mode)->default_value("sync"),  //
-       "transfer mode of data\n(possible values: sync, async, async2plans, mapped, mangd)")    //
+       "transfer mode of data\n(possible values: sync, async, async2plans, mapped, mangd, planmany)")    //
       ;                                                                       //
   // clang-format on
 
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
   for (char& c : tx_mode) c = std::tolower(c);
 
   if (!(tx_mode == "sync" || tx_mode == "async" || tx_mode == "async2plans" || tx_mode == "mapped" ||
-        tx_mode == "mangd")) {
+        tx_mode == "mangd" || tx_mode == "planmany")) {
     std::cout << "transfer mode: " << tx_mode << " not supported\n";
     return 1;
   }
@@ -135,18 +135,6 @@ int main(int argc, char* argv[]) {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // PLAN
-
-  global_plan = new cufftHandle;
-
-  HANDLE_CUFFT_ERROR(cufftPlan3d(global_plan, (int)numeric_stack_dims[0],
-                                 (int)numeric_stack_dims[1],
-                                 (int)numeric_stack_dims[2], CUFFT_R2C));
-
-  HANDLE_CUFFT_ERROR(
-      cufftSetCompatibilityMode(*global_plan, CUFFT_COMPATIBILITY_NATIVE));
-
-  //////////////////////////////////////////////////////////////////////////////
   // generate data
   multiviewnative::image_kernel_data data(numeric_stack_dims);
   std::random_shuffle(data.stack_.data(),
@@ -172,6 +160,19 @@ int main(int argc, char* argv[]) {
   float* d_dest_buffer = 0;
   const unsigned fft_size_in_byte_ = multiviewnative::gpu::cufft_r2c_memory(numeric_stack_dims);
   std::vector<unsigned> fft_reshaped = multiviewnative::gpu::cufft_r2c_shape(numeric_stack_dims);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // PLAN
+
+  
+  global_plan = new cufftHandle;
+  
+  HANDLE_CUFFT_ERROR(cufftPlan3d(global_plan, 
+				 (int)numeric_stack_dims[0],
+				 (int)numeric_stack_dims[1],
+				 (int)numeric_stack_dims[2], CUFFT_R2C));
+
+
   
 
   if (out_of_place)
@@ -197,7 +198,7 @@ int main(int argc, char* argv[]) {
     HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), data_size_byte));
   else
     HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), fft_size_in_byte_));
-
+  
   // warm-up
   multiviewnative::image_stack reference = stacks[0];
   multiviewnative::image_stack raw = stacks[0];
@@ -263,7 +264,6 @@ int main(int argc, char* argv[]) {
     for (unsigned i = 0;i<managed_buffers.size();++i){
       HANDLE_ERROR(cudaStreamCreate(&stream_0));
       HANDLE_ERROR(cudaMallocManaged(&managed_buffers[i], sizeof(float)*raw.num_elements()));
-      //HANDLE_ERROR(cudaStreamAttachMemAsync(stream_0, managed_buffers[i], 0, cudaMemAttachHost));
       HANDLE_ERROR(cudaDeviceSynchronize());
     }
 
@@ -352,6 +352,8 @@ int main(int argc, char* argv[]) {
 	plans[count] = global_plan;
     }
 
+
+
     //requesting space on device
     std::vector<float*> src_buffers(plans.size(), d_src_buffer);
     for (unsigned count = 1; count < plans.size(); ++count)
@@ -396,6 +398,85 @@ int main(int argc, char* argv[]) {
 
     }
   }
+
+  if (tx_mode == "planmany") {
+      
+    std::vector<float> data(stacks.size()*raw.num_elements(),0);
+    HANDLE_ERROR(cudaHostRegister((void*)&data[0], data.size()*sizeof(float),
+				  cudaHostRegisterPortable));
+    
+    HANDLE_ERROR(cudaFree(d_src_buffer));
+    HANDLE_ERROR(cudaMalloc((void**)&(d_src_buffer), data.size()*sizeof(float)));
+    
+
+    HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
+    delete global_plan;
+    global_plan = 0;
+    global_plan = new cufftHandle;
+
+    HANDLE_CUFFT_ERROR(cufftPlanMany(global_plan,  //plan
+				     3, //n
+				     (int*)&numeric_stack_dims[0], //
+				     (int*)&fft_reshaped[0],//inembed
+				     1, //istride
+				     fft_size_in_byte_/sizeof(float),//idist
+				     (int*)&fft_reshaped[0],//onembed
+				     1, //ostride
+				     fft_size_in_byte_/sizeof(float),//odist
+				     CUFFT_R2C,
+				     stacks.size()
+				     ));
+
+
+    cudaProfilerStart();
+    for (int r = 0; r < num_repeats; ++r) {
+      
+      for ( unsigned c = 0;c<stacks.size();++c ){
+	std::copy(raw.data(), raw.data() + raw.num_elements(),&data[0] + (c*raw.num_elements()));
+      }
+
+      start = boost::chrono::high_resolution_clock::now();
+      
+      HANDLE_ERROR(cudaMemcpy(d_src_buffer, 
+			      &data[0], 
+			      data.size()*sizeof(float),
+			      cudaMemcpyHostToDevice));
+
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*global_plan, d_src_buffer, (cufftComplex*)d_src_buffer));
+
+      HANDLE_ERROR(cudaDeviceSynchronize());
+
+      HANDLE_ERROR(cudaMemcpy(&data[0], 
+			      d_src_buffer,
+			      data.size()*sizeof(float),
+			      cudaMemcpyDeviceToHost));
+
+
+
+      end = boost::chrono::high_resolution_clock::now();
+	durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
+	time_ns += durations[r];
+
+        if (verbose) {
+          std::cout << tx_mode << " " << r << "\t"
+                    << durations[r] / 1e6
+                    << " ms\n";
+        }
+
+	for ( unsigned c = 0;c<stacks.size();++c ){
+	  std::copy(&data[0] + (c*raw.num_elements()),
+		    &data[0] + ((c+1)*raw.num_elements()),
+		    stacks[c].data());
+	}
+
+      
+    }
+    cudaProfilerStop();
+
+    HANDLE_ERROR(cudaHostUnregister((void*)&data[0]));
+  }
+
   //check if all transforms worked as expected
   double ref_sum = std::accumulate(reference.data(), reference.data() + reference.num_elements()/4, 0.);
   double running_sum = 0.;
@@ -430,7 +511,8 @@ int main(int argc, char* argv[]) {
   comments << tx_mode << "," << ((out_of_place) ? "out-of-place" : "inplace")
            << ","
            << "global_plan,"
-	   << (results_validate ? "OK" : "NA" ) 
+	   << (results_validate ? "OK" : "NA" ) << ","
+	   << "nstacks=" << stacks.size()
     ;
 
   print_info(1, __FILE__, device_name, num_repeats, time_ns.count() / double(1e6), numeric_stack_dims,

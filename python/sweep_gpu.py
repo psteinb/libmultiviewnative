@@ -148,8 +148,11 @@ if __name__ == '__main__':
     if bench_util_cmd.count("bench_cpu_nd_fft"):
         modes = ["-o ", "-g -a ", "-g -a -o "]
 
+    if bench_util_cmd.count("bench_gpu_many_nd_folds"):
+        modes = [" ", "-p "]
+
     if bench_util_cmd.count("bench_gpu_many_nd_fft"):
-        to_check = "sync async async2plans mapped mangd".split(" ")
+        to_check = "sync async async2plans mapped mangd planmany".split(" ")
         flag = ["-t"]*len(to_check)
         modes = [ str("%s %s" % item) for item in zip(flag, to_check)]
 

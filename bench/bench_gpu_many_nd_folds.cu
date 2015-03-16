@@ -30,6 +30,75 @@ typedef mvn::inplace_3d_transform_on_device<imageType>
 typedef mvn::gpu_convolve<stack_padding, imageType, unsigned>
     device_convolve;
 
+template <typename Container>
+void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
+
+    std::vector<mvn::image_stack> forwarded_kernels(_data.size());
+    std::vector<int> reshaped;
+
+      for (int v = 0; v < _data.size(); ++v) {
+
+    stack_padding local_padding(&_data[v].stack_shape_[0],
+				      &_data[v].kernel_shape_[0]);
+
+    forwarded_kernels[v].resize(local_padding.extents_);
+    local_padding.wrapped_insert_at_offsets(_data[v].kernel_, forwarded_kernels[v]);
+
+    //prepare for fft
+    reshaped = multiviewnative::gpu::cufft_r2c_shape(forwarded_kernels[v].shape(),forwarded_kernels[v].shape() + 3);
+    forwarded_kernels[v].resize(reshaped);
+    HANDLE_ERROR(cudaHostRegister((void*)forwarded_kernels[v].data(), 
+				    forwarded_kernels[v].num_elements()*sizeof(float),
+				    cudaHostRegisterPortable));
+  }
+
+      unsigned long reshaped_buffer_byte = forwarded_kernels[0].num_elements()*sizeof(float);
+  
+      std::vector<device_convolve*> image_folds(_data.size(),0);
+      std::vector<float> image_buffer(_data.size());
+
+      for (int v = 0; v < _data.size(); ++v) {
+	image_folds[v] = new device_convolve(_data[v].stack_.data(),
+					     &(_data[v].stack_shape_[0]),
+					     &(_data[v].kernel_shape_[0])
+					     );
+	
+      }
+
+      std::vector<float> image_buffer(_data.size()*forwarded_kernels[0].num_elements());
+      std::vector<float> kernel_buffer(image_buffer.size());
+
+      for (int v = 0; v < _data.size(); ++v) {
+	std::copy(image_folds[v]->padded_image_->data(),
+		  image_folds[v]->padded_image_->data() + image_folds[v]->padded_image_->num_elements(),
+		  &image_buffer[0] + (v*image_folds[v]->padded_image_->num_elements()));
+	std::copy(forwarded_kernels[v].data(),
+		  forwarded_kernels[v].data() + forwarded_kernels[v].num_elements(),
+		  &kernel_buffer[0] + (v*forwarded_kernels[v].num_elements()));
+      }
+
+      //create plan
+      cufftHandle* global_plan = new cufftHandle;
+      std::vector<int> fftready_shape( forwarded_kernels[0].shape(), 
+				       forwarded_kernels[0].shape() + 3);
+      std::vector<int> fft_shape(_data[0].shape(), 
+				 _data[0].shape() + 3);
+      
+      HANDLE_CUFFT_ERROR(cufftPlanMany(global_plan,  //plan
+				       3, //n
+				       (int*)&numeric_stack_dims[0], //
+				       (int*)&fft_reshaped[0],//inembed
+				       1, //istride
+				       fft_size_in_byte_/sizeof(float),//idist
+				       (int*)&fft_reshaped[0],//onembed
+				       1, //ostride
+				       fft_size_in_byte_/sizeof(float),//odist
+				       CUFFT_R2C,
+				       stacks.size()
+				       ));
+
+
+}
 
 template <typename Container>
 void inplace_gpu_batched_fold(std::vector<Container>& _data){
@@ -152,10 +221,9 @@ namespace po = boost::program_options;
 int main(int argc, char* argv[]) {
   unsigned num_replicas = 8;
   bool verbose = false;
-  // bool out_of_place = false;
-  bool batched_plan = false;
+  
+  bool plan_many = false;
   int device_id = -1;
-  std::string cpu_name;
   
 
 
@@ -163,35 +231,32 @@ int main(int argc, char* argv[]) {
   std::string stack_dims = "";
 
   po::options_description desc("Allowed options");
-  
-  //clang-format off
-  desc.add_options()							//
-    ("help,h", "produce help message")					//		
-    ("verbose,v", "print lots of information in between")		//
-    ("header-only,H", "print header of stats only")                   //
-    									//
-    ("stack_dimensions,s", 						//
-     po::value<std::string>(&stack_dims)->default_value("512x512x64"), 	//
-     "HxWxD of synthetic stacks to generate")				//
-    									//
-    ("repeats,r", 							//
-     po::value<int>(&num_repeats)->default_value(10),			//
-     "number of repetitions per measurement")				//
-    									//
-    ("num_replicas,n", 							//
-     po::value<unsigned>(&num_replicas)->default_value(8), 			//
-     "number of replicas to use for batched processing")		//
-    									//
-    ("device_id,d", 							//
-     po::value<int>(&device_id)->default_value(-1),			//
-     "cuda device to use")  					//
-									//
-    ("cpu_name,c", 							//
-     po::value<std::string>(&cpu_name)->default_value("i7-3520M"),	//
-     "cpu name to use in output")  					//
-    ;									//
-  //clang-format on
-  
+
+  // clang-format off
+  desc.add_options()                                                      //
+      ("help,h", "produce help message")                                  //
+      ("verbose,v", "print lots of information in between")               //
+      ("plan_many,p", "use cufftPlanMany for transforms")               //
+      ("header-only,H", "print header of stats only")                     //
+                                                                          //
+      ("stack_dimensions,s",                                              //
+       po::value<std::string>(&stack_dims)->default_value("512x512x64"),  //
+       "HxWxD of synthetic stacks to generate")                           //
+                                                                          //
+      ("repeats,r",                                                       //
+       po::value<int>(&num_repeats)->default_value(10),                   //
+       "number of repetitions per measurement")                           //
+                                                                          //
+      ("num_replicas,n",                                                  //
+       po::value<unsigned>(&num_replicas)->default_value(8),              //
+       "number of replicas to use for batched processing")                //
+                                                                          //
+      ("device_id,d",                                                     //
+       po::value<int>(&device_id)->default_value(-1),                     //
+       "cuda device to use")                                              //
+      ;                                                                   //
+  // clang-format on
+
 po::variables_map vm;
 
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -211,7 +276,7 @@ po::variables_map vm;
 
   verbose = vm.count("verbose");
   // out_of_place = vm.count("out-of-place");
-  batched_plan = vm.count("batched_plan");
+  plan_many = vm.count("plan_many");
 
   std::vector<unsigned> numeric_stack_dims;
   split<'x'>(stack_dims, numeric_stack_dims);
@@ -297,6 +362,7 @@ po::variables_map vm;
 
   ns_t time_ns = ns_t(0);
   tp_t start, end;
+
   for (int r = 0; r < num_repeats; ++r) {
 
     for ( multiviewnative::image_kernel_data& s : stacks ){
@@ -306,7 +372,11 @@ po::variables_map vm;
     
 
     start = boost::chrono::high_resolution_clock::now();
-    inplace_gpu_batched_fold(stacks);
+
+    if(!plan_many)
+      inplace_gpu_batched_fold(stacks);
+    else
+      inplace_gpu_plan_many_fold(stacks);
     end = boost::chrono::high_resolution_clock::now();
     durations[r] = boost::chrono::duration_cast<ns_t>(end - start);
 
@@ -323,14 +393,15 @@ po::variables_map vm;
   
 
   std::string implementation_name = __FILE__;
-  std::string comments = "global_plan";
+  std::stringstream comments("");
+  comments << "global_plan";
   if(data_valid)
-    comments += ",OK";
+    comments << ",OK";
   else
-    comments += ",NA";
+    comments << ",NA";
 
-  if(batched_plan)
-    comments += ",batched";
+  if(plan_many)
+    comments << ",plan_many";
 
 
   std::string device_name = get_cuda_device_name(device_id);
@@ -347,7 +418,7 @@ po::variables_map vm;
 	     time_ns.count() / double(1e6),
 	     numeric_stack_dims,
 	     sizeof(float),
-	     comments
+	     comments.str()
 	     );
 
 
