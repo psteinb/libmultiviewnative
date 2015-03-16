@@ -35,7 +35,7 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
 
     std::vector<mvn::image_stack> forwarded_kernels(_data.size());
     std::vector<int> reshaped;
-
+    
       for (int v = 0; v < _data.size(); ++v) {
 
     stack_padding local_padding(&_data[v].stack_shape_[0],
@@ -55,8 +55,7 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
       unsigned long reshaped_buffer_byte = forwarded_kernels[0].num_elements()*sizeof(float);
   
       std::vector<device_convolve*> image_folds(_data.size(),0);
-      std::vector<float> image_buffer(_data.size());
-
+      
       for (int v = 0; v < _data.size(); ++v) {
 	image_folds[v] = new device_convolve(_data[v].stack_.data(),
 					     &(_data[v].stack_shape_[0]),
@@ -81,22 +80,119 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data){
       cufftHandle* global_plan = new cufftHandle;
       std::vector<int> fftready_shape( forwarded_kernels[0].shape(), 
 				       forwarded_kernels[0].shape() + 3);
-      std::vector<int> fft_shape(_data[0].shape(), 
-				 _data[0].shape() + 3);
+      unsigned fft_size_in_byte_ = sizeof(float)*std::accumulate(fftready_shape.begin(), fftready_shape.end(),1,std::multiplies<int>());
+      std::vector<int> fft_shape(_data[0].stack_shape_.begin(), 
+				 _data[0].stack_shape_.end());
       
       HANDLE_CUFFT_ERROR(cufftPlanMany(global_plan,  //plan
 				       3, //n
-				       (int*)&numeric_stack_dims[0], //
-				       (int*)&fft_reshaped[0],//inembed
+				       (int*)&fft_shape[0], //
+				       (int*)&fftready_shape[0],//inembed
 				       1, //istride
 				       fft_size_in_byte_/sizeof(float),//idist
-				       (int*)&fft_reshaped[0],//onembed
+				       (int*)&fftready_shape[0],//onembed
 				       1, //ostride
 				       fft_size_in_byte_/sizeof(float),//odist
 				       CUFFT_R2C,
-				       stacks.size()
+				       _data.size()
 				       ));
+      
+      //alloc on device
+      float* d_images = 0;
+      HANDLE_ERROR(cudaMalloc((void**)&(d_images), _data.size()*fft_size_in_byte_));
+      float* d_kernels = 0;
+      HANDLE_ERROR(cudaMalloc((void**)&(d_kernels), _data.size()*fft_size_in_byte_));
 
+      //transfer to device
+      HANDLE_ERROR(cudaMemcpy(d_images,
+			      &image_buffer[0], 
+			      _data.size()*fft_size_in_byte_,
+			      cudaMemcpyHostToDevice
+			      ));
+      
+      HANDLE_ERROR(cudaMemcpy(d_kernels,
+			      &kernel_buffer[0], 
+			      _data.size()*fft_size_in_byte_,
+			      cudaMemcpyHostToDevice
+			      ));
+
+
+      //transform forward
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*global_plan, d_images, (cufftComplex*)d_images));
+
+      HANDLE_ERROR(cudaDeviceSynchronize());
+
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*global_plan, d_kernels, (cufftComplex*)d_kernels));
+
+      HANDLE_ERROR(cudaDeviceSynchronize());
+
+      //multiply
+      unsigned eff_fft_num_elements = fft_size_in_byte_/(2*sizeof(float));
+      unsigned numThreads = 256;
+      unsigned numBlocks = largestDivisor(eff_fft_num_elements, 
+					  numThreads);
+      
+      float scale = 1.0 / float(std::accumulate(_data[0].stack_shape_.begin(),
+						_data[0].stack_shape_.end(),
+						1,
+						std::multiplies<unsigned>()));
+      
+      for( unsigned v = 0;v < _data.size();++v ){
+	modulateAndNormalize_kernel << <numBlocks, numThreads>>>
+	  ((cufftComplex*)d_images  + (v*eff_fft_num_elements), 
+	   (cufftComplex*)d_kernels + (v*eff_fft_num_elements),
+	   eff_fft_num_elements, 
+	   scale);
+	HANDLE_ERROR(cudaPeekAtLastError());
+      }
+
+      
+  //destroy old plan
+      HANDLE_CUFFT_ERROR(cufftDestroy(*global_plan));
+      HANDLE_CUFFT_ERROR(cufftPlanMany(global_plan,  //plan
+				       3, //n
+				       (int*)&fft_shape[0], //
+				       (int*)&fftready_shape[0],//inembed
+				       1, //istride
+				       fft_size_in_byte_/sizeof(float),//idist
+				       (int*)&fftready_shape[0],//onembed
+				       1, //ostride
+				       fft_size_in_byte_/sizeof(float),//odist
+				       CUFFT_C2R,
+				       _data.size()
+				       ));
+  
+  //transform back
+      HANDLE_CUFFT_ERROR(
+			 cufftExecC2R(*global_plan, 
+				      (cufftComplex*)d_images, 
+				      d_images));
+
+      HANDLE_ERROR(cudaDeviceSynchronize());
+
+  
+
+
+      //transfer back
+      HANDLE_ERROR(cudaMemcpy(&image_buffer[0],
+			      d_images, 
+			      _data.size()*fft_size_in_byte_,
+			      cudaMemcpyDeviceToHost
+			      ));
+
+
+      //copy in and resize to input shape
+      for ( unsigned i = 0;i<_data.size();++i){
+	_data[i].stack_.resize(reshaped);
+	std::copy(&image_buffer[0] + (i*_data[i].stack_.num_elements()),
+		  &image_buffer[0] + ((i+1)*_data[i].stack_.num_elements()),
+		  _data[i].stack_.data());
+	_data[i].stack_.resize(_data[i].stack_shape_);
+	
+      } 
+      
 
 }
 
@@ -169,7 +265,7 @@ void inplace_gpu_batched_fold(std::vector<Container>& _data){
   }
   
 
-    HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
+  HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
 				 forwarded_kernels[0].data(), 
 				 reshaped_buffer_byte,
 				 cudaMemcpyHostToDevice,
