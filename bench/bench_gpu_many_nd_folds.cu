@@ -84,8 +84,7 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
       std::vector<int> fft_shape(_data[0].stack_shape_.begin(), 
 				 _data[0].stack_shape_.end());
 
-      std::cout << ":: " << getMemDeviceCUDA(device) << "\n";
-
+      
       // std::vector<int> fftready_shape_as_cufftcomplex(fftready_shape.begin(),
       // 						      fftready_shape.end());
       // for ( int & i : fftready_shape_as_cufftcomplex )
@@ -130,17 +129,14 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
 				       _data.size()
 				       ));
 
-      std::cout << ":: " << getMemDeviceCUDA(device) << " cufftPlanMany\n";
-
+      
       //alloc on device
       float* d_images = 0;
       HANDLE_ERROR(cudaMalloc((void**)&(d_images), _data.size()*fft_size_in_byte_));
-      std::cout << ":: " << getMemDeviceCUDA(device) << " cudaMalloc(images)\n";
-
+      
       float* d_kernels = 0;
       HANDLE_ERROR(cudaMalloc((void**)&(d_kernels), _data.size()*fft_size_in_byte_));
-      std::cout << ":: " << getMemDeviceCUDA(device) << " cudaMalloc(kernels)\n";
-
+      
       //transfer to device
       HANDLE_ERROR(cudaMemcpy(d_images,
 			      &image_buffer[0], 
@@ -160,15 +156,13 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
 			 cufftExecR2C(*image_plan, d_images, (cufftComplex*)d_images));
 
       HANDLE_ERROR(cudaDeviceSynchronize());
-      std::cout << ":: " << getMemDeviceCUDA(device) << " exec(image_plan)\n";
-
+      
       HANDLE_CUFFT_ERROR(
 			 cufftExecR2C(*kernel_plan, d_kernels, (cufftComplex*)d_kernels));
 
       HANDLE_ERROR(cudaDeviceSynchronize());
       
-      std::cout << ":: " << getMemDeviceCUDA(device) << " exec(kernel_plan)\n";
-
+      
       //multiply
       unsigned eff_fft_num_elements = fft_size_in_byte_/(2*sizeof(float));
       unsigned numThreads = 256;
@@ -240,7 +234,11 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
       //clean-up
       HANDLE_CUFFT_ERROR(cufftDestroy(*image_plan));
       delete image_plan;
-      
+
+      for (int v = 0; v < _data.size(); ++v) {
+	HANDLE_ERROR(cudaHostUnregister((void*)forwarded_kernels[v].data()));
+	delete image_folds[v];
+      }
 }
 
 template <typename Container>
