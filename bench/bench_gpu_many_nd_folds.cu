@@ -137,25 +137,37 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
       float* d_kernels = 0;
       HANDLE_ERROR(cudaMalloc((void**)&(d_kernels), _data.size()*fft_size_in_byte_));
       
+      //perform convolution
+      std::vector<cudaStream_t*> streams(2);
+      for( unsigned count = 0;count < streams.size();++count ){
+	streams[count] = new cudaStream_t;
+	HANDLE_ERROR(cudaStreamCreate(streams[count]));
+      }
+  
       //transfer to device
-      HANDLE_ERROR(cudaMemcpy(d_images,
-			      &image_buffer[0], 
-			      _data.size()*fft_size_in_byte_,
-			      cudaMemcpyHostToDevice
-			      ));
+      HANDLE_ERROR(cudaMemcpyAsync(d_images,
+				   &image_buffer[0], 
+				   _data.size()*fft_size_in_byte_,
+				   cudaMemcpyHostToDevice,
+				   *streams[0]
+				   ));
       
-      HANDLE_ERROR(cudaMemcpy(d_kernels,
+      HANDLE_ERROR(cudaMemcpyAsync(d_kernels,
 			      &kernel_buffer[0], 
 			      _data.size()*fft_size_in_byte_,
-			      cudaMemcpyHostToDevice
+			      cudaMemcpyHostToDevice,
+			      *streams[1]
 			      ));
 
-
+       HANDLE_CUFFT_ERROR(cufftSetStream(*image_plan,                            
+					 *streams[0] )
+			  );
+       HANDLE_CUFFT_ERROR(cufftSetStream(*kernel_plan,                            
+					 *streams[1] )
+			  );
       //transform forward
       HANDLE_CUFFT_ERROR(
 			 cufftExecR2C(*image_plan, d_images, (cufftComplex*)d_images));
-
-      HANDLE_ERROR(cudaDeviceSynchronize());
       
       HANDLE_CUFFT_ERROR(
 			 cufftExecR2C(*kernel_plan, d_kernels, (cufftComplex*)d_kernels));
@@ -201,26 +213,31 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
 				       CUFFT_C2R,
 				       _data.size()
 				       ));
-  
+
+      HANDLE_CUFFT_ERROR(cufftSetStream(*image_plan,                            
+					 *streams[0] )
+			  );
+       
   //transform back
       HANDLE_CUFFT_ERROR(
 			 cufftExecC2R(*image_plan, 
 				      (cufftComplex*)d_images, 
 				      d_images));
 
-      HANDLE_ERROR(cudaDeviceSynchronize());
-
   
 
 
       //transfer back
-      HANDLE_ERROR(cudaMemcpy(&image_buffer[0],
-			      d_images, 
-			      _data.size()*fft_size_in_byte_,
-			      cudaMemcpyDeviceToHost
+      HANDLE_ERROR(cudaMemcpyAsync(&image_buffer[0],
+				   d_images, 
+				   _data.size()*fft_size_in_byte_,
+				   cudaMemcpyDeviceToHost,
+				  *streams[0] 
 			      ));
 
+    HANDLE_ERROR(cudaDeviceSynchronize());
 
+  
       //copy in and resize to input shape
       for ( unsigned i = 0;i<_data.size();++i){
 	_data[i].stack_.resize(reshaped);
@@ -239,6 +256,13 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
 	HANDLE_ERROR(cudaHostUnregister((void*)forwarded_kernels[v].data()));
 	delete image_folds[v];
       }
+      
+      for(cudaStream_t* s : streams)
+	HANDLE_ERROR(cudaStreamDestroy(*s));
+      
+      HANDLE_ERROR(cudaFree(d_images));
+      HANDLE_ERROR(cudaFree(d_kernels));
+  
 }
 
 template <typename Container>

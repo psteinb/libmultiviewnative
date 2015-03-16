@@ -129,6 +129,7 @@ class inplace_3d_transform_on_device {
       }
     
       float* d_buffer = 0;
+      
       unsigned modulus_index = 0;
       for( unsigned count = 0;count < _prepared_stacks.size();++count ){
 

@@ -98,7 +98,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   std::vector<image_stack> weights(n_views);
 
   shape_t input_shape(input.data_[0].image_dims_,input.data_[0].image_dims_ + 3);
-  shape_t common_shape(forwarded_kernels1[0].shape(), forwarded_kernels1[0].shape() + 3);
+  shape_t fftready_shape(forwarded_kernels1[0].shape(), forwarded_kernels1[0].shape() + 3);
   unsigned long padded_size_byte = forwarded_kernels1[0].num_elements()*sizeof(imageType);
 
   //prepare image, weights
@@ -110,7 +110,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     weights[v].resize(input_shape);
     std::copy(input.data_[v].weights_, input.data_[v].weights_ + weights[v].num_elements(),
 	      weights[v].data());
-    weights[v].resize(common_shape);
+    weights[v].resize(fftready_shape);
   }
 
   //prepare space on device
@@ -121,8 +121,12 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   }
   
   
-  gpu::batched_fft_async2plans(forwarded_kernels1, common_shape, src_buffers, false);
-  gpu::batched_fft_async2plans(forwarded_kernels2, common_shape, src_buffers, false);
+  gpu::batched_fft_async2plans(forwarded_kernels1, 
+			       input_shape, 
+			       src_buffers, false);
+  gpu::batched_fft_async2plans(forwarded_kernels2, 
+			       input_shape, 
+			       src_buffers, false);
 
   //expand memory on device
   src_buffers.reserve(4);
@@ -152,7 +156,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
   image_stack_ref input_psi(psi, input_shape);
   image_stack psi_stack = input_psi;
-  psi_stack.resize(common_shape);
+  psi_stack.resize(fftready_shape);
   
   HANDLE_ERROR(cudaMemcpy(src_buffers[psi_],
 			  psi_stack.data(), 

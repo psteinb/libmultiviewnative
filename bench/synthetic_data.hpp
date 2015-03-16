@@ -55,19 +55,20 @@ struct multiview_data {
   std::vector<int> kernel1_dims_;
   std::vector<int> kernel2_dims_;
 
-  CUDA_HOST_PREFIX multiview_data(const std::vector<int>& stack_dims,
+  template <typename size_type>
+  CUDA_HOST_PREFIX multiview_data(const std::vector<size_type>& stack_dims,
                                   int _n_views = 6)
       : views_(_n_views),
         kernel1_(_n_views),
         kernel2_(_n_views),
         weights_(_n_views),
-        stack_dims_(stack_dims),
-        kernel1_dims_(stack_dims),
-        kernel2_dims_(stack_dims) {
+        stack_dims_(stack_dims.begin(),stack_dims.end()),
+        kernel1_dims_(stack_dims.begin(),stack_dims.end()),
+        kernel2_dims_(stack_dims.begin(),stack_dims.end()) {
 
     for (unsigned d = 0; d < stack_dims.size(); ++d) {
-      kernel1_dims_[d] *= .05 * (d + 1);
-      kernel2_dims_[d] *= .02 * (d + 1);
+      kernel1_dims_[d] = 21;
+      kernel2_dims_[d] = 25;
     }
 
     unsigned int num_elements = std::accumulate(

@@ -63,12 +63,17 @@ ENDIF()
 IF(CUDA_FOUND)
 
 #TODO: CHECK IF tests is in ${CUDA_NVCC_FLAGS}
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/tests)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/tests;-I${PROJECT_SOURCE_DIR}/src)
 
 
 CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve bench_gpu_deconvolve.cu)
 CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_deconvolve)
 target_link_libraries(bench_gpu_deconvolve ext_boost_system ext_boost_filesystem ext_boost_timer ext_boost_chrono ext_boost_unit_test_framework tiff ${PROJECT_NAME})
+
+CUDA_ADD_EXECUTABLE(bench_gpu_deconvolve_synthetic bench_gpu_deconvolve_synthetic.cu)
+CUDA_ADD_CUFFT_TO_TARGET(bench_gpu_deconvolve_synthetic)
+target_link_libraries(bench_gpu_deconvolve_synthetic ext_boost_program_options ext_boost_system ext_boost_filesystem ext_boost_timer ext_boost_chrono ext_boost_unit_test_framework ${PROJECT_NAME})
+
 #set_target_properties(bench_gpu_deconvolve PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/tests")
 
 

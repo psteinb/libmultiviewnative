@@ -26,7 +26,7 @@
 typedef multiviewnative::zero_padd<multiviewnative::image_stack>
     wrap_around_padding;
 
-typedef multiviewnative::zero_padd<multiviewnative::image_stack>
+typedef multiviewnative::no_padd<multiviewnative::image_stack>
     as_is_padding;
 
 typedef multiviewnative::inplace_3d_transform_on_device<imageType>

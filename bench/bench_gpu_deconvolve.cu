@@ -69,18 +69,18 @@ BOOST_AUTO_TEST_CASE(deconvolve_interleaved_gpus_lambda_6){
 
   workspace input;
   input.data_ = 0;
-std::vector<int> shape(3,256);
- shape[0] = 512;
- shape[1] = 512;
-multiviewnative::multiview_data syn(shape);
-syn.fill_workspace(input);
+  std::vector<int> shape(3,256);
+  shape[0] = 512;
+  shape[1] = 512;
+  multiviewnative::multiview_data syn(shape);
+  syn.fill_workspace(input);
   input.num_iterations_ = 10;
-input.lambda_ = .006;
-input.minValue_ = .001;
+  input.lambda_ = .006;
+  input.minValue_ = .001;
 
-image_stack start_psi = syn.views_[0];
+  image_stack start_psi = syn.views_[0];
 
-std::vector<int> image_shape(start_psi.shape(), start_psi.shape() + 3);
+  std::vector<int> image_shape(start_psi.shape(), start_psi.shape() + 3);
   int num_repeats = 10;
   int device_id = selectDeviceWithHighestComputeCapability();
   //parallel
@@ -90,10 +90,10 @@ std::vector<int> image_shape(start_psi.shape(), start_psi.shape() + 3);
   auto parallel_time = std::chrono::high_resolution_clock::now() - start;
 
   std::string comments = "";
-std::string device_name = get_cuda_device_name(device_id);
+  std::string device_name = get_cuda_device_name(device_id);
   print_info(1,
 	     __FILE__, 
-	       device_name,
+	     device_name,
 	     num_repeats,
 	     std::chrono::duration_cast<std::chrono::milliseconds>(parallel_time).count(),
 	     image_shape,
