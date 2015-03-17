@@ -151,6 +151,9 @@ if __name__ == '__main__':
     if bench_util_cmd.count("bench_gpu_many_nd_folds"):
         modes = [" ", "-p "]
 
+    if bench_util_cmd.count("bench_gpu_deconvolve_synthetic"):
+        modes = [" ", "-t interleaved"]
+
     if bench_util_cmd.count("bench_gpu_many_nd_fft"):
         to_check = "sync async async2plans mapped mangd planmany".split(" ")
         flag = ["-t"]*len(to_check)
