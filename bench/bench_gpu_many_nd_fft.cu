@@ -345,11 +345,11 @@ int main(int argc, char* argv[]) {
 				     CUFFT_R2C)                    //
 			 );
       
-      HANDLE_CUFFT_ERROR(
-			 cufftSetCompatibilityMode(*plans[count], CUFFT_COMPATIBILITY_NATIVE));
+      // HANDLE_CUFFT_ERROR(
+      // 			 cufftSetCompatibilityMode(*plans[count], CUFFT_COMPATIBILITY_NATIVE));
       }
       else
-	plans[count] = global_plan;
+      	plans[count] = global_plan;
     }
 
 
@@ -397,6 +397,7 @@ int main(int argc, char* argv[]) {
       HANDLE_ERROR(cudaFree(src_buffers[count]));
 
     }
+    
   }
 
   if (tx_mode == "planmany") {

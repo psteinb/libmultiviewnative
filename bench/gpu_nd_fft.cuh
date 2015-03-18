@@ -317,7 +317,7 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
   std::vector<cudaStream_t*> streams(_plans.size());
   for( unsigned count = 0;count < streams.size();++count ){
     streams[count] = new cudaStream_t;
-    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+    HANDLE_ERROR(cudaStreamCreateWithFlags(streams[count],cudaStreamNonBlocking));
   }
 
   unsigned stack_size_in_byte = _stacks[0].num_elements() * sizeof(float);
@@ -341,6 +341,7 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
 
     modulus_index = count % streams.size();
     d_buffer = _src_buffers[count % streams.size()];
+
     
     HANDLE_ERROR(cudaMemcpyAsync(d_buffer,
 				 _stacks[count].data(), 
@@ -357,7 +358,9 @@ void batched_fft_async2plans(std::vector<multiviewnative::image_stack>& _stacks,
     HANDLE_ERROR(cudaEventRecord(before_plan_execution[count],*streams[modulus_index]));
     if(count>0)
       HANDLE_ERROR(cudaStreamWaitEvent(*streams[modulus_index], before_plan_execution[count-1],0));
-    
+
+    //    HANDLE_ERROR(cudaStreamSynchronize(*streams[modulus_index]));
+
     HANDLE_CUFFT_ERROR(
 		       cufftExecR2C(*_plans[modulus_index], d_buffer, (cufftComplex*)d_buffer));
     
