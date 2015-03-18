@@ -22,7 +22,7 @@
 #include "gpu_nd_fft.cuh"
 #include "cufft_utils.cuh"
 
-#include "cuda_profiler.h"
+#include "cuda_profiler_api.h"
 
 typedef multiviewnative::zero_padd<multiviewnative::image_stack>
     wrap_around_padding;
