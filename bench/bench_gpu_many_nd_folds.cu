@@ -22,6 +22,8 @@
 #include "gpu_nd_fft.cuh"
 #include "cufft_utils.cuh"
 
+#include "cuda_profiler_api.h"
+
 
 namespace mvn = multiviewnative;
 typedef mvn::no_padd<mvn::image_stack> stack_padding;
@@ -529,6 +531,8 @@ po::variables_map vm;
   ns_t time_ns = ns_t(0);
   tp_t start, end;
 
+  cudaProfilerStart();
+    
   for (int r = 0; r < num_repeats; ++r) {
 
     for ( multiviewnative::image_kernel_data& s : stacks ){
@@ -554,6 +558,7 @@ po::variables_map vm;
 	double(1e6) << " ms\n";
     }
   }
+  cudaProfilerStop();
 
   bool data_valid = std::equal(reference.stack_.data(), reference.stack_.data() + reference.stack_.num_elements(),
 			       stacks[0].stack_.data());
