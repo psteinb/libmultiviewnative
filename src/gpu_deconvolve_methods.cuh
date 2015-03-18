@@ -140,7 +140,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 				     );
   for( unsigned count = 0;count < streams.size();++count ){
     streams[count] = new cudaStream_t;
-    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+    HANDLE_ERROR(cudaStreamCreateWithFlags(streams[count], cudaStreamNonBlocking));
   }
 
   //src_buffers is 4 items large
