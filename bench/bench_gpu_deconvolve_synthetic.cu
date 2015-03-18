@@ -22,6 +22,8 @@
 #include "gpu_nd_fft.cuh"
 #include "cufft_utils.cuh"
 
+#include "cuda_profiler.h"
+
 typedef multiviewnative::zero_padd<multiviewnative::image_stack>
     wrap_around_padding;
 
@@ -186,7 +188,8 @@ po::variables_map vm;
         
     multiviewnative::shape_t shape(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3);
     multiviewnative::image_stack start_psi(shape);
-  
+    
+    cudaProfilerStart();
     start = boost::chrono::high_resolution_clock::now();
 
     if(mode == "interleaved")
@@ -197,6 +200,7 @@ po::variables_map vm;
       inplace_gpu_deconvolve_iteration_all_on_device<wrap_around_padding, device_transform>(start_psi.data(), input, device_id);
     
     end = boost::chrono::high_resolution_clock::now();
+    cudaProfilerEnd();
     
     time_ns += boost::chrono::duration_cast<ns_t>(end - start);
       
