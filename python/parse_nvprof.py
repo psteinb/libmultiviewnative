@@ -21,10 +21,21 @@ def extract_cuda_api_stats(_lines, _api_str):
 
     lines = _lines[_lines.index(api_tag):]
     for line in lines:
-        if line.endswith(_api_str):
+        if line.split()[-1].count(_api_str):
             columns = line.strip("ms").split()
             if len(columns) > 5:
-                value = (columns[1], columns[3], columns[4], columns[5])
+                if value:
+                    new = (float(columns[1]), 
+                             float(columns[3]), 
+                             float(columns[4]), 
+                             float(columns[5]))
+                    for n in range(len(value)):
+                        value[n] += new[n]
+                else:
+                    value = (float(columns[1]), 
+                             float(columns[3]), 
+                             float(columns[4]), 
+                             float(columns[5]))
             else:
             
                 value = None
@@ -48,10 +59,17 @@ def extract_cuda_api_totals(_lines, _api_str):
 
     lines = _lines[_lines.index(api_tag):]
     for line in lines:
-        if line.endswith(_api_str):
+        if line.split()[-1].count(_api_str):
             columns = line.strip("ms").strip("%").split()
             if len(columns) > 5:
-                value = (columns[0], columns[1])
+                if value:
+                    new = (float(columns[0]), 
+                             float(columns[1]))
+                    for n in range(len(value)):
+                        value[n] += new[n]
+                else:
+                    value = (float(columns[0]), 
+                             float(columns[1]))
             else:
             
                 value = None
