@@ -48,6 +48,8 @@ class inplace_3d_transform_on_device {
 
     if (_stream) 
       HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
+    else
+      HANDLE_ERROR(cudaDeviceSynchronize());
 
     HANDLE_CUFFT_ERROR(
         cufftExecR2C(*plan, input_, (complex_type*)input_));
@@ -64,6 +66,8 @@ class inplace_3d_transform_on_device {
 
     if (_stream) 
       HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
+    else
+      HANDLE_ERROR(cudaDeviceSynchronize());
 
     HANDLE_CUFFT_ERROR(
         cufftExecC2R(*plan, (complex_type*)input_, input_));

@@ -77,14 +77,14 @@ void inplace_asynch_convolve_on_device_and_kick(TransferT* _image_on_device,
   unsigned numThreads = 128;
   unsigned numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
 
+  // HANDLE_ERROR(cudaStreamSynchronize(*_streams[1]));
   HANDLE_ERROR(cudaStreamSynchronize(*_streams[1]));
-  HANDLE_ERROR(cudaStreamSynchronize(*_streams[0]));
-  modulateAndNormalize_kernel << <numBlocks, numThreads>>>
+  modulateAndNormalize_kernel << <numBlocks, numThreads, 0 ,*_streams[0]>>>
       ((cufftComplex*)_image_on_device, (cufftComplex*)_kernel_on_device,
        eff_fft_num_elements, scale);
   HANDLE_ERROR(cudaPeekAtLastError());
   if(_kick_to_kernel_stream){
-    
+    HANDLE_ERROR(cudaStreamSynchronize(*_streams[0]));
     HANDLE_ERROR(cudaMemcpyAsync(_kernel_on_device,
 				 _kick_to_kernel_stream, 
 				 eff_fft_num_elements*sizeof(cufftComplex),
@@ -371,8 +371,7 @@ struct gpu_convolve : public PaddingT {
     unsigned numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
 
     HANDLE_ERROR(cudaStreamSynchronize(*image_tx));
-    HANDLE_ERROR(cudaStreamSynchronize(*_forwarded_kernel_stream));
-
+    
     if(_forwarded_kernel_stream){
       modulateAndNormalize_kernel <<<numBlocks, numThreads,0,*_forwarded_kernel_stream>>>((cufftComplex*)image_on_device, 
     											  (cufftComplex*)_d_forwarded_padded_kernel,
@@ -380,10 +379,14 @@ struct gpu_convolve : public PaddingT {
     											  scale);
     }
     else{
+      HANDLE_ERROR(cudaStreamSynchronize(*_forwarded_kernel_stream));
+
       modulateAndNormalize_kernel <<<numBlocks, numThreads>>>((cufftComplex*)image_on_device, 
 							      (cufftComplex*)_d_forwarded_padded_kernel,
 							      eff_fft_num_elements, 
 							      scale);
+      HANDLE_ERROR(cudaDeviceSynchronize());
+
     }
     HANDLE_ERROR(cudaPeekAtLastError());
 

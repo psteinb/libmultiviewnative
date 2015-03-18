@@ -266,7 +266,7 @@ void batched_fft_async(std::vector<multiviewnative::image_stack>& _stacks,
 				  stack_size_in_byte,
 				  cudaHostRegisterPortable));
     streams[count] = new cudaStream_t;
-    HANDLE_ERROR(cudaStreamCreate(streams[count]));
+    HANDLE_ERROR(cudaStreamCreateWithFlags(streams[count], cudaStreamNonBlocking));
   
   }
 
