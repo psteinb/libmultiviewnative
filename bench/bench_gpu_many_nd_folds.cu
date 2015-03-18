@@ -174,12 +174,12 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
       HANDLE_CUFFT_ERROR(
 			 cufftExecR2C(*kernel_plan, d_kernels, (cufftComplex*)d_kernels));
 
-      HANDLE_ERROR(cudaDeviceSynchronize());
+      //HANDLE_ERROR(cudaDeviceSynchronize());
       
       
       //multiply
-      unsigned eff_fft_num_elements = fft_size_in_byte_/(2*sizeof(float));
-      unsigned numThreads = 256;
+      unsigned eff_fft_num_elements = _data.size()*fft_size_in_byte_/(2*sizeof(float));
+      unsigned numThreads = 512;
       unsigned numBlocks = largestDivisor(eff_fft_num_elements, 
 					  numThreads);
       
@@ -188,14 +188,24 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
 						1,
 						std::multiplies<unsigned>()));
       
-      for( unsigned v = 0;v < _data.size();++v ){
-	modulateAndNormalize_kernel << <numBlocks, numThreads>>>
-	  ((cufftComplex*)d_images  + (v*eff_fft_num_elements), 
-	   (cufftComplex*)d_kernels + (v*eff_fft_num_elements),
-	   eff_fft_num_elements, 
-	   scale);
-	HANDLE_ERROR(cudaPeekAtLastError());
-      }
+
+      HANDLE_ERROR(cudaStreamSynchronize(*streams[1]));
+    
+      modulateAndNormalize_kernel <<<numBlocks, numThreads, 0 , *streams[0]>>>
+      	  ((cufftComplex*)d_images, 
+      	   (cufftComplex*)d_kernels,
+      	   eff_fft_num_elements, 
+      	   scale);
+      	HANDLE_ERROR(cudaPeekAtLastError());
+
+      // for( unsigned v = 0;v < _data.size();++v ){
+      // 	modulateAndNormalize_kernel <<<numBlocks, numThreads, 0 , streams[0]>>>
+      // 	  ((cufftComplex*)d_images  + (v*eff_fft_num_elements), 
+      // 	   (cufftComplex*)d_kernels + (v*eff_fft_num_elements),
+      // 	   eff_fft_num_elements, 
+      // 	   scale);
+      // 	HANDLE_ERROR(cudaPeekAtLastError());
+      // }
 
       
   //destroy old plan(s)
