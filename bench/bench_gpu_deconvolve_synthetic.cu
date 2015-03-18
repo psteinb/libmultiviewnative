@@ -200,7 +200,7 @@ po::variables_map vm;
       inplace_gpu_deconvolve_iteration_all_on_device<wrap_around_padding, device_transform>(start_psi.data(), input, device_id);
     
     end = boost::chrono::high_resolution_clock::now();
-    cudaProfilerEnd();
+    cudaProfilerStop();
     
     time_ns += boost::chrono::duration_cast<ns_t>(end - start);
       
