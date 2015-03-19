@@ -86,11 +86,6 @@ void inplace_gpu_plan_many_fold(std::vector<Container>& _data, int device){
       std::vector<int> fft_shape(_data[0].stack_shape_.begin(), 
 				 _data[0].stack_shape_.end());
 
-      
-      // std::vector<int> fftready_shape_as_cufftcomplex(fftready_shape.begin(),
-      // 						      fftready_shape.end());
-      // for ( int & i : fftready_shape_as_cufftcomplex )
-      // 	i/=2;
 
       
       std::vector<int> iembed(fft_shape.begin(),
