@@ -21,7 +21,7 @@ def extract_cuda_api_stats(_lines, _api_str):
 
     lines = _lines[_lines.index(api_tag):]
     for line in lines:
-        if line.split()[-1].count(_api_str):
+        if line.split() and line.split()[-1].count(_api_str):
             columns = line.strip("ms").split()
             if len(columns) > 5:
                 if value:
@@ -59,7 +59,8 @@ def extract_cuda_api_totals(_lines, _api_str):
 
     lines = _lines[_lines.index(api_tag):]
     for line in lines:
-        if line.split()[-1].count(_api_str):
+        
+        if line.split() and line.split()[-1].count(_api_str):
             columns = line.strip("ms").strip("%").split()
             if len(columns) > 5:
                 if value:
