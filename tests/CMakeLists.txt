@@ -130,6 +130,10 @@ set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/src)
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
 target_link_libraries(test_gpu_convolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ${PROJECT_NAME})
 
+CUDA_ADD_EXECUTABLE(test_gpu_batched_fft test_gpu_batched_fft.cpp)
+target_link_libraries(test_gpu_batched_fft ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework)
+set_target_properties(test_gpu_batched_fft PROPERTIES COMPILE_FLAGS "-I${PROJECT_SOURCE_DIR}/src -I${PROJECT_SOURCE_DIR}/tests")
+
 CUDA_ADD_EXECUTABLE(test_cuda_memory test_cuda_memory.cu)
 target_link_libraries(test_cuda_memory ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework )
 
