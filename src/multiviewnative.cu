@@ -65,7 +65,7 @@ void inplace_gpu_convolution(imageType* im, int* imDim, imageType* kernel,
   std::copy(imDim, imDim + 3, &image_dim[0]);
   std::copy(kernelDim, kernelDim + 3, &kernel_dim[0]);
 
-  device_convolve convolver(im, image_dim, kernel, kernel_dim);
+  target_convolve convolver(im, image_dim, kernel, kernel_dim);
 
   if (device < 0) device = selectDeviceWithHighestComputeCapability();
 
