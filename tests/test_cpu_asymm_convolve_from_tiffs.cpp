@@ -8,11 +8,12 @@
 #include "padd_utils.h"
 #include "fft_utils.h"
 #include "tiff_fixtures.hpp"
+#include "tests_config.h"
 
 using namespace multiviewnative;
 
 static const tiff_stack kernel1_view_0(
-    "/dev/shm/libmultiview_data/kernel1_view_0.tif");
+    path_to_test_images+"/kernel1_view_0.tif");
 
 BOOST_AUTO_TEST_SUITE(convolution_works_with_kernel1_view_0)
 
@@ -136,7 +137,7 @@ BOOST_AUTO_TEST_CASE(convolve_with_multiple_custom_ones) {
 BOOST_AUTO_TEST_SUITE_END()
 
 static const tiff_stack kernel2_view_0(
-    "/dev/shm/libmultiview_data/kernel2_view_0.tif");
+    path_to_test_images+"/kernel2_view_0.tif");
 
 BOOST_AUTO_TEST_SUITE(convolution_works_with_kernel2_view_0)
 
