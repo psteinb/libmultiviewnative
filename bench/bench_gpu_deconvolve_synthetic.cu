@@ -14,8 +14,6 @@
 #include "logging.hpp"
 
 #include <boost/chrono.hpp>
-#include <boost/thread.hpp>
-
 
 #include "gpu_convolve.cuh"
 #include "padd_utils.h"

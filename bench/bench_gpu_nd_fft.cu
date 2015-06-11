@@ -18,11 +18,6 @@ typedef boost::chrono::high_resolution_clock::time_point tp_t;
 typedef boost::chrono::milliseconds ms_t;
 typedef boost::chrono::nanoseconds ns_t;
 
-// #include <boost/timer/timer.hpp>
-
-// using boost::timer::cpu_timer;
-// using boost::timer::cpu_times;
-// using boost::timer::nanosecond_type;
 
 namespace po = boost::program_options;
 

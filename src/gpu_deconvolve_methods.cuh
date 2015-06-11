@@ -167,7 +167,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   const unsigned fft_num_elements = forwarded_kernels1[0].num_elements();
   const unsigned eff_fft_num_elements = fft_num_elements / 2;
 
-  unsigned Threads = 128;//optimize later
+  unsigned Threads = 256;//optimize later
   unsigned Blocks = largestDivisor(eff_fft_num_elements, Threads);
 
   for ( int i = 0; i < input.num_iterations_; ++i){
