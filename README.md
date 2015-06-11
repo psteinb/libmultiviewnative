@@ -43,6 +43,8 @@ $ make install
 
 # Using the Library
 
+*Note: The GPU is unstable and not yet production ready. The CPU API can be used!*
+
 ## Fiji related
 
 In order to call the GPU methods from Java, simply create a directory called lib/linux64 under the fiji root directory. Create a symlink to libMultiViewNative.so (compiled for your architecture) here.
@@ -61,5 +63,5 @@ On OS X, CUDA is (at the time of writing) INCOMPATIBLE with the installed llvm b
 
 ## Disclaimer
 
-The library at hand is an evolving project. It is designed as the native implementation of http://fiji.sc/Multi-View_Deconvolution (cf. <http://arxiv.org/abs/1308.0730>). The ultimate goal is to implement the performance sensitive parts of the Multi-View_Deconvolution in this library.
+The library at hand is an evolving project. It is designed as the native implementation of http://fiji.sc/Multi-View_Deconvolution (cf. <http://arxiv.org/abs/1308.0730>). The ultimate goal is to implement the performance sensitive parts of the Multi-View_Deconvolution in this library which can provide significant speed-ups: <http://on-demand.gputechconf.com/gtc/2015/video/S5208.html> (recording of the talk), <https://idisk.mpi-cbg.de/~steinbac/gtc2015> (slides)
 
