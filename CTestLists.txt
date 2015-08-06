@@ -9,11 +9,17 @@
 add_test(NAME discrete_convolve COMMAND test_discrete_convolve)
 add_test(NAME fftw_convolve COMMAND test_fftw_convolve)
 add_test(NAME multi_array_fixture COMMAND test_multi_array_fixture)
+
 add_test(NAME cpu_asymm_convolve COMMAND test_cpu_asymm_convolve)
+set_tests_properties(cpu_asymm_convolve PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/src:${LD_LIBRARY_PATH}")
 add_test(NAME cpu_symm_convolve COMMAND test_cpu_symm_convolve)
+set_tests_properties(cpu_symm_convolve PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/src:${LD_LIBRARY_PATH}")
+
 add_test(NAME plan_store COMMAND test_plan_store)
 add_test(NAME cpu_convolve_api COMMAND test_cpu_convolve_api)
 
 add_test(NAME gpu_convolve COMMAND test_gpu_convolve)
+set_tests_properties(gpu_convolve PROPERTIES ENVIRONMENT "LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/src:${LD_LIBRARY_PATH}")
+
 add_test(NAME cuda_memory COMMAND test_cuda_memory)
 
