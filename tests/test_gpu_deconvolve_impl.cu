@@ -73,8 +73,9 @@ BOOST_AUTO_TEST_CASE(produces_sane_l2norm) {
 
   image_stack gpu_input_psi = *local_guesses.padded_psi(0,shape_to_padd_with);
   image_stack reference = *local_guesses.padded_psi(0,shape_to_padd_with);
-  image_stack expected = *local_guesses.padded_psi(2,shape_to_padd_with);
-
+  image_stack expected = *local_guesses.padded_psi(0,shape_to_padd_with);
+  inplace_cpu_deconvolve(expected.data(), input, -1);
+  
   // test
   int device_id = selectDeviceWithHighestComputeCapability();
   inplace_gpu_deconvolve_iteration_interleaved<as_is_padding, 
@@ -143,8 +144,9 @@ BOOST_AUTO_TEST_CASE(produces_sane_l2norm) {
 
   image_stack gpu_input_psi = *local_guesses.padded_psi(0,shape_to_padd_with);
   image_stack reference = *local_guesses.padded_psi(0,shape_to_padd_with);
-  image_stack expected = *local_guesses.padded_psi(2,shape_to_padd_with);
-
+  image_stack expected = *local_guesses.padded_psi(0,shape_to_padd_with);
+  inplace_cpu_deconvolve(expected.data(), input, -1);
+  
   // test
   int device_id = selectDeviceWithHighestComputeCapability();
   inplace_gpu_deconvolve_iteration_all_on_device<as_is_padding, 

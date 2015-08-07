@@ -111,6 +111,16 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     std::copy(input.data_[v].weights_, input.data_[v].weights_ + weights[v].num_elements(),
 	      weights[v].data());
     weights[v].resize(fftready_shape);
+
+    //pin memory
+    HANDLE_ERROR(cudaHostRegister((void*)weights[v].data(), 
+				  weights[v].num_elements()*sizeof(float),
+				  cudaHostRegisterPortable));
+
+    HANDLE_ERROR(cudaHostRegister((void*)view_folds[v]->padded_image_->data(), 
+				  view_folds[v]->padded_image_->num_elements()*sizeof(float),
+				  cudaHostRegisterPortable));
+    
   }
 
   //prepare space on device
@@ -281,6 +291,10 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
  
   //clean-up
   for (unsigned v = 0; v < n_views; ++v) {
+    HANDLE_ERROR(cudaHostUnregister(weights[v].data()));
+    HANDLE_ERROR(cudaHostUnregister(view_folds[v]->padded_image_->data()));
+    HANDLE_ERROR(cudaHostUnregister(forwarded_kernels1[v].data()));
+    HANDLE_ERROR(cudaHostUnregister(forwarded_kernels2[v].data()));
     delete view_folds[v];
   }
 
@@ -288,6 +302,10 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     HANDLE_ERROR(cudaFree(src_buffers[b]));
   }
 
+  for (unsigned s = 0; s < streams.size(); ++s) {
+    HANDLE_ERROR(cudaStreamDestroy(*streams[s]));
+  }
+  
   
   //copy result back
   input_psi = psi_stack[ boost::indices[multiviewnative::range(
