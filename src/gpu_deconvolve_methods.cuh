@@ -150,14 +150,21 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   // 2 .. integral
   // 3 .. psi
   //fix the indices here
-  const int psi_ = 3;
+  const int any_ = 0;
+  const int krnl_or_any_ = 1;
   const int intgr_ = 2;
+  const int psi_ = 3;
+
   
 
   image_stack_ref input_psi(psi, input_shape);
   image_stack psi_stack = input_psi;
   psi_stack.resize(fftready_shape);
-  
+
+  padding_type input_psi_padder(input.data_[0].image_dims_, input.data_[0].kernel1_dims_);
+  input_psi_padder.insert_at_offsets(input_psi, psi_stack);  //NB: input_psi_padding.extents_ does not equal fftready_shape? but the insertion will still work correctly
+
+  //send psi_stack to device
   HANDLE_ERROR(cudaMemcpy(src_buffers[psi_],
 			  psi_stack.data(), 
 			  padded_size_byte,
@@ -167,12 +174,13 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   const unsigned fft_num_elements = forwarded_kernels1[0].num_elements();
   const unsigned eff_fft_num_elements = fft_num_elements / 2;
 
-  unsigned Threads = 256;//optimize later
+  unsigned Threads = 256;//TODO: optimize later
   unsigned Blocks = largestDivisor(eff_fft_num_elements, Threads);
 
   for ( int i = 0; i < input.num_iterations_; ++i){
 
-    HANDLE_ERROR(cudaMemcpyAsync(src_buffers[1],
+    //re-initialize kernel on src_buffers[1] again
+    HANDLE_ERROR(cudaMemcpyAsync(src_buffers[krnl_or_any_],
 				 forwarded_kernels1[0].data(), 
 				 padded_size_byte,
 				 cudaMemcpyHostToDevice,
@@ -181,26 +189,42 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
     for (unsigned v = 0; v < n_views; ++v) {
 
-      //integral = psi
-      HANDLE_ERROR(cudaMemcpy(src_buffers[intgr_],
-			      src_buffers[psi_], 
-			      padded_size_byte,
-			      cudaMemcpyDeviceToDevice
-			      ));
+      // //integral = psi (blocking)
+      // HANDLE_ERROR(cudaMemcpy(src_buffers[intgr_],
+      // 			      src_buffers[psi_], 
+      // 			      padded_size_byte,
+      // 			      cudaMemcpyDeviceToDevice
+      // 			      ));
 
+      //integral = psi
+      HANDLE_ERROR(cudaMemcpyAsync(src_buffers[intgr_],
+				   src_buffers[psi_], 
+				   padded_size_byte,
+				   cudaMemcpyDeviceToDevice,
+				   *streams[0]
+				   ));
+      
+      //re-initialize kernel on src_buffers[1] again
+      HANDLE_ERROR(cudaMemcpyAsync(src_buffers[krnl_or_any_],
+				   forwarded_kernels1[v].data(), 
+				   padded_size_byte,
+				   cudaMemcpyHostToDevice,
+				   *streams[1]
+				   ));
+    
       //would load internal from host
       // convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
       inplace_asynch_convolve_on_device_and_kick<transform_type>(src_buffers[intgr_], 
-						 src_buffers[1],
+						 src_buffers[krnl_or_any_],
 						 &input_shape[0],
 						 fft_num_elements,
 						 streams,
-						 //goes to stream 1, src_buffer 1
+						 //goes to stream 1, src_buffer 1 (aka krnl_or_any_)
 						 view_folds[v]->padded_image_->data()
 						 );
       
-      //get kernel2 into buffer0
-      HANDLE_ERROR(cudaMemcpyAsync(src_buffers[0],
+      //get kernel2 into buffer 0
+      HANDLE_ERROR(cudaMemcpyAsync(src_buffers[any_],
 				 forwarded_kernels2[v].data(), 
 				 padded_size_byte,
 				 cudaMemcpyHostToDevice,
@@ -214,12 +238,14 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
       // convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) *
       // P_v^{compound}
+      // this call needs for both streams to finish (0: load kernel data, 1: finish device divide)
+      // is done inside function
       inplace_asynch_convolve_on_device_and_kick<transform_type>(src_buffers[intgr_], 
-						 src_buffers[0],
+						 src_buffers[any_],
 						 &input_shape[0],
 						 fft_num_elements,
 						 streams,
-						 //goes to stream 1, src_buffer 1
+						 //goes to stream 1, src_buffer 0 (any_)
 						 weights[v].data()
 						 );
       
@@ -229,12 +255,12 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
       // compiler opt & branch prediction seems to suggest this solution
       if (input.lambda_ > 0) {
         device_regularized_final_values <<<Blocks, Threads, 0 , *streams[1]>>>
-	  (src_buffers[psi_], src_buffers[intgr_], src_buffers[1],
+	  (src_buffers[psi_], src_buffers[intgr_], src_buffers[any_],
 	   input.lambda_, input.minValue_, fft_num_elements);
 
       } else {
         device_final_values <<<Blocks, Threads, 0 , *streams[1]>>>
-	  (src_buffers[psi_], src_buffers[intgr_], src_buffers[1],
+	  (src_buffers[psi_], src_buffers[intgr_], src_buffers[any_],
 	   input.minValue_, fft_num_elements);
       }
       HANDLE_LAST_ERROR();
@@ -246,6 +272,13 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     
   }
 
+  //retrieve psi
+  HANDLE_ERROR(cudaMemcpy(psi_stack.data(),
+			  src_buffers[psi_],
+			  padded_size_byte,
+			  cudaMemcpyDeviceToHost
+			  ));
+ 
   //clean-up
   for (unsigned v = 0; v < n_views; ++v) {
     delete view_folds[v];
@@ -255,11 +288,18 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
     HANDLE_ERROR(cudaFree(src_buffers[b]));
   }
 
-  //convert all data to what it was
-  psi_stack.resize(input_shape);
   
-  //copy result
-  input_psi = psi_stack;
+  //copy result back
+  input_psi = psi_stack[ boost::indices[multiviewnative::range(
+							       input_psi_padder.offsets_[0],
+							       input_psi_padder.offsets_[0] + input_psi.shape()[0])]
+			 [multiviewnative::range(
+						 input_psi_padder.offsets_[1],
+						 input_psi_padder.offsets_[1] + input_psi.shape()[1])]
+			 [multiviewnative::range(
+						 input_psi_padder.offsets_[2],
+						 input_psi_padder.offsets_[2] + input_psi.shape()[2])]
+			 ];
     
 }
 
