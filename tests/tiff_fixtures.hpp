@@ -27,7 +27,6 @@
 
 namespace multiviewnative {
 
-// static const std::string path_to_test_images = "/dev/shm/libmultiview_data/";
 
 struct tiff_stack {
 

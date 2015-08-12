@@ -90,6 +90,9 @@ BOOST_AUTO_TEST_CASE(produces_sane_l2norm) {
 								  bottom_ratio,
 								  upper_ratio);
   BOOST_CHECK_LT(l2norm_to_guesses, 1);
+  if(l2norm_to_guesses>10){
+    multiviewnative::write_image_stack(gpu_input_psi,"test_gpu_deconvolve_impl_interleaved_produces_sane_l2norm.tiff");
+  }
   delete [] input.data_;
 }
 
@@ -160,6 +163,9 @@ BOOST_AUTO_TEST_CASE(produces_sane_l2norm) {
 								  bottom_ratio,
 								  upper_ratio);
   BOOST_CHECK_LT(l2norm_to_guesses, 1);
+  if(l2norm_to_guesses>10){
+    multiviewnative::write_image_stack(gpu_input_psi,"test_gpu_deconvolve_impl_all_on_device_produces_sane_l2norm.tiff");
+  }
   delete [] input.data_;
 }
 
