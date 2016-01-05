@@ -7,6 +7,9 @@
 #   FFTW_FOUND               ... true if fftw is found on the system
 #   FFTW_LIBRARIES           ... full path to fftw library
 #   FFTW_INCLUDES            ... fftw include directory
+#   FFTW_FOUND_SERIAL_LIBS   ... full path to serial fftw library
+#   FFTW_FOUND_THREADS_LIBS  ... full path to pthreads fftw library
+#   FFTW_FOUND_OPENMP_LIBS   ... full path to openmp fftw library
 #
 # The following variables will be checked by the function
 #   FFTW_USE_STATIC_LIBS    ... if true, only static libraries are found
@@ -39,7 +42,7 @@ else()
 endif()
 
 if( FFTW_ROOT )
-
+  
   #find libs
   find_library(
     FFTW_LIB
@@ -51,7 +54,7 @@ if( FFTW_ROOT )
 
 
   find_library(
-    FFTW_OMP_LIB
+    FFTW_OPENMP_LIB
     NAMES fftw3_omp
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "lib" "lib64"
@@ -75,7 +78,7 @@ if( FFTW_ROOT )
     )
 
   find_library(
-    FFTWF_OMP_LIB
+    FFTWF_OPENMP_LIB
     NAMES "fftw3f_omp" 
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "lib" "lib64"
@@ -99,7 +102,7 @@ if( FFTW_ROOT )
     )
 
   find_library(
-    FFTWL_OMP_LIB
+    FFTWL_OPENMP_LIB
     NAMES "fftw3f_omp" 
     PATHS ${FFTW_ROOT}
     PATH_SUFFIXES "lib" "lib64"
@@ -132,7 +135,7 @@ else()
   )
 
 find_library(
-    FFTW_OMP_LIB
+    FFTW_OPENMP_LIB
     NAMES fftw3_omp
     PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
   )
@@ -152,7 +155,7 @@ find_library(
 
 
 find_library(
-    FFTWF_OMP_LIB
+    FFTWF_OPENMP_LIB
     NAMES fftw3f_omp
     PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
   )
@@ -172,7 +175,7 @@ find_library(
 
 
 find_library(
-    FFTWL_OMP_LIB
+    FFTWL_OPENMP_LIB
     NAMES fftw3l_omp
     PATHS ${PKG_FFTW_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
   )
@@ -193,18 +196,41 @@ find_library(
 
 endif( FFTW_ROOT )
 
-set(FFTW_LIBRARIES ${FFTW_LIB} ${FFTW_OMP_LIB} ${FFTW_THREADS_LIB} ${FFTWF_LIB} ${FFTWF_OMP_LIB} ${FFTWF_THREADS_LIB})
+set(FFTW_FOUND_SERIAL_LIBS           ${FFTW_LIB}             )
+set(FFTW_FOUND_THREADS_LIBS   ${FFTW_THREADS_LIB}     )
+set(FFTW_FOUND_OPENMP_LIBS    ${FFTW_OPENMP_LIB}      )
 
+if(EXISTS ${FFTWF_LIB})
 
-if(FFTWL_LIB)
-  set(FFTW_LIBRARIES ${FFTW_LIBRARIES} ${FFTWL_LIB} ${FFTWL_OMP_LIB} ${FFTWL_THREADS_LIB})
+  list(APPEND FFTW_FOUND_SERIAL_LIBS		${FFTWF_LIB}		)
+  list(APPEND FFTW_FOUND_THREADS_LIBS	${FFTWF_THREADS_LIB}	)
+  list(APPEND FFTW_FOUND_OPENMP_LIBS	${FFTWF_OPENMP_LIB}	)
+
 endif()
 
+if(EXISTS ${FFTWL_LIB})
+  list(APPEND FFTW_FOUND_SERIAL_LIBS		${FFTWL_LIB}		)
+  list(APPEND FFTW_FOUND_THREADS_LIBS	${FFTWL_THREADS_LIB}	)
+  list(APPEND FFTW_FOUND_OPENMP_LIBS	${FFTWL_OPENMP_LIB}	)
+endif()
+
+set(FFTW_LIBRARIES)
+
+foreach(_ITEM IN LISTS FFTW_FOUND_SERIAL_LIBS FFTW_FOUND_THREADS_LIBS FFTW_FOUND_OPENMP_LIBS )
+  if(EXISTS ${_ITEM})
+    set(FFTW_LIBRARIES "${FFTW_LIBRARIES} ${_ITEM}")
+  endif()
+endforeach()
+
+#revert CMAKE_FIND_LIBRARY_SUFFIXES
 set( CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_SAV} )
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(FFTW DEFAULT_MSG
                                   FFTW_INCLUDES FFTW_LIBRARIES)
 
-mark_as_advanced(FFTW_INCLUDES FFTW_LIBRARIES FFTW_LIB_FLAGS FFTW_LIB FFTW_OMP_LIB FFTW_THREADS_LIB FFTWF_LIB FFTWF_OMP_LIB FFTWF_THREADS_LIB)
+mark_as_advanced(FFTW_INCLUDES FFTW_LIBRARIES
+  FFTW_FOUND_SERIAL_LIBS #individual serial libs
+  FFTW_FOUND_THREADS_LIBS FFTW_FOUND_OPENMP_LIBS #individual parallel libs
+  )
 
