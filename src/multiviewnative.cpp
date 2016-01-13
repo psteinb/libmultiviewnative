@@ -166,22 +166,18 @@ namespace multiviewnative {
           integral = input_psi;
 
           // convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
-          fold_t convolver1(integral.data(),
-                                         &(image_shapes[view])[0],
-                                         view_access.kernel1_dims_);
+          fold_t convolver1(integral.data(), &(image_shapes[view])[0],
+                            view_access.kernel1_dims_);
           convolver1.half_inplace(forwarded_kernel1[view]);
 
           // view / psiBlurred -> psiBlurred :: (phi_v / (Psi*P_v))
-          compute_quotient<Tag>(view_access.image_, 
-			   integral.data(),
-			   input_psi.num_elements(),
-			   nthreads);
+          compute_quotient<Tag>(view_access.image_, integral.data(),
+                                input_psi.num_elements(), nthreads);
 
           // convolve: psiBlurred x kernel2 -> integral :: (phi_v / (Psi*P_v)) *
           // P_v^{compound}
-          fold_t convolver2(integral.data(),
-				   &(image_shapes[view])[0],
-				   view_access.kernel2_dims_);
+          fold_t convolver2(integral.data(), &(image_shapes[view])[0],
+                            view_access.kernel2_dims_);
           convolver2.half_inplace(forwarded_kernel2[view]);
 
           // computeFinalValues(input_psi,integral,weights)
@@ -189,22 +185,17 @@ namespace multiviewnative {
           // decision (decision in object, decision in if clause)
           // compiler opt & branch prediction seems to suggest this solution
           if (lambda > 0)
-            regularized_final_values<Tag>(input_psi.data(), 
-					  integral.data(), 
-					  view_access.weights_,
-					  input_psi.num_elements(), 
-					  lambda, 
-					  minValue,
-					  0,//for array offset
-					  nthreads);
+            regularized_final_values<Tag>(
+                input_psi.data(), integral.data(), view_access.weights_,
+                input_psi.num_elements(), lambda, minValue,
+                0, // for array offset
+                nthreads);
           else
-            final_values<Tag>(input_psi.data(), 
-			      integral.data(),
-			      view_access.weights_, 
-			      input_psi.num_elements(),
-			      minValue,
-			      0,//for array offset
-			      nthreads);
+            final_values<Tag>(input_psi.data(), integral.data(),
+                              view_access.weights_, input_psi.num_elements(),
+                              minValue,
+                              0, // for array offset
+                              nthreads);
         }
       }
 

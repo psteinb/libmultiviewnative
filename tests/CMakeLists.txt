@@ -1,4 +1,6 @@
 INCLUDE_DIRECTORIES(.)
+include_directories(${PROJECT_SOURCE_DIR}/inc)
+include_directories(${PROJECT_SOURCE_DIR}/src)
 
 SET(Boost_USE_MULTITHREADED ON)
 FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS system filesystem unit_test_framework REQUIRED)
@@ -120,11 +122,16 @@ FIND_PACKAGE(TIFF QUIET)
 
 IF(CUDA_FOUND)
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/src)
-
+#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-I${PROJECT_SOURCE_DIR}/src)
+#include_directories(${PROJECT_SOURCE_DIR}/src)
 
 CUDA_ADD_EXECUTABLE(test_gpu_convolve test_gpu_convolve.cpp)
 target_link_libraries(test_gpu_convolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ${PROJECT_NAME})
+
+CUDA_ADD_EXECUTABLE(test_gpu_convolve_impl test_gpu_convolve_impl.cu)
+CUDA_ADD_CUFFT_TO_TARGET(test_gpu_convolve_impl)
+target_link_libraries(test_gpu_convolve_impl ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework)
+
 
 CUDA_ADD_EXECUTABLE(test_gpu_batched_fft test_gpu_batched_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(test_gpu_batched_fft)

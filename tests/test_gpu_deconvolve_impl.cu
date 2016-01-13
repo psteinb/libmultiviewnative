@@ -22,6 +22,8 @@ typedef multiviewnative::gpu_convolve<as_is_padding, imageType, unsigned>
 
 static const PaddedReferenceData reference;
 static const first_2_iterations two_guesses;
+static const first_5_iterations five_guesses;
+static const all_iterations all_guesses;
 
 BOOST_AUTO_TEST_SUITE(interleaved)
 
@@ -130,16 +132,16 @@ BOOST_AUTO_TEST_CASE(runs_at_all) {
   delete [] input.data_;
 }
 
-BOOST_AUTO_TEST_CASE(produces_sane_l2norm) {
+BOOST_AUTO_TEST_CASE(produces_sane_l2norm_after_5_guesses) {
 
   // setup
   PaddedReferenceData local_ref(reference);
-  first_2_iterations local_guesses(two_guesses);
+  first_5_iterations local_guesses(five_guesses);
   workspace input;
   input.data_ = 0;
   fill_workspace(local_ref, input, local_guesses.lambda_,
                  local_guesses.minValue_);
-  input.num_iterations_ = 2;
+  input.num_iterations_ = 5;
 
   // padd the psi to the same shape as the input images
   std::vector<int> shape_to_padd_with;
@@ -163,10 +165,52 @@ BOOST_AUTO_TEST_CASE(produces_sane_l2norm) {
 								  bottom_ratio,
 								  upper_ratio);
   BOOST_CHECK_LT(l2norm_to_guesses, 1);
-  if(l2norm_to_guesses>10){
-    multiviewnative::write_image_stack(gpu_input_psi,"test_gpu_deconvolve_impl_all_on_device_produces_sane_l2norm.tiff");
+  std::cout << "produces_sane_l2norm_after_2_guesses: l2norm = " << l2norm_to_guesses << "\n";
+  if(l2norm_to_guesses>1){
+    multiviewnative::write_image_stack(gpu_input_psi,"test_gpu_deconvolve_impl_all_on_device_produces_sane_l2norm_psi_4.tiff");
   }
   delete [] input.data_;
 }
+
+BOOST_AUTO_TEST_CASE(produces_sane_l2norm_after_10_guesses) {
+
+  // setup
+  PaddedReferenceData local_ref(reference);
+  all_iterations local_guesses(all_guesses);
+  workspace input;
+  input.data_ = 0;
+  fill_workspace(local_ref, input, local_guesses.lambda_,
+                 local_guesses.minValue_);
+  input.num_iterations_ = 10;
+
+  // padd the psi to the same shape as the input images
+  std::vector<int> shape_to_padd_with;
+  local_ref.min_kernel_shape(shape_to_padd_with);
+
+  image_stack gpu_input_psi = *local_guesses.padded_psi(0,shape_to_padd_with);
+  image_stack reference = *local_guesses.padded_psi(0,shape_to_padd_with);
+  image_stack expected = *local_guesses.padded_psi(0,shape_to_padd_with);
+  inplace_cpu_deconvolve(expected.data(), input, -1);
+  
+  // test
+  int device_id = selectDeviceWithHighestComputeCapability();
+  inplace_gpu_deconvolve_iteration_all_on_device<as_is_padding, 
+					       device_transform>
+    (gpu_input_psi.data(), input, device_id);
+
+  // check norms
+  const float bottom_ratio = .25;
+  const float upper_ratio = .75;
+  float l2norm_to_guesses = multiviewnative::l2norm_within_limits(gpu_input_psi, expected,
+								  bottom_ratio,
+								  upper_ratio);
+  BOOST_CHECK_LT(l2norm_to_guesses, 1);
+  std::cout << "produces_sane_l2norm_after_10_guesses: l2norm = " << l2norm_to_guesses << "\n";
+  if(l2norm_to_guesses>1){
+    multiviewnative::write_image_stack(gpu_input_psi,"test_gpu_deconvolve_impl_all_on_device_produces_sane_l2norm_psi_9.tiff");
+  }
+  delete [] input.data_;
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

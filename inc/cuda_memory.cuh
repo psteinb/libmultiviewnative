@@ -110,9 +110,12 @@ struct stack_on_device : public IOPolicy<ImageStackT> {
   // Copy
   stack_on_device(const stack_on_device& _other)
       : device_stack_ptr_(0), size_in_byte_(_other.size_in_byte_) {
+
     HANDLE_ERROR(cudaMalloc((void**)&(device_stack_ptr_), size_in_byte_));
-    HANDLE_ERROR(cudaMemcpy(device_stack_ptr_, _other.device_stack_ptr_,
-                            size_in_byte_, cudaMemcpyDeviceToDevice));
+
+    if(_other.device_stack_ptr_)
+      HANDLE_ERROR(cudaMemcpy(device_stack_ptr_, _other.device_stack_ptr_,
+			      size_in_byte_, cudaMemcpyDeviceToDevice));
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
@@ -121,42 +124,12 @@ struct stack_on_device : public IOPolicy<ImageStackT> {
 
     stack_on_device temp(_rhs);
     swap(*this, _rhs);
-    // this->host_stack_ = &_rhs;
-
-    // size_in_byte_ = sizeof(value_type)*_rhs.num_elements();
-
-    // unsigned host_mem_flags =
-    // obtain_cuda_host_mem_flags(host_stack_->data());
-    // if(!host_mem_flags)
-    // 	HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ ,
-    // cudaHostRegisterPortable) );
-
-    // if(_rhs.num_elements()!=(size_in_byte_/sizeof(value_type))){
-    // 	this->clear();
-    // 	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ )
-    // );
-    // }
 
     return *this;
   }
 
   stack_on_device& operator=(stack_on_device _rhs) {
 
-    // if(_rhs.size_in_byte_!=size_in_byte_){
-    // 	clear();
-    // 	HANDLE_ERROR( cudaMalloc( (void**)&(device_stack_ptr_), size_in_byte_ )
-    // );
-    // }
-
-    // this->host_stack_ = _rhs.host_stack_;
-    // size_in_byte_ = sizeof(value_type)*host_stack_->num_elements();
-    // unsigned host_mem_flags =
-    // obtain_cuda_host_mem_flags(host_stack_->data());
-    // if(!host_mem_flags)
-    // 	HANDLE_ERROR( cudaHostRegister( host_stack_->data(), size_in_byte_ ,
-    // cudaHostRegisterPortable) );
-    // HANDLE_ERROR( cudaMemcpy( device_stack_ptr_, _rhs.device_stack_ptr_,
-    // size_in_byte_, cudaMemcpyDeviceToDevice ) );
     swap(*this, _rhs);
     return *this;
   }

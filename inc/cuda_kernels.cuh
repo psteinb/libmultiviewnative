@@ -11,16 +11,16 @@ __device__ inline T cmin(const T& _first, const T& _second) {
   return (_first < _second) ? _first : _second;
 };
 
-template <typename TransferT>
-__global__ void device_divide(const TransferT* _input, TransferT* _output,
-                              unsigned int _size) {
+template <typename pixel_type, typename size_type>
+__global__ void device_divide(const pixel_type* _input, pixel_type* _output,
+                              size_type _size) {
 
-  const size_t pixel_x = size_t(blockIdx.x) * size_t(blockDim.x) + threadIdx.x;
+  const size_type pixel_x = size_type(blockIdx.x) * size_type(blockDim.x) + threadIdx.x;
 
-  TransferT temp_out = 0;
-  TransferT temp_in = 0;
+  pixel_type temp_out = 0;
+  pixel_type temp_in = 0;
 
-  for (size_t i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
+  for (size_type i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
 
     temp_out = 1.f / _output[i];
     temp_in = _input[i];
@@ -29,13 +29,13 @@ __global__ void device_divide(const TransferT* _input, TransferT* _output,
   }
 }
 
-template <typename TransferT>
-__global__ void device_final_values(TransferT* __restrict__ _psi,
-                                    const TransferT* __restrict__ _integral,
-                                    const TransferT* __restrict__ _weight,
-                                    TransferT _minValue, size_t _size) {
+template <typename pixel_type, typename size_type>
+__global__ void device_final_values(pixel_type* __restrict__ _psi,
+                                    const pixel_type* __restrict__ _integral,
+                                    const pixel_type* __restrict__ _weight,
+                                    pixel_type _minValue, size_type _size) {
 
-  const size_t pixel_x = size_t(blockIdx.x) * size_t(blockDim.x) + threadIdx.x;
+  const size_type pixel_x = size_type(blockIdx.x) * size_type(blockDim.x) + threadIdx.x;
 
   float temp_integral = 0;
   float temp_weight = 0;
@@ -43,7 +43,7 @@ __global__ void device_final_values(TransferT* __restrict__ _psi,
   float last_value = 0;
   float next_value = 0;
 
-  for (size_t i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
+  for (size_type i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
 
     last_value = _psi[i];
     temp_integral = _integral[i];
@@ -69,8 +69,8 @@ __global__ void device_final_values(TransferT* __restrict__ _psi,
 
 template <typename TransferT>
 __global__ void device_regularized_final_values(
-    TransferT* __restrict__ _psi, const TransferT* __restrict__ _integral,
-    const TransferT* __restrict__ _weight, double _lambda, TransferT _minValue,
+    TransferT *__restrict__ _psi, const TransferT *__restrict__ _integral,
+    const TransferT *__restrict__ _weight, double _lambda, TransferT _minValue,
     size_t _size) {
 
   const size_t pixel_x = size_t(blockIdx.x) * size_t(blockDim.x) + threadIdx.x;
@@ -109,11 +109,10 @@ __global__ void device_regularized_final_values(
 }
 
 template <typename TransferT>
-__global__ void device_finalValues_plain_3D(cudaPitchedPtr _image,
-                                            cudaPitchedPtr _integral,
-                                            cudaPitchedPtr _weight,
-                                            TransferT _minValue,
-                                            uint3 _image_dims) {
+__global__ void
+device_finalValues_plain_3D(cudaPitchedPtr _image, cudaPitchedPtr _integral,
+                            cudaPitchedPtr _weight, TransferT _minValue,
+                            uint3 _image_dims) {
   const size_t image_size = _image_dims.x * _image_dims.y * _image_dims.z;
 
   const unsigned int pixel_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -123,19 +122,19 @@ __global__ void device_finalValues_plain_3D(cudaPitchedPtr _image,
   const unsigned int pixel_index = pixel_z * (_image_dims.x * _image_dims.y) +
                                    pixel_y * (_image_dims.x) + pixel_x;
 
-  char* image_devPtr = (char*)_image.ptr;
-  char* integral_devPtr = (char*)_integral.ptr;
-  char* weight_devPtr = (char*)_weight.ptr;
+  char *image_devPtr = (char *)_image.ptr;
+  char *integral_devPtr = (char *)_integral.ptr;
+  char *weight_devPtr = (char *)_weight.ptr;
 
-  float* image_row =
-      (float*)(image_devPtr + pixel_z * (_image_dims.x * _image_dims.y) +
-               pixel_y * (_image_dims.x));
-  float* integral_row =
-      (float*)(integral_devPtr + pixel_z * (_image_dims.x * _image_dims.y) +
-               pixel_y * (_image_dims.x));
-  float* weight_row =
-      (float*)(weight_devPtr + pixel_z * (_image_dims.x * _image_dims.y) +
-               pixel_y * (_image_dims.x));
+  float *image_row =
+      (float *)(image_devPtr + pixel_z * (_image_dims.x * _image_dims.y) +
+                pixel_y * (_image_dims.x));
+  float *integral_row =
+      (float *)(integral_devPtr + pixel_z * (_image_dims.x * _image_dims.y) +
+                pixel_y * (_image_dims.x));
+  float *weight_row =
+      (float *)(weight_devPtr + pixel_z * (_image_dims.x * _image_dims.y) +
+                pixel_y * (_image_dims.x));
 
   float temp_image = 0;
   float temp_weight = 0;
@@ -146,7 +145,8 @@ __global__ void device_finalValues_plain_3D(cudaPitchedPtr _image,
     temp_image *= integral_row[pixel_x];
     temp_weight = weight_row[pixel_x];
 
-    if (!(temp_image > 0.f)) temp_image = _minValue;
+    if (!(temp_image > 0.f))
+      temp_image = _minValue;
 
     new_value = cmax(_minValue, temp_image);
     new_value = temp_weight * (new_value - temp_image) + temp_image;
@@ -157,8 +157,8 @@ __global__ void device_finalValues_plain_3D(cudaPitchedPtr _image,
 
 template <typename TransferT>
 __global__ void device_finalValues_tikhonov(
-    TransferT* __restrict__ _image, const TransferT* __restrict__ _integral,
-    const TransferT* __restrict__ _weight, TransferT _minValue,
+    TransferT *__restrict__ _image, const TransferT *__restrict__ _integral,
+    const TransferT *__restrict__ _weight, TransferT _minValue,
     TransferT _lambda, size_t _size) {
 
   const size_t pixel_x = size_t(blockIdx.x) * size_t(blockDim.x) + threadIdx.x;
@@ -190,24 +190,24 @@ __global__ void device_finalValues_tikhonov(
   }
 }
 
-__device__ float scale_subtracted(const float& _ax, const float& _bx,
-                                  const float& _ay, const float& _by,
-                                  const float& _c) {
+__device__ float scale_subtracted(const float &_ax, const float &_bx,
+                                  const float &_ay, const float &_by,
+                                  const float &_c) {
   float result = __fmaf_rn(_ax, _bx, __fmul_rn(-1., __fmul_rn(_ay, _by)));
   return __fmul_rn(_c, result);
 }
 
-__device__ float scale_added(const float& _ax, const float& _bx,
-                             const float& _ay, const float& _by,
-                             const float& _c) {
+__device__ float scale_added(const float &_ax, const float &_bx,
+                             const float &_ay, const float &_by,
+                             const float &_c) {
   float result = __fmaf_rn(_ax, _bx, __fmul_rn(_ay, _by));
   return __fmul_rn(_c, result);
 }
 
 #include "cufft.h"
 
-__global__ void modulateAndNormalize_kernel(cufftComplex* d_Dst,
-                                            cufftComplex* d_Src,
+__global__ void modulateAndNormalize_kernel(cufftComplex *d_Dst,
+                                            cufftComplex *d_Src,
                                             unsigned int dataSize, float c) {
   unsigned int globalIdx = blockDim.x * blockIdx.x + threadIdx.x;
   unsigned int kernelSize = blockDim.x * gridDim.x;

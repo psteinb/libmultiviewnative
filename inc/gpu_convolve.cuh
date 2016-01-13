@@ -99,7 +99,9 @@ void inplace_asynch_convolve_on_device_and_kick(TransferT* _image_on_device,
 
 
 
-template <typename TransformT, typename TransferT, typename DimT>
+template <typename TransformT,
+	  typename TransferT,
+	  typename DimT>
 void inplace_convolve_on_device(TransferT* _image_on_device,
                                 TransferT* _kernel_on_device, DimT* _extents,
                                 const unsigned& _fft_num_elements) {

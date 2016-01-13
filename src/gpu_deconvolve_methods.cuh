@@ -390,6 +390,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     multiviewnative::adapt_extents_for_fftw_inplace(
         padding[v].extents_, cufft_inplace_extents,
         padded_view[v]->storage_order());
+    
     device_memory_elements_required[v] = std::accumulate(
         cufft_inplace_extents.begin(), cufft_inplace_extents.end(), 1,
         std::multiplies<size_t>());
@@ -410,7 +411,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   //
   // ITERATE
   //
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_running_psi(
+  multiviewnative::stack_on_device<multiviewnative::image_stack> d_input_psi(
       padded_psi, max_device_memory_elements_required);
   multiviewnative::stack_on_device<multiviewnative::image_stack> d_integral(
       max_device_memory_elements_required);
@@ -438,11 +439,13 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
     for (int v = 0; v < input.num_views_; ++v) {
 
-      d_integral = d_running_psi;
+      d_integral = d_input_psi;
       HANDLE_LAST_ERROR();
+      
       d_kernel1.push_to_device(*padded_kernel1[v]);
       HANDLE_LAST_ERROR();
-      // integral = integral * kernel1
+
+      // d_integral = d_integral %*% d_kernel1
       multiviewnative::inplace_convolve_on_device<transform_type>(
           d_integral.data(), d_kernel1.data(), &padding[v].extents_[0],
           device_memory_elements_required[v]);
@@ -450,32 +453,39 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
       d_view.push_to_device(*padded_view[v]);
       HANDLE_LAST_ERROR();
-      device_divide << <blocks, threads>>>
+
+      // integral = view / integral
+      device_divide <<<blocks, threads>>>
           (d_view.data(), d_integral.data(), padded_view[v]->num_elements());
       HANDLE_LAST_ERROR();
+      
       d_kernel2.push_to_device(*padded_kernel2[v]);
       HANDLE_LAST_ERROR();
+
+      // integral = integral %*% kernel2      
       multiviewnative::inplace_convolve_on_device<transform_type>(
           d_integral.data(), d_kernel2.data(), &padding[v].extents_[0],
           device_memory_elements_required[v]);
       HANDLE_LAST_ERROR();
       d_weights.push_to_device(*padded_weights[v]);
       HANDLE_LAST_ERROR();
+
+      // regularize
       if (input.lambda_ > 0) {
-        device_regularized_final_values << <blocks, threads>>>
-            (d_running_psi.data(), d_integral.data(), d_weights.data(),
-             input.lambda_, input.minValue_, padded_view[v]->num_elements());
+        device_regularized_final_values<<<blocks, threads>>>(
+            d_input_psi.data(), d_integral.data(), d_weights.data(),
+            input.lambda_, input.minValue_, padded_view[v]->num_elements());
 
       } else {
         device_final_values << <blocks, threads>>>
-            (d_running_psi.data(), d_integral.data(), d_weights.data(),
+            (d_input_psi.data(), d_integral.data(), d_weights.data(),
              input.minValue_, padded_view[v]->num_elements());
       }
       HANDLE_LAST_ERROR();
     }
   }
 
-  d_running_psi.pull_from_device(padded_psi);
+  d_input_psi.pull_from_device(padded_psi);
 
   input_psi = padded_psi
       [boost::indices[multiviewnative::range(

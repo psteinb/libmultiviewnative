@@ -47,6 +47,7 @@ BOOST_AUTO_TEST_CASE(by_from_stack) {
 }
 
 BOOST_AUTO_TEST_CASE(by_assigment) {
+
   default_stack_on_device simple(image_);
   cudaError_t err = cudaGetLastError();
   BOOST_CHECK_EQUAL(err, cudaSuccess);
@@ -56,6 +57,36 @@ BOOST_AUTO_TEST_CASE(by_assigment) {
   err = cudaGetLastError();
   BOOST_CHECK_EQUAL(err, cudaSuccess);
 }
+
+BOOST_AUTO_TEST_CASE(copy_by_assigment) {
+
+  default_stack_on_device simple(image_);
+  default_stack_on_device other(one_);
+  cudaError_t err = cudaGetLastError();
+  BOOST_CHECK_EQUAL(err, cudaSuccess);
+
+  dim3 blocks = image_.shape()[2];
+  dim3 threads = image_.shape()[1] * image_.shape()[0];
+  add_1 << <blocks, threads>>>
+    (other.device_stack_ptr_, image_.num_elements());
+
+  simple = other;
+  simple.pull_from_device(image_folded_by_horizontal_);
+
+  
+  
+  std::vector<float> all_ones(one_.data(),one_.data()+32);
+  for(float & i : all_ones)
+    i+=1;
+  
+  BOOST_CHECK_EQUAL_COLLECTIONS(all_ones.begin(), all_ones.end(),
+				image_folded_by_horizontal_.data(),image_folded_by_horizontal_.data()+32);
+
+  other.pull_from_device(image_folded_by_vertical_);
+  BOOST_CHECK_EQUAL_COLLECTIONS(all_ones.begin(), all_ones.end(),
+				image_folded_by_vertical_.data(),image_folded_by_vertical_.data()+32);
+}
+
 
 BOOST_AUTO_TEST_CASE(by_assigment_from_stack) {
   default_stack_on_device simple = image_;

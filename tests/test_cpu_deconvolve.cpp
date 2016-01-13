@@ -21,6 +21,7 @@ using namespace multiviewnative;
 
 static const PaddedReferenceData reference;
 static const first_2_iterations local_guesses_of_2;
+static const first_5_iterations local_guesses_of_5;
 
 BOOST_AUTO_TEST_SUITE(deconvolve)
 
@@ -48,10 +49,10 @@ BOOST_AUTO_TEST_CASE(loaded_data_is_of_same_size) {
       local_guesses.padded_psi(0, shape_to_padd_with)->shape() + 3);
 }
 
-BOOST_AUTO_TEST_CASE(check_1st_two_iterations) {
+BOOST_AUTO_TEST_CASE(check_1st_five_iterations) {
   // setup
   PaddedReferenceData local_ref(reference);
-  first_2_iterations local_guesses(local_guesses_of_2);
+  first_5_iterations local_guesses(local_guesses_of_5);
 
   // padd the psi to the same shape as the input images
   std::vector<int> shape_to_padd_with;
@@ -79,7 +80,11 @@ BOOST_AUTO_TEST_CASE(check_1st_two_iterations) {
   std::cout << "central norms: [" << bottom_ratio << "e," << upper_ratio
             << "e]**3\n"
             << "1-iter l2norm within limits \t" << l2norm << "\n";
+  if(l2norm>1e-2){
+    multiviewnative::write_image_stack(input_psi,"test_cpu_deconvolve_check_1st_five_iterations_psi_1.tiff");
+  }
   BOOST_REQUIRE_LT(l2norm, 1e-2);
+  
 
   input_psi = *local_guesses.padded_psi(0, shape_to_padd_with);
   input.num_iterations_ = 2;

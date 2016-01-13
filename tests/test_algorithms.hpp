@@ -100,7 +100,7 @@ ValueT l2norm(ValueT* _first, ValueT* _second, const DimT& _size) {
 }
 
 template <typename ImageT, typename OtherT>
-float l2norm_within_limits(const ImageT& _first, const OtherT& _second,
+double l2norm_within_limits(const ImageT& _first, const OtherT& _second,
                            const float& _rel_lower_limit_per_axis,
                            const float& _rel_upper_limit_per_axis) {
 
@@ -111,7 +111,7 @@ float l2norm_within_limits(const ImageT& _first, const OtherT& _second,
     return 0;
   }
 
-  float l2norm = 0.;
+  double l2norm = 0.;
 
 #pragma omp parallel for num_threads(omp_get_num_procs()) shared(l2norm)
   for (int image_z = _first.shape()[0] * _rel_lower_limit_per_axis;
@@ -124,7 +124,7 @@ float l2norm_within_limits(const ImageT& _first, const OtherT& _second,
            image_x < int(_first.shape()[2] * _rel_upper_limit_per_axis);
            ++image_x) {
 
-        float intermediate = _first[image_z][image_y][image_x] -
+        double intermediate = _first[image_z][image_y][image_x] -
                              _second[image_z][image_y][image_x];
         l2norm += (intermediate) * (intermediate);
       }
