@@ -98,13 +98,25 @@ void inplace_asynch_convolve_on_device_and_kick(TransferT* _image_on_device,
 }
 
 
-
+/**
+   \brief performing complete fft based convolution in 3D
+   
+   \param[in] _image_on_device device pointer to 3D image to convolve (data laid out for cufft)
+   \param[in] _kernel_on_device device pointer to 3D kernel to convolve by (data laid out for cufft, same shape as image expected)
+   \param[in] _extents shape of _image & kernel
+   \param[in] _fft_num_elements number of TransferT items that are laid out for cufft
+   
+   \return 
+   \retval 
+   
+*/
 template <typename TransformT,
 	  typename TransferT,
-	  typename DimT>
+	  typename DimT,
+	  typename SizeT>
 void inplace_convolve_on_device(TransferT* _image_on_device,
                                 TransferT* _kernel_on_device, DimT* _extents,
-                                const unsigned& _fft_num_elements) {
+                                const SizeT& _fft_num_elements) {
 
   TransformT image_transform(_image_on_device, _extents);
   TransformT kernel_transform(_kernel_on_device, _extents);
@@ -113,16 +125,17 @@ void inplace_convolve_on_device(TransferT* _image_on_device,
 
   DimT transform_size =
       std::accumulate(_extents, _extents + 3, 1, std::multiplies<DimT>());
-  unsigned eff_fft_num_elements = _fft_num_elements / 2;
-
   TransferT scale = 1.0 / (transform_size);
 
-  unsigned numThreads = 128;
-  unsigned numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
+  SizeT eff_fft_num_elements = _fft_num_elements / 2;
+  SizeT numThreads = 128;
+  SizeT numBlocks = largestDivisor(eff_fft_num_elements, numThreads);
 
-  modulateAndNormalize_kernel << <numBlocks, numThreads>>>
-      ((cufftComplex*)_image_on_device, (cufftComplex*)_kernel_on_device,
-       eff_fft_num_elements, scale);
+  multiply_scaled << <numBlocks, numThreads>>>
+    ((cufftComplex*)_image_on_device,
+     (cufftComplex*)_kernel_on_device,
+     eff_fft_num_elements,
+     scale);
   HANDLE_ERROR(cudaPeekAtLastError());
 
   image_transform.backward();

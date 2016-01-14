@@ -16,72 +16,72 @@
 namespace multiviewnative {
 
 
-template <typename TransferT,
-          cufftCompatibility Mode = CUFFT_COMPATIBILITY_NATIVE>
-class inplace_3d_transform_on_device {
+  template <typename TransferT,
+	    cufftCompatibility Mode = CUFFT_COMPATIBILITY_NATIVE>
+  class inplace_3d_transform_on_device {
 
 
 
- public:
-  typedef gpu::cufft_api<TransferT> api; 
-  typedef typename api::real_t real_type;
-  typedef typename api::complex_t complex_type;
-  typedef typename api::plan_t plan_type;
-  typedef gpu::plan_store<real_type> plan_store;
+  public:
+    typedef gpu::cufft_api<TransferT> api; 
+    typedef typename api::real_t real_type;
+    typedef typename api::complex_t complex_type;
+    typedef typename api::plan_t plan_type;
+    typedef gpu::plan_store<real_type> plan_store;
 
-  typedef long size_type;
+    typedef long size_type;
 
-  static const int dimensionality = 3;
+    static const int dimensionality = 3;
 
-  template <typename DimT>
-  inplace_3d_transform_on_device(TransferT* _input, DimT* _shape)
+    template <typename DimT>
+    inplace_3d_transform_on_device(TransferT* _input, DimT* _shape)
       : input_(_input), shape_(_shape, _shape + dimensionality) {
-  }
+    }
 
-  void forward(cudaStream_t* _stream = 0) {
+    void forward(cudaStream_t* _stream = 0) {
 
     
-    if(!plan_store::get()->has_key(shape_))
-      plan_store::get()->add(shape_);
+      if(!plan_store::get()->has_key(shape_))
+	plan_store::get()->add(shape_);
     
-    plan_type* plan = plan_store::get()->get_forward(shape_);
+      plan_type* plan = plan_store::get()->get_forward(shape_);
 
-    if (_stream) 
-      HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
-    else
-      HANDLE_ERROR(cudaDeviceSynchronize());
+      if (_stream) 
+	HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
+      else
+	HANDLE_ERROR(cudaDeviceSynchronize());
 
-    HANDLE_CUFFT_ERROR(
-        cufftExecR2C(*plan, input_, (complex_type*)input_));
+      HANDLE_CUFFT_ERROR(
+			 cufftExecR2C(*plan, input_, (complex_type*)input_));
+
+
+    };
+
+    void backward(cudaStream_t* _stream = 0) {
+
+      if(!plan_store::get()->has_key(shape_))
+	plan_store::get()->add(shape_);
+    
+      plan_type* plan = plan_store::get()->get_backward(shape_);
+
+      if (_stream) 
+	HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
+      else
+	HANDLE_ERROR(cudaDeviceSynchronize());
+
+      HANDLE_CUFFT_ERROR(
+			 cufftExecC2R(*plan, (complex_type*)input_, input_));
+
+    };
+
+    ~inplace_3d_transform_on_device() {};
+
+  private:
+    TransferT* input_;
+    multiviewnative::shape_t shape_;
 
 
   };
-
-  void backward(cudaStream_t* _stream = 0) {
-
-    if(!plan_store::get()->has_key(shape_))
-      plan_store::get()->add(shape_);
-    
-    plan_type* plan = plan_store::get()->get_backward(shape_);
-
-    if (_stream) 
-      HANDLE_CUFFT_ERROR(cufftSetStream(*plan, *_stream));
-    else
-      HANDLE_ERROR(cudaDeviceSynchronize());
-
-    HANDLE_CUFFT_ERROR(
-        cufftExecC2R(*plan, (complex_type*)input_, input_));
-
-  };
-
-  ~inplace_3d_transform_on_device() {};
-
- private:
-  TransferT* input_;
-  multiviewnative::shape_t shape_;
-
-
-};
 
   namespace gpu {
     //loosely based on nvidia-samples/6_Advanced/concurrentKernels/concurrentKernels.cu
@@ -101,13 +101,13 @@ class inplace_3d_transform_on_device {
       _plans[0] = plan_store::get()->get_forward(_transform_shape);
       
       if(_plans.size()>1){
-      _plans[1] = new cufftHandle;
-      HANDLE_CUFFT_ERROR(cufftPlan3d(_plans[1],                 //
-				     (int)_transform_shape[0], //
-				     (int)_transform_shape[1], //
-				     (int)_transform_shape[2], //
-				     CUFFT_R2C)                    //
-			 );
+	_plans[1] = new cufftHandle;
+	HANDLE_CUFFT_ERROR(cufftPlan3d(_plans[1],                 //
+				       (int)_transform_shape[0], //
+				       (int)_transform_shape[1], //
+				       (int)_transform_shape[2], //
+				       CUFFT_R2C)                    //
+			   );
       }
       
       //create streams

@@ -65,4 +65,7 @@ std::ostream& operator<<(std::ostream& _cout, const image_stack& _marray) {
   _cout << std::setprecision(precision);
   return _cout;
 }
+
+
+  
 }

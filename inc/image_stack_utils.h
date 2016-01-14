@@ -2,6 +2,7 @@
 #define _IMAGE_STACK_UTILS_H_
 #include <vector>
 #include <iostream>
+#include <iomanip>
 #include "boost/multi_array.hpp"
 
 namespace multiviewnative {
@@ -57,21 +58,66 @@ namespace multiviewnative {
 
 
 
-template <typename DimT, typename ODimT>
-void adapt_extents_for_cufft_inplace(const DimT& _extent, ODimT& _value,
-				     const storage& _storage =
-				     boost::c_storage_order()) {
+  template <typename DimT, typename ODimT>
+  void adapt_extents_for_cufft_inplace(const DimT& _extent, ODimT& _value,
+				       const storage& _storage =
+				       boost::c_storage_order()) {
 
-  adapt_extents_for_fftw_inplace(_extent, _value, _storage);
+    adapt_extents_for_fftw_inplace(_extent, _value, _storage);
+  }
+
+  template <typename StorageT, typename DimT, typename ODimT>
+  void adapt_shape_for_cufft_inplace(const DimT& _extent,
+				     ODimT& _value,
+				     const StorageT& _storage) {
+
+    adapt_shape_for_fftw_inplace(_extent, _value, _storage);
+  }
+
+  //TODO: integrate this with operator<< in image_stack_utils.cpp
+  template <typename stack_type>
+  void print_stack(const stack_type& _marray) {
+
+    if (stack_type::dimensionality != 3) {
+      std::cout << "dim!=3\n";
+      return;
+    }
+
+    if (_marray.empty()) {
+      std::cout << "size=0\n";
+      return;
+    }
+
+    int precision = std::cout.precision();
+    std::cout << std::setprecision(4);
+    const size_t* shapes = _marray.shape();
+
+    std::cout << std::setw(9) << "x = ";
+    for (size_t x_index = 0; x_index < (shapes[2]); ++x_index) {
+      std::cout << std::setw(8) << x_index << " ";
+    }
+    std::cout << "\n";
+    std::cout << std::setfill('-') << std::setw((shapes[2] + 1) * 9) << " "
+	  << std::setfill(' ') << std::endl;
+
+    for (size_t z_index = 0; z_index < (shapes[0]); ++z_index) {
+      std::cout << "z[" << std::setw(5) << z_index << "] \n";
+      for (size_t y_index = 0; y_index < (shapes[1]); ++y_index) {
+	std::cout << "y[" << std::setw(5) << y_index << "] ";
+
+	for (size_t x_index = 0; x_index < (shapes[2]); ++x_index) {
+	  std::cout << std::setw(8) << _marray[z_index][y_index][x_index] << " ";
+	}
+
+	std::cout << "\n";
+      }
+      std::cout << "\n";
+    }
+
+    std::cout << std::setprecision(precision);
+    return;
+  }
+
 }
 
-template <typename StorageT, typename DimT, typename ODimT>
-void adapt_shape_for_cufft_inplace(const DimT& _extent,
-				   ODimT& _value,
-				   const StorageT& _storage) {
-
-  adapt_shape_for_fftw_inplace(_extent, _value, _storage);
-}
-
-}
 #endif /* _IMAGE_STACK_UTILS_H_ */

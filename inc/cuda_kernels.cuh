@@ -206,6 +206,38 @@ __device__ float scale_added(const float &_ax, const float &_bx,
 
 #include "cufft.h"
 
+
+template <typename complex_type,
+	  typename size_type,
+	  typename real_type>
+__global__ void multiply_scaled(complex_type *d_Dst,
+				complex_type *d_Src,
+				size_type dataSize,
+				real_type c) {
+
+  
+  size_type globalIdx = blockDim.x * blockIdx.x + threadIdx.x;
+  size_type kernelSize = blockDim.x * gridDim.x;
+
+  complex_type result, a, b;
+
+  while (globalIdx < dataSize) {
+
+    a = d_Src[globalIdx];
+    b = d_Dst[globalIdx];
+
+    //TODO: transfer to 3 instructions?
+    result.x = c * (a.x * b.x - a.y * b.y);
+    result.y = c * (a.x * b.y + a.y * b.x);
+
+    d_Dst[globalIdx] = result;
+
+    //grid stride kernel, see http://devblogs.nvidia.com/parallelforall/cuda-pro-tip-write-flexible-kernels-grid-stride-loops/
+    globalIdx += kernelSize;
+  }
+  
+};
+
 __global__ void modulateAndNormalize_kernel(cufftComplex *d_Dst,
                                             cufftComplex *d_Src,
                                             unsigned int dataSize, float c) {
@@ -222,13 +254,11 @@ __global__ void modulateAndNormalize_kernel(cufftComplex *d_Dst,
     result.x = c * (a.x * b.x - a.y * b.y);
     result.y = c * (a.x * b.y + a.y * b.x);
 
-    // result.x = scale_subtracted(a.x,b.x,a.y,b.y,c);
-    // result.y = scale_added(a.y,b.x,a.x,b.y,c);
-
     d_Dst[globalIdx] = result;
 
     globalIdx += kernelSize;
   }
+  
 };
 
 #endif /* _COMPUTE_KERNELS_CUH_ */
