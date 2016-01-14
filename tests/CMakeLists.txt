@@ -47,6 +47,14 @@ ELSE()
 warning(">> [tests] unable to configure (some) tests! LMVN_TEST_IMAGE_PATH not given")
 ENDIF()
 
+IF(LMVN_TRACE)
+message(">> [tests] setting trace flag, tests will emit a lot of output (stdout and on disk)")
+
+configure_file( "${PROJECT_SOURCE_DIR}/tests/tests_config.h.in"
+  "${PROJECT_SOURCE_DIR}/tests/tests_config.h"
+  )
+ENDIF(LMVN_TRACE)
+
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_multi_array_fixture ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework)
 
