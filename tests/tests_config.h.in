@@ -2,6 +2,7 @@
 #define _TESTS_CONFIG_H_
 
 #cmakedefine LMVN_TEST_IMAGE_PATH "@LMVN_TEST_IMAGE_PATH@"
+#cmakedefine LMVN_TRACE "@LMVN_TRACE@"
 
 namespace multiviewnative {
 
