@@ -382,15 +382,24 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     multiviewnative::image_stack_cref kernel2(input.data_[v].kernel2_,
                                               kernel_dim);
 
+    //insert image adding a padding
     padding[v].insert_at_offsets(view, *padded_view[v]);
     padding[v].insert_at_offsets(weights, *padded_weights[v]);
     padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
     padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
 
+    //compute new shape for cufft
     multiviewnative::adapt_extents_for_fftw_inplace(
         padding[v].extents_, cufft_inplace_extents,
         padded_view[v]->storage_order());
-    
+
+    //resize 3D volumes, boost.multi-array retains contents
+    padded_view[v]   ->resize(cufft_inplace_extents);
+    padded_weights[v]->resize(cufft_inplace_extents);
+    padded_kernel1[v]->resize(cufft_inplace_extents);
+    padded_kernel2[v]->resize(cufft_inplace_extents);
+
+    //how much memory is required on device
     device_memory_elements_required[v] = std::accumulate(
         cufft_inplace_extents.begin(), cufft_inplace_extents.end(), 1,
         std::multiplies<size_t>());
@@ -400,6 +409,9 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   multiviewnative::image_stack padded_psi(padding[0].extents_);
   padding_type input_psi_padder = padding[0];
   input_psi_padder.insert_at_offsets(input_psi, padded_psi);
+
+  padded_psi.resize(cufft_inplace_extents);
+  
   unsigned long max_device_memory_elements_required =
       *std::max_element(device_memory_elements_required.begin(),
                         device_memory_elements_required.end());
