@@ -41,8 +41,10 @@ FILE(GLOB TEST_TIFF_FILES_AVAILABLE "${LMVN_TEST_IMAGE_PATH}/*.tif")
 message(">> [tests] using test images at ${LMVN_TEST_IMAGE_PATH}")
 
 configure_file( "${PROJECT_SOURCE_DIR}/tests/tests_config.h.in"
-  "${PROJECT_SOURCE_DIR}/tests/tests_config.h"
+  "${PROJECT_BINARY_DIR}/tests/tests_config.h"
   )
+INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR}/tests/)
+
 ELSE()
 warning(">> [tests] unable to configure (some) tests! LMVN_TEST_IMAGE_PATH not given")
 ENDIF()
@@ -51,8 +53,10 @@ IF(LMVN_TRACE)
 message(">> [tests] setting trace flag, tests will emit a lot of output (stdout and on disk)")
 
 configure_file( "${PROJECT_SOURCE_DIR}/tests/tests_config.h.in"
-  "${PROJECT_SOURCE_DIR}/tests/tests_config.h"
+  "${PROJECT_BINARY_DIR}/tests/tests_config.h"
   )
+INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR}/tests/)
+
 ENDIF(LMVN_TRACE)
 
 add_executable(test_multi_array_fixture test_multi_array_fixture.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)

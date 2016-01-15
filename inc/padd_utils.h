@@ -129,6 +129,7 @@ struct zero_padd {
         std::numeric_limits<U>::is_integer,
         "[zero_padd] didn't receive integer type as kernel shape descriptor");
 
+    //padding assumes kernel has uneven shape
     std::transform(_image, _image + ImageStackT::dimensionality, _kernel,
                    extents_.begin(), add_minus_1<T>());
 

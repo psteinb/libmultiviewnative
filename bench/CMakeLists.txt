@@ -13,6 +13,9 @@ ELSE()
   SET(BOOST_LIB_DIR ${Boost_LIBRARY_DIRS})
 ENDIF()
 
+INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR}/tests/)
+INCLUDE_DIRECTORIES(${PROJECT_BINARY_DIR}/src/)
+
 add_library( ext_boost_system  SHARED IMPORTED )
 set_target_properties( ext_boost_system PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_system.so )
 
