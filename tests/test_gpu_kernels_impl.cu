@@ -2,7 +2,7 @@
 #define BOOST_TEST_MODULE GPU_KERNELS_IMPL
 #include "boost/test/unit_test.hpp"
 #include "test_fixtures.hpp"
-
+#include <random>
 #include <numeric>
 
 #include "multiviewnative.h"
@@ -346,6 +346,141 @@ BOOST_AUTO_TEST_CASE(odd_cube265_regularize_const) {
 
   for( std::size_t p = 0;p<cpu_result.num_elements();++p )
     BOOST_REQUIRE_MESSAGE(cpu_result.data()[p]==gpu_result.data()[p], "cpu version differs from gpu at " << p << " as cpu = " << cpu_result.data()[p] << " vs. gpu = " << gpu_result.data()[p]); 
+
+  
+}
+
+BOOST_AUTO_TEST_CASE(odd_cube265_regularize_rndm) {
+
+  std::vector<unsigned> shape(3,256);
+  shape[1]+=1;
+  shape[2]-=1;
+  
+  one_.resize(shape);
+  padded_one_.resize(shape);
+  padded_image_.resize(shape);
+
+  std::fill(one_.data(), one_.data()+one_.num_elements(),5.f);
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(-.1, 1.);
+  for( std::size_t p = 0;p<padded_one_.num_elements();++p )
+    padded_one_.data()[p] = dis(gen);
+    
+  std::fill(padded_image_.data(), padded_image_.data()+padded_image_.num_elements(),.1f);
+
+  device_stack d_input_psi	(one_);
+  device_stack d_integral	(padded_one_);
+  device_stack d_weights	(padded_image_);
+
+  dim3 threads(128);
+  dim3 blocks(
+      largestDivisor(padded_one_.num_elements(), size_t(threads.x)));
+
+  device_regularized_final_values<<<blocks, threads>>>(
+            d_input_psi.data(), d_integral.data(), d_weights.data(),
+            .006, 0.0001f, one_.num_elements());
+
+  image_stack gpu_result = one_;
+  d_input_psi.pull_from_device(gpu_result);
+  
+  for( unsigned d = 0;d<3;++d )
+    BOOST_CHECK_EQUAL(shape[d],gpu_result.shape()[d]); 
+
+  std::fill(one_.data(), one_.data()+one_.num_elements(),5.f);
+  
+  std::fill(padded_image_.data(), padded_image_.data()+padded_image_.num_elements(),.1f);
+
+  image_stack cpu_result = one_;
+  multiviewnative::cpu::par::regularized_final_values(cpu_result.data(),
+						      padded_one_.data(),
+						      padded_image_.data(),
+						      cpu_result.num_elements()
+						      );
+
+  BOOST_REQUIRE_GT(cpu_result.num_elements(),0);
+  BOOST_REQUIRE_EQUAL(cpu_result.num_elements(),gpu_result.num_elements());
+
+  for( std::size_t p = 0;p<cpu_result.num_elements();++p ){
+    try{
+      BOOST_REQUIRE_CLOSE(cpu_result.data()[p],gpu_result.data()[p],0.001);
+    }
+    catch(...){
+      std::cout <<"cpu version differs from gpu at " << p << " as cpu = " << cpu_result.data()[p] << " vs. gpu = " << gpu_result.data()[p] << "\n";
+    }
+  }
+
+  
+}
+
+BOOST_AUTO_TEST_CASE(odd_cube16_regularize_rndm) {
+
+  std::vector<unsigned> shape(3,16);
+  shape[1]+=1;
+  shape[2]-=1;
+  
+  one_.resize(shape);
+  padded_one_.resize(shape);
+  padded_image_.resize(shape);
+
+  std::fill(one_.data(), one_.data()+one_.num_elements(),5.f);
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(-.1, 1.);
+  for( std::size_t p = 0;p<padded_one_.num_elements();++p )
+    padded_one_.data()[p] = dis(gen);
+
+  std::vector<float> aside(padded_one_.data(),padded_one_.data()+padded_one_.num_elements());
+  
+  std::fill(padded_image_.data(), padded_image_.data()+padded_image_.num_elements(),.1f);
+
+  device_stack d_input_psi	(one_);
+  device_stack d_integral	(padded_one_);
+  device_stack d_weights	(padded_image_);
+
+  dim3 threads(128);
+  dim3 blocks(
+      largestDivisor(padded_one_.num_elements(), size_t(threads.x)));
+
+  device_regularized_final_values<<<blocks, threads>>>(
+            d_input_psi.data(), d_integral.data(), d_weights.data(),
+            .006,
+	    0.0001f,
+	    one_.num_elements());
+
+  image_stack gpu_result = one_;
+  d_input_psi.pull_from_device(gpu_result);
+  
+  for( unsigned d = 0;d<3;++d )
+    BOOST_CHECK_EQUAL(shape[d],gpu_result.shape()[d]); 
+
+  std::fill(one_.data(), one_.data()+one_.num_elements(),5.f);
+  std::copy(aside.begin(), aside.end(),padded_one_.data());
+  std::fill(padded_image_.data(), padded_image_.data()+padded_image_.num_elements(),.1f);
+
+  image_stack cpu_result = one_;
+  multiviewnative::cpu::par::regularized_final_values(cpu_result.data(),
+						      padded_one_.data(),
+						      padded_image_.data(),
+						      cpu_result.num_elements(),
+						      .006,
+						      -1,
+						      0.0001f
+						      );
+
+  BOOST_REQUIRE_GT(cpu_result.num_elements(),0);
+  BOOST_REQUIRE_EQUAL(cpu_result.num_elements(),gpu_result.num_elements());
+
+  for( std::size_t p = 0;p<cpu_result.num_elements();++p ){
+    try{
+      BOOST_REQUIRE_CLOSE(cpu_result.data()[p],gpu_result.data()[p],0.001);
+    }
+    catch(...){
+      std::cout <<"cpu version differs from gpu at " << p << " as cpu = " << cpu_result.data()[p] << " vs. gpu = " << gpu_result.data()[p] << "\n";
+    }
+  }
 
   
 }
