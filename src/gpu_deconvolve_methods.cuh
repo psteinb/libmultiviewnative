@@ -419,6 +419,12 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   dim3 threads(128);
   dim3 blocks(
       largestDivisor(padded_view[0]->num_elements(), size_t(threads.x)));
+
+  #ifdef LMVN_TRACE
+  std::cout << "[trace::"<< __FILE__ <<"] grid partitioning "
+	    << blocks.x << "x" << threads.x << "\n";
+  #endif
+  
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
   // ITERATE
@@ -498,7 +504,8 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   }
 
   d_input_psi.pull_from_device(padded_psi);
-
+  padded_psi.resize(input_psi_padder.extents_);
+  
   input_psi = padded_psi
       [boost::indices[multiviewnative::range(
           input_psi_padder.offsets_[0],

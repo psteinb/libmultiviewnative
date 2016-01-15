@@ -16,11 +16,12 @@ __global__ void device_divide(const pixel_type* _input, pixel_type* _output,
                               size_type _size) {
 
   const size_type pixel_x = size_type(blockIdx.x) * size_type(blockDim.x) + threadIdx.x;
-
+  const size_type grid_stride = blockDim.x * gridDim.x;
+  
   pixel_type temp_out = 0;
   pixel_type temp_in = 0;
 
-  for (size_type i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
+  for (size_type i = pixel_x; i < _size; i += grid_stride) {
 
     temp_out = 1.f / _output[i];
     temp_in = _input[i];
@@ -36,14 +37,15 @@ __global__ void device_final_values(pixel_type* __restrict__ _psi,
                                     pixel_type _minValue, size_type _size) {
 
   const size_type pixel_x = size_type(blockIdx.x) * size_type(blockDim.x) + threadIdx.x;
+  const size_type grid_stride = blockDim.x * gridDim.x;
+  
+  pixel_type temp_integral = 0;
+  pixel_type temp_weight = 0;
+  pixel_type value = 0;
+  pixel_type last_value = 0;
+  pixel_type next_value = 0;
 
-  float temp_integral = 0;
-  float temp_weight = 0;
-  float value = 0;
-  float last_value = 0;
-  float next_value = 0;
-
-  for (size_type i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
+  for (size_type i = pixel_x; i < _size; i += grid_stride) {
 
     last_value = _psi[i];
     temp_integral = _integral[i];
@@ -67,22 +69,23 @@ __global__ void device_final_values(pixel_type* __restrict__ _psi,
   }
 }
 
-template <typename TransferT>
+template <typename pixel_type, typename size_type>
 __global__ void device_regularized_final_values(
-    TransferT *__restrict__ _psi, const TransferT *__restrict__ _integral,
-    const TransferT *__restrict__ _weight, double _lambda, TransferT _minValue,
-    size_t _size) {
+    pixel_type *__restrict__ _psi, const pixel_type *__restrict__ _integral,
+    const pixel_type *__restrict__ _weight, double _lambda, pixel_type _minValue,
+    size_type _size) {
 
-  const size_t pixel_x = size_t(blockIdx.x) * size_t(blockDim.x) + threadIdx.x;
+  const size_type pixel_x = size_t(blockIdx.x) * size_t(blockDim.x) + threadIdx.x;
+  const size_type grid_stride = blockDim.x * gridDim.x;
+  
+  pixel_type temp_integral = 0;
+  pixel_type temp_weight = 0;
+  pixel_type value = 0;
+  pixel_type last_value = 0;
+  pixel_type next_value = 0;
+  pixel_type lambda_inv = 1.f / _lambda;
 
-  float temp_integral = 0;
-  float temp_weight = 0;
-  float value = 0;
-  float last_value = 0;
-  float next_value = 0;
-  TransferT lambda_inv = 1.f / _lambda;
-
-  for (size_t i = pixel_x; i < _size; i += blockDim.x * gridDim.x) {
+  for (size_type i = pixel_x; i < _size; i += grid_stride) {
 
     last_value = _psi[i];
     temp_integral = _integral[i];

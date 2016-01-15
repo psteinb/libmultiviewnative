@@ -62,6 +62,8 @@ BOOST_AUTO_TEST_CASE(horizontal_convolve) {
   float sum = std::accumulate(result.data(),
                               result.data() + result.num_elements(), 0.f);
 
+
+
   try {
     BOOST_REQUIRE_CLOSE(sum, sum_original, .15);
   }

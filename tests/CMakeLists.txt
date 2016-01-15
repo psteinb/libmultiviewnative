@@ -140,6 +140,11 @@ CUDA_ADD_EXECUTABLE(test_gpu_convolve_impl test_gpu_convolve_impl.cu)
 CUDA_ADD_CUFFT_TO_TARGET(test_gpu_convolve_impl)
 target_link_libraries(test_gpu_convolve_impl ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework)
 
+CUDA_ADD_EXECUTABLE(test_gpu_kernels_impl test_gpu_kernels_impl.cu)
+CUDA_ADD_CUFFT_TO_TARGET(test_gpu_kernels_impl)
+target_link_libraries(test_gpu_kernels_impl ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework)
+
+
 
 CUDA_ADD_EXECUTABLE(test_gpu_batched_fft test_gpu_batched_fft.cu)
 CUDA_ADD_CUFFT_TO_TARGET(test_gpu_batched_fft)

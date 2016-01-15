@@ -85,16 +85,16 @@ typename ImageStackT::element sum_from_offset(
 #endif
 
 template <typename ValueT, typename DimT>
-ValueT l2norm(ValueT* _first, ValueT* _second, const DimT& _size) {
+double l2norm(ValueT* _first, ValueT* _second, const DimT& _size) {
 
-  ValueT l2norm = 0.;
+  double l2norm = 0.;
 
 #ifdef _OPENMP
   int nthreads = omp_get_num_procs();
   #pragma omp parallel for num_threads(nthreads) shared(l2norm)
 #endif
   for (unsigned p = 0; p < _size; ++p)
-    l2norm += (_first[p] - _second[p]) * (_first[p] - _second[p]);
+    l2norm += double((_first[p] - _second[p]) * (_first[p] - _second[p]));
 
   return l2norm;
 }
@@ -137,11 +137,11 @@ double l2norm_within_limits(const ImageT& _first, const OtherT& _second,
 template <typename ValueT, typename DimT>
 ValueT l1norm(ValueT* _first, ValueT* _second, const DimT& _size) {
 
-  ValueT l1norm = 0.;
+  double l1norm = 0.;
 
 #pragma omp parallel for num_threads(omp_get_num_procs()) shared(l1norm)
   for (unsigned p = 0; p < _size; ++p)
-    l1norm += std::fabs(_first[p] - _second[p]);
+    l1norm += double(std::fabs(_first[p] - _second[p]));
 
   return l1norm;
 }

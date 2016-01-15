@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <array>
 #include <cmath>
 #include <stdexcept>
 #include "boost/multi_array.hpp"
@@ -144,7 +145,9 @@ struct ViewFromDisk {
   std::vector<int> image_dims_;
   std::vector<int> kernel1_dims_;
   std::vector<int> kernel2_dims_;
-
+  std::vector<int> padded_dims_;
+  std::vector<int> offsets_in_padded_;
+  
   ViewFromDisk(const int& _view_number = -1)
       : view_number_(_view_number),
         image_path_(""),
@@ -155,9 +158,12 @@ struct ViewFromDisk {
         kernel1_(),
         kernel2_(),
         weights_(),
-        image_dims_(3),
-        kernel1_dims_(3),
-        kernel2_dims_(3) {
+        image_dims_(tiff_stack::dimensionality,0),
+        kernel1_dims_(tiff_stack::dimensionality,0),
+        kernel2_dims_(tiff_stack::dimensionality,0),
+	padded_dims_(tiff_stack::dimensionality,0),
+	offsets_in_padded_(tiff_stack::dimensionality,0)
+  {
     if (view_number_ > -1) this->load(view_number_);
   }
 
@@ -173,7 +179,9 @@ struct ViewFromDisk {
         weights_(_rhs.weights_),
         image_dims_(_rhs.image_dims_),
         kernel1_dims_(_rhs.kernel1_dims_),
-        kernel2_dims_(_rhs.kernel2_dims_) {}
+        kernel2_dims_(_rhs.kernel2_dims_),
+	padded_dims_	  (_rhs.padded_dims_      ),
+	offsets_in_padded_(_rhs.offsets_in_padded_) {}
 
   ViewFromDisk& operator=(const ViewFromDisk& _rhs) {
 
@@ -192,6 +200,9 @@ struct ViewFromDisk {
     kernel1_dims_ = _rhs.kernel1_dims_;
     kernel2_dims_ = _rhs.kernel2_dims_;
 
+    padded_dims_      =_rhs.padded_dims_      ;
+    offsets_in_padded_=_rhs.offsets_in_padded_;
+
     return *this;
   }
 
@@ -209,31 +220,34 @@ struct ViewFromDisk {
                        unsigned _num_kernel_widths = 1) {
 
     // create new image shapes
-    std::vector<unsigned> new_image_shape(
-        image_.stack_.shape(),
-        image_.stack_.shape() + tiff_stack::dimensionality);
-    std::vector<unsigned> offsets(tiff_stack::dimensionality, 0);
+    std::copy(image_.stack_.shape(),
+	      image_.stack_.shape() + tiff_stack::dimensionality,
+	      padded_dims_.begin());
+    // std::vector<unsigned> new_image_shape(
+    //     image_.stack_.shape(),
+    //     image_.stack_.shape() + tiff_stack::dimensionality);
+    // std::vector<unsigned> offsets(tiff_stack::dimensionality, 0);
 
     // indices of interest :)
     std::vector<range> ioi(tiff_stack::dimensionality);
     unsigned count = 0;
-    for (unsigned& d : new_image_shape) {
-      offsets[count] = _num_kernel_widths * (_shape[count] / 2);
-      d = d + 2 * offsets[count];
-      ioi[count] = range(offsets[count], d - offsets[count]);
+    for (auto& d : padded_dims_) {
+      offsets_in_padded_[count] = _num_kernel_widths * (_shape[count] / 2);
+      d = d + 2 * offsets_in_padded_[count];
+      ioi[count] = range(offsets_in_padded_[count], d - offsets_in_padded_[count]);
       count++;
     }
 
-    image_stack padded_image_(new_image_shape);
-    padded_image_[boost::indices[ioi[0]][ioi[1]][ioi[2]]] = image_.stack_;
-    image_.stack_.resize(new_image_shape);
-    image_.stack_ = padded_image_;
+    image_stack padded_temp_(padded_dims_);
+    padded_temp_[boost::indices[ioi[0]][ioi[1]][ioi[2]]] = image_.stack_;
+    image_.stack_.resize(padded_dims_);
+    image_.stack_ = padded_temp_;
     std::copy(&image_.stack_.shape()[0], &image_.stack_.shape()[0] + 3,
               image_dims_.begin());
 
-    padded_image_[boost::indices[ioi[0]][ioi[1]][ioi[2]]] = weights_.stack_;
-    weights_.stack_.resize(new_image_shape);
-    weights_.stack_ = padded_image_;
+    padded_temp_[boost::indices[ioi[0]][ioi[1]][ioi[2]]] = weights_.stack_;
+    weights_.stack_.resize(padded_dims_);
+    weights_.stack_ = padded_temp_;
   }
 
   void load(const int& _view_number) {
@@ -333,7 +347,18 @@ struct ReferenceData_Impl {
       min_kernel_shape(extents);
 
       for (unsigned i = 0; i < views_.size(); ++i) {
+#ifdef LMVN_TRACE
+	std::cout << "[trace::"<< __FILE__ <<"] padding view " << i << " ";
+	for(int im = 0;im<3;++im)
+	  std::cout << views_[i].image_dims()[im] << " ";
+	std::cout << " with ";
+	for( int ex : extents)
+	  std::cout << ex << " ";
+	std::cout << "\n";
+	
+#endif
         views_[i].padd_with_shape(extents);
+	
       }
     }
   }
@@ -395,6 +420,7 @@ struct IterationData {
 
   std::vector<tiff_stack> psi_;
   std::vector<image_stack> padded_psi_;
+  std::vector<std::array<range,image_stack::dimensionality> > padded_ranges_;
   std::vector<std::string> psi_paths_;
 
   std::string path_to_images;
@@ -406,15 +432,16 @@ struct IterationData {
 
   IterationData(std::string _basename = "psi_")
       : psi_(),
-        padded_psi_(),
+        padded_psi_(max_num_psi),
+	padded_ranges_(max_num_psi),
         psi_paths_(max_num_psi),
         path_to_images(path_to_test_images),
         iteration_basename_before_id(_basename),
         lambda_(0.0060f),  // default from plugin
         minValue_(0.0001f),
         psi0_avg_(0) {
+
     psi_.reserve(max_num_psi);
-    padded_psi_.resize(max_num_psi);
 
     for (unsigned i = 0; i < max_num_psi; ++i) {
       std::stringstream path("");
@@ -437,6 +464,7 @@ struct IterationData {
   IterationData(const IterationData& _rhs)
       : psi_(_rhs.psi_.begin(), _rhs.psi_.end()),
         padded_psi_(_rhs.padded_psi_.begin(), _rhs.padded_psi_.end()),
+	padded_ranges_(_rhs.padded_ranges_.begin(), _rhs.padded_ranges_.end()),
         psi_paths_(_rhs.psi_paths_.begin(), _rhs.psi_paths_.end()),
         lambda_(_rhs.lambda_),
         minValue_(_rhs.minValue_),
@@ -446,6 +474,10 @@ struct IterationData {
     std::copy(_other.psi_.begin(), _other.psi_.end(), psi_.begin());
     std::copy(_other.padded_psi_.begin(), _other.padded_psi_.end(),
               padded_psi_.begin());
+
+    std::copy(_other.padded_ranges_.begin(), _other.padded_ranges_.end(),
+              padded_ranges_.begin());
+    
     std::copy(_other.psi_paths_.begin(), _other.psi_paths_.end(),
               psi_paths_.begin());
     lambda_ = (_other.lambda_);
@@ -459,6 +491,10 @@ struct IterationData {
     return &(psi_.at(_index).stack_);
   }
 
+  const std::array<range,image_stack::dimensionality>* offset(const int& _index) const {
+    return &(padded_ranges_.at(_index));
+  }
+
   template <typename container_type>
   image_stack* padded_psi(const int& _index, const container_type& _shape) {
     if (padded_psi_.at(_index).num_elements() <=
@@ -467,23 +503,25 @@ struct IterationData {
       container_type extended(
           psi_.at(_index).stack_.shape(),
           psi_.at(_index).stack_.shape() + image_stack::dimensionality);
-      std::vector<range> index_of_interest(image_stack::dimensionality);
+      // std::vector<range> index_of_interest(image_stack::dimensionality);
 
       for (int d = 0; d < extended.size(); ++d) {
         extended[d] = extended[d] + 2 * (_shape[d] / 2);
-        index_of_interest[d] =
+        padded_ranges_[_index][d] =
             range(_shape[d] / 2, extended[d] - (_shape[d] / 2));
       }
 
       padded_psi_.at(_index).resize(extended);
       padded_psi_.at(
-          _index)[boost::indices[index_of_interest[0]][index_of_interest[1]]
-                                [index_of_interest[2]]] =
+          _index)[boost::indices[padded_ranges_[_index][0]][padded_ranges_[_index][1]]
+                                [padded_ranges_[_index][2]]] =
           psi_.at(_index).stack_;
     }
 
     return &(padded_psi_.at(_index));
   }
+
+  
 };
 
 typedef IterationData<3> first_2_iterations;
