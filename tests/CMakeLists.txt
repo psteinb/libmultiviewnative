@@ -3,7 +3,7 @@ include_directories(${PROJECT_SOURCE_DIR}/inc)
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 SET(Boost_USE_MULTITHREADED ON)
-FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS system filesystem unit_test_framework REQUIRED)
+FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS system filesystem unit_test_framework regex REQUIRED)
 IF(Boost_FOUND)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 
@@ -24,6 +24,9 @@ set_target_properties( ext_boost_filesystem PROPERTIES IMPORTED_LOCATION ${BOOST
 
 add_library( ext_boost_unit_test_framework  SHARED IMPORTED )
 set_target_properties( ext_boost_unit_test_framework PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_unit_test_framework.so )
+
+add_library( ext_boost_regex  SHARED IMPORTED )
+set_target_properties( ext_boost_regex PROPERTIES IMPORTED_LOCATION ${BOOST_LIB_DIR}/libboost_regex.so )
 
 #FIXME: OS dependent
 #check if the string does end on '/' (if not append it)
@@ -198,7 +201,7 @@ add_executable(test_view_from_disk_fixture test_view_from_disk_fixture.cpp)
 target_link_libraries(test_view_from_disk_fixture ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff)
 
 add_executable(test_tiff_stack_fixture test_tiff_stack_fixture.cpp)
-target_link_libraries(test_tiff_stack_fixture ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff)
+target_link_libraries(test_tiff_stack_fixture ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ext_boost_regex tiff)
 
 add_executable(test_iteration_data_fixture test_iteration_data_fixture.cpp)
 target_link_libraries(test_iteration_data_fixture ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework tiff)

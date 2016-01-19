@@ -1,18 +1,44 @@
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE INDEPENDENT_TIFF_PLAYGROUND
+
+#include <numeric>
+#include <string>
+
 #include "boost/test/unit_test.hpp"
-#include <boost/filesystem.hpp>
+#include "boost/filesystem.hpp"
+
 #include "tiff_fixtures.hpp"
+#include "tiff_fixtures_helpers.hpp"
 #include "test_algorithms.hpp"
 #include "tests_config.h"
-#include <numeric>
+
 
 namespace fs = boost::filesystem;
+namespace mvn = multiviewnative;
+
 
 const static multiviewnative::tiff_stack image_view_1(
-    "/scratch/steinbac/multiview_data/input_view_0.tif");
+    // "/scratch/steinbac/multiview_data/input_view_0.tif"
+						      mvn::path_to<mvn::input>(0).string() 
+						      );
 
 BOOST_FIXTURE_TEST_SUITE(tiff_loaded, multiviewnative::tiff_stack)
+
+BOOST_AUTO_TEST_CASE(adaptive_path_exists) {
+  
+  fs::path image_view_path = multiviewnative::path_to_test_images;
+  image_view_path /= "input_view_0.tif";
+  BOOST_CHECK_EQUAL(fs::exists(image_view_path),true);
+
+  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::input  >(0)),true);
+  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::kernel1>(0)),true);
+  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::kernel2>(0)),true);
+  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::weights>(0)),true);
+
+  std::vector<int> kernel1_shape = mvn::shape_of<mvn::kernel1>(2);
+  BOOST_CHECK_GT(kernel1_shape.size(),0);
+}
+
 
 BOOST_AUTO_TEST_CASE(path_and_files_exists_images_have_right_extents) {
   fs::path location = "/scratch/steinbac/multiview_data/input_view_0.tif";
