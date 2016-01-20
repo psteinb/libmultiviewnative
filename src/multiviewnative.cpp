@@ -132,6 +132,7 @@ namespace multiviewnative {
 
         transform_t fft(image_shapes[v]);
 
+	//FIXME: if padding is on, this produces wrong result as psi is padded to image_shapes[0]
         padding_t k1_padder(&(image_shapes[v])[0],
 			  &(kernel1_shapes[v])[0]);
         padding_t k2_padder(&(image_shapes[v])[0],

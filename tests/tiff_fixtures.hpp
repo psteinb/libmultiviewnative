@@ -71,7 +71,7 @@ struct tiff_stack {
     return *this;
   }
 
-  void load(const std::string& _path) {
+  void load(const std::string& _path, bool _verbose = false) {
     if (!boost::filesystem::is_regular_file(_path) || _path.empty()) {
       std::stringstream msg("");
       msg << "unable to load file at path " << _path << "\n";
@@ -90,8 +90,15 @@ struct tiff_stack {
       std::stringstream dim_string("");
       dim_string << "(c_storage_order: z-y-x) = [" << stack_.shape()[0] << "x"
                  << stack_.shape()[1] << "x" << stack_.shape()[2] << "]";
-      std::cout << "successfully loaded " << std::setw(20) << dim_string.str()
-                << " stack from " << _path << "\n";
+
+      if(_verbose)
+	std::cout << "successfully loaded " << std::setw(20) << dim_string.str()
+		  << " stack from " << _path << "\n";
+
+      #ifdef LMVN_TRACE
+      std::cout << "[trace::"<<__FILE__<<"] loaded " << std::setw(20) << dim_string.str()
+		  << " stack from " << _path << "\n";
+      #endif
     }
     has_malformed_floats();
   }

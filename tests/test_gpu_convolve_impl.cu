@@ -17,6 +17,7 @@ using image_stack = multiviewnative::image_stack;
 using wrap_around_padding = multiviewnative::zero_padd<image_stack>;
 using device_transform = multiviewnative::inplace_3d_transform_on_device<float> ;
 
+namespace mvn = multiviewnative;
 
 BOOST_FIXTURE_TEST_SUITE(with_padding,
                          multiviewnative::default_3D_fixture)
@@ -30,7 +31,7 @@ BOOST_AUTO_TEST_CASE(horizontal_convolve) {
   std::vector<unsigned> cufft_inplace_extents(image_dims_.size());
 
   wrap_around_padding padding(&image_dims_[0],&kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  multiviewnative::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  padded_image_.storage_order());
 
@@ -93,7 +94,7 @@ BOOST_AUTO_TEST_CASE(horizontal_convolve_from_one) {
   std::vector<unsigned> cufft_inplace_extents(image_dims_.size());
 
   wrap_around_padding padding(&image_dims_[0],&kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  multiviewnative::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  padded_one_.storage_order());
 
@@ -152,7 +153,7 @@ BOOST_AUTO_TEST_CASE(all1_convolve) {
   std::vector<unsigned> cufft_inplace_extents(image_dims_.size());
 
   wrap_around_padding padding(&image_dims_[0],&kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  multiviewnative::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  padded_image_.storage_order());
 
@@ -213,7 +214,7 @@ BOOST_AUTO_TEST_CASE(horizontal_convolve) {
   std::vector<unsigned> cufft_inplace_extents(image_dims_.size());
 
   multiviewnative::no_padd<multiviewnative::image_stack> padding(&padded_image_dims_[0],&kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  multiviewnative::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  padded_image_.storage_order());
 
@@ -275,7 +276,7 @@ BOOST_AUTO_TEST_CASE(all1_convolve) {
   std::vector<unsigned> cufft_inplace_extents(image_dims_.size());
 
   multiviewnative::no_padd<multiviewnative::image_stack> padding(&padded_image_dims_[0],&kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  multiviewnative::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  padded_image_.storage_order());
 
@@ -340,7 +341,7 @@ BOOST_AUTO_TEST_CASE(horizontal_convolve) {
   std::vector<unsigned> cufft_inplace_extents(image_dims_.size());
 
   wrap_around_padding padding(&image_dims_[0],&asymm_kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  multiviewnative::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  one_.storage_order());
 
@@ -421,13 +422,13 @@ BOOST_AUTO_TEST_CASE(horizontal_convolve) {
 BOOST_AUTO_TEST_CASE(asymm_image) {
 
   std::vector<unsigned> shape(3,16);
-  shape[1] += 1;
-  shape[2] -= 1;
+  shape[1] += 2;
+  shape[2] -= 2;
   
   std::vector<unsigned> cufft_inplace_extents(shape.size());
 
   wrap_around_padding padding((int*)&shape[0],&kernel_dims_[0]);
-  multiviewnative::adapt_extents_for_fftw_inplace(padding.extents_,
+  mvn::adapt_extents_for_cufft_inplace(padding.extents_,
 						  cufft_inplace_extents,
 						  one_.storage_order());
   image_stack image(shape);
@@ -440,50 +441,70 @@ BOOST_AUTO_TEST_CASE(asymm_image) {
 							   1,
 							   std::multiplies<size_t>());
 
-  image_stack padded_image(padding.extents_);
-  padding.insert_at_offsets(image, padded_image);
-  multiviewnative::image_stack padded_kernel = padded_image;
+  mvn::image_stack padded_image(padding.extents_);
+  std::fill(padded_image.data(), padded_image.data()+padded_image.num_elements(),0);
+  mvn::image_stack padded_kernel = padded_image;
   
-  std::fill(padded_kernel.data(), padded_kernel.data()+padded_kernel.num_elements(),0);
+  padding.insert_at_offsets(image, padded_image);
   padding.wrapped_insert_at_offsets(identity_kernel_, padded_kernel);
 
-  
-  
-  image.resize(cufft_inplace_extents);
+  padded_image.resize(cufft_inplace_extents);
   padded_kernel.resize(cufft_inplace_extents);
+  
+  
 
   #ifdef LMVN_TRACE
   for(int i = 0;i<3;++i){
     std::cout << i << ": image = " << shape[i]
 	      << "\tkernel = " << kernel_dims_[i]
 	      << "\tpadd.ext = " << padding.extents_[i]
-      	      << "\tpadd.off = " << padding.offsets_[i]
 	      << "\tcufft = " << cufft_inplace_extents[i]
+	      << "\tpadd.off = " << padding.offsets_[i]
 	      << "\n";
   }
+
+  // std::cout << "padded_image:\n";
+  // mvn::print_stack(padded_image);
+  // std::cout << "\n\npadded_image_for_cufft:\n";
+  // mvn::print_stack(padded_image_for_cufft);
+  // std::cout << "\n";
 #endif
   
-  device_stack d_image(padded_image,device_memory_elements_required);
-  device_stack d_padded_kernel(padded_kernel,device_memory_elements_required);
+  device_stack d_image(padded_image,
+		       //padded_image_for_cufft,
+		       device_memory_elements_required);
+  device_stack d_padded_kernel(padded_kernel,//padded_kernel_for_cufft,
+			       device_memory_elements_required);
   
-  multiviewnative::inplace_convolve_on_device<device_transform>(d_image.data(),
+  mvn::inplace_convolve_on_device<device_transform>(d_image.data(),
 								d_padded_kernel.data(),
 								&padding.extents_[0],
 								device_memory_elements_required);
   HANDLE_LAST_ERROR();
 
-  image_stack temp_gpu_result = image;
-  d_image.pull_from_device(temp_gpu_result);
 
-  temp_gpu_result.resize(padding.extents_);
+
+  d_image.pull_from_device(padded_image
+			   //padded_image_for_cufft
+			   );
+
+  //undo cufft padding
+  // image_stack temp_gpu_result(padding.extents_);
+  // std::fill(temp_gpu_result.data(), temp_gpu_result.data()+temp_gpu_result.num_elements(),0);
   
-  image_stack gpu_result = temp_gpu_result[boost::indices[multiviewnative::range(
+  mvn::image_stack_view temp_gpu_result = padded_image// _for_cufft
+    [boost::indices[mvn::range(0,padding.extents_[0])]
+     [mvn::range(0,padding.extents_[1])]
+     [mvn::range(0,padding.extents_[2])]
+     ];
+  
+  image_stack gpu_result = temp_gpu_result[boost::indices[mvn::range(
 										 padding.offsets_[0],
 										 padding.offsets_[0] + shape[0])]
-					   [multiviewnative::range(
+					   [mvn::range(
 								   padding.offsets_[1],
 								   padding.offsets_[1] + shape[1])]
-					   [multiviewnative::range(
+					   [mvn::range(
 								   padding.offsets_[2],
 								   padding.offsets_[2] + shape[2])]];
 
@@ -492,10 +513,16 @@ BOOST_AUTO_TEST_CASE(asymm_image) {
   
   for(size_t p = 0;p<gpu_result.num_elements();++p){
     try {
-      BOOST_REQUIRE_CLOSE(gpu_result.data()[p],image.data()[p],0.01);
+      BOOST_REQUIRE_SMALL(std::abs(gpu_result.data()[p]-image.data()[p]),0.001f);
     }
     catch(...){
-      std::cout << "gpu_result differs "<< gpu_result.data()[p] << " != " << image.data()[p] <<" at pixel " << p << " / " << gpu_result.num_elements() << "\n";
+      std::cout << "gpu_result differs "<< gpu_result.data()[p] << " != " << image.data()[p] <<" at pixel " << p << " / " << gpu_result.num_elements() << "\n\nexpected:\n";
+      
+      mvn::print_stack(image);
+      std::cout << "\n\nreceived:\n";
+      mvn::print_stack(gpu_result);
+      std::cout << "\n";
+      break;
     }
   }
   

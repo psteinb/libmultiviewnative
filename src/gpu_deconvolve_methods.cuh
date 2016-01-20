@@ -21,9 +21,10 @@
 #include "padd_utils.h"
 #include "image_stack_utils.h"
 
+namespace mvn = multiviewnative;
 
 template <typename padding_type>
-void generate_forwarded_kernels(std::vector<multiviewnative::image_stack>& _result,
+void generate_forwarded_kernels(std::vector<mvn::image_stack>& _result,
 				workspace input, 
 				int kernel_id = 1
 				)
@@ -40,10 +41,10 @@ void generate_forwarded_kernels(std::vector<multiviewnative::image_stack>& _resu
     kernel_dims = (kernel_id == 1) ? input.data_[v].kernel1_dims_ : input.data_[v].kernel2_dims_;
     kernel = (kernel_id == 1) ? input.data_[v].kernel1_ : input.data_[v].kernel2_;
     
-    multiviewnative::shape_t kernel_shape(kernel_dims, 
-					  kernel_dims + multiviewnative::image_stack::dimensionality);
+    mvn::shape_t kernel_shape(kernel_dims, 
+					  kernel_dims + mvn::image_stack::dimensionality);
     
-    multiviewnative::image_stack_ref kernel_ref(kernel, kernel_shape);
+    mvn::image_stack_ref kernel_ref(kernel, kernel_shape);
     padding_type padding(input.data_[v].image_dims_, kernel_dims);
     
     //resize to image size
@@ -51,7 +52,7 @@ void generate_forwarded_kernels(std::vector<multiviewnative::image_stack>& _resu
     padding.wrapped_insert_at_offsets(kernel_ref, _result[v]);
 
     //resize to cufft compliance
-    reshaped = multiviewnative::gpu::cufft_r2c_shape(_result[v].shape(),_result[v].shape() + 3);
+    reshaped = mvn::gpu::cufft_r2c_shape(_result[v].shape(),_result[v].shape() + 3);
     _result[v].resize(reshaped);
     
     //pin memory
@@ -308,13 +309,13 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
   
   
   //copy result back
-  input_psi = psi_stack[ boost::indices[multiviewnative::range(
+  input_psi = psi_stack[ boost::indices[mvn::range(
 							       input_psi_padder.offsets_[0],
 							       input_psi_padder.offsets_[0] + input_psi.shape()[0])]
-			 [multiviewnative::range(
+			 [mvn::range(
 						 input_psi_padder.offsets_[1],
 						 input_psi_padder.offsets_[1] + input_psi.shape()[1])]
-			 [multiviewnative::range(
+			 [mvn::range(
 						 input_psi_padder.offsets_[2],
 						 input_psi_padder.offsets_[2] + input_psi.shape()[2])]
 			 ];
@@ -346,17 +347,17 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
   std::vector<padding_type> padding(input.num_views_);
 
-  std::vector<multiviewnative::image_stack*> padded_view(input.num_views_);
-  std::vector<multiviewnative::image_stack*> padded_kernel1(input.num_views_);
-  std::vector<multiviewnative::image_stack*> padded_kernel2(input.num_views_);
-  std::vector<multiviewnative::image_stack*> padded_weights(input.num_views_);
+  std::vector<mvn::image_stack*> padded_view(input.num_views_);
+  std::vector<mvn::image_stack*> padded_kernel1(input.num_views_);
+  std::vector<mvn::image_stack*> padded_kernel2(input.num_views_);
+  std::vector<mvn::image_stack*> padded_weights(input.num_views_);
   std::vector<size_t> device_memory_elements_required(input.num_views_);
 
   std::vector<unsigned> image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3,
             &image_dim[0]);
-  std::vector<unsigned> kernel_dim(image_dim.size());
-  std::vector<unsigned> cufft_inplace_extents(kernel_dim.size());
+  std::vector<unsigned> kernel_dim(image_dim.size(),0);
+  std::vector<unsigned> cufft_inplace_extents(kernel_dim.size(),0);
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
@@ -367,19 +368,20 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     padding[v] = padding_type(input.data_[v].image_dims_,
 			      input.data_[v].kernel1_dims_);
     std::copy(input.data_[0].kernel1_dims_, input.data_[0].kernel1_dims_ + 3,
-              &kernel_dim[0]);
+              kernel_dim.begin());
 
-    padded_view[v] = new multiviewnative::image_stack(padding[v].extents_);
-    padded_weights[v] = new multiviewnative::image_stack(padding[v].extents_);
-    padded_kernel1[v] = new multiviewnative::image_stack(padding[v].extents_);
-    padded_kernel2[v] = new multiviewnative::image_stack(padding[v].extents_);
+    padded_view[v] = new mvn::image_stack(padding[v].extents_);
+    std::fill(padded_view[v]->data(),padded_view[v]->data()+padded_view[v]->num_elements(),0);
+    padded_weights[v] = new mvn::image_stack(*padded_view[v]);
+    padded_kernel1[v] = new mvn::image_stack(*padded_view[v]);
+    padded_kernel2[v] = new mvn::image_stack(*padded_view[v]);
 
-    multiviewnative::image_stack_cref view(input.data_[v].image_, image_dim);
-    multiviewnative::image_stack_cref weights(input.data_[v].weights_,
+    mvn::image_stack_cref view(input.data_[v].image_, image_dim);
+    mvn::image_stack_cref weights(input.data_[v].weights_,
                                               image_dim);
-    multiviewnative::image_stack_cref kernel1(input.data_[v].kernel1_,
+    mvn::image_stack_cref kernel1(input.data_[v].kernel1_,
                                               kernel_dim);
-    multiviewnative::image_stack_cref kernel2(input.data_[v].kernel2_,
+    mvn::image_stack_cref kernel2(input.data_[v].kernel2_,
                                               kernel_dim);
 
     //insert image adding a padding
@@ -389,7 +391,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
 
     //compute new shape for cufft
-    multiviewnative::adapt_extents_for_fftw_inplace(
+    mvn::adapt_extents_for_cufft_inplace(
         padding[v].extents_, cufft_inplace_extents,
         padded_view[v]->storage_order());
 
@@ -403,12 +405,27 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     device_memory_elements_required[v] = std::accumulate(
         cufft_inplace_extents.begin(), cufft_inplace_extents.end(), 1,
         std::multiplies<size_t>());
+
+#ifdef LMVN_TRACE
+    std::cout << "[trace::"<< __FILE__ <<"] padding view " << v << "\n";
+    for(int i = 0;i<3;++i){
+      std::cout << i << ": image = " << input.data_[v].image_dims_[i]
+		<< "\tkernel = " << input.data_[v].kernel1_dims_[i]
+		<< "\tpadd.ext = " << padding[v].extents_[i]
+		<< "\tcufft = " << cufft_inplace_extents[i]
+		<< "\tpadd.off = " << padding[v].offsets_[i]
+		<< "\n";
+    }
+#endif
+
   }
 
-  multiviewnative::image_stack_ref input_psi(psi, image_dim);
-  multiviewnative::image_stack padded_psi(padding[0].extents_);
-  padding_type input_psi_padder = padding[0];
-  input_psi_padder.insert_at_offsets(input_psi, padded_psi);
+  mvn::image_stack_ref input_psi(psi, image_dim);
+
+  //FIXME: this is wrong, if padding is on, it must padd to a common shape
+  mvn::image_stack padded_psi(padding[0].extents_);
+  const padding_type* input_psi_padder = &padding[0];
+  input_psi_padder->insert_at_offsets(input_psi, padded_psi);
 
   padded_psi.resize(cufft_inplace_extents);
   
@@ -429,17 +446,17 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   //
   // ITERATE
   //
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_input_psi(
+  mvn::stack_on_device<mvn::image_stack> d_input_psi(
       padded_psi, max_device_memory_elements_required);
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_integral(
+  mvn::stack_on_device<mvn::image_stack> d_integral(
       max_device_memory_elements_required);
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_view(
+  mvn::stack_on_device<mvn::image_stack> d_view(
       max_device_memory_elements_required);
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_kernel1(
+  mvn::stack_on_device<mvn::image_stack> d_kernel1(
       max_device_memory_elements_required);
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_kernel2(
+  mvn::stack_on_device<mvn::image_stack> d_kernel2(
       max_device_memory_elements_required);
-  multiviewnative::stack_on_device<multiviewnative::image_stack> d_weights(
+  mvn::stack_on_device<mvn::image_stack> d_weights(
       max_device_memory_elements_required);
 
   unsigned long long current_gmem_usage_byte =
@@ -464,7 +481,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
       HANDLE_LAST_ERROR();
 
       // d_integral = d_integral %*% d_kernel1
-      multiviewnative::inplace_convolve_on_device<transform_type>(
+      mvn::inplace_convolve_on_device<transform_type>(
           d_integral.data(), d_kernel1.data(), &padding[v].extents_[0],
           device_memory_elements_required[v]);
       HANDLE_LAST_ERROR();
@@ -481,7 +498,7 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
       HANDLE_LAST_ERROR();
 
       // integral = integral %*% kernel2      
-      multiviewnative::inplace_convolve_on_device<transform_type>(
+      mvn::inplace_convolve_on_device<transform_type>(
           d_integral.data(), d_kernel2.data(), &padding[v].extents_[0],
           device_memory_elements_required[v]);
       HANDLE_LAST_ERROR();
@@ -504,19 +521,19 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
   }
 
   d_input_psi.pull_from_device(padded_psi);
-  padded_psi.resize(input_psi_padder.extents_);
-  
-  input_psi = padded_psi
-      [boost::indices[multiviewnative::range(
-          input_psi_padder.offsets_[0],
-          input_psi_padder.offsets_[0] + input_psi.shape()[0])]
-                     [multiviewnative::range(
-                         input_psi_padder.offsets_[1],
-                         input_psi_padder.offsets_[1] + input_psi.shape()[1])]
-                     [multiviewnative::range(
-                         input_psi_padder.offsets_[2],
-                         input_psi_padder.offsets_[2] + input_psi.shape()[2])]];
 
+  mvn::image_stack_view cufft_padding_removed = padded_psi[boost::indices[mvn::range(0,input_psi_padder->extents_[0])]
+							   [mvn::range(0,input_psi_padder->extents_[1])]
+							   [mvn::range(0,input_psi_padder->extents_[2])]
+							   ];
+  
+  input_psi = cufft_padding_removed[boost::indices[mvn::range(input_psi_padder->offsets_[0],
+							      input_psi_padder->offsets_[0] + input_psi.shape()[0])]
+				    [mvn::range(input_psi_padder->offsets_[1],
+						input_psi_padder->offsets_[1] + input_psi.shape()[1])]
+				    [mvn::range(input_psi_padder->offsets_[2],
+						input_psi_padder->offsets_[2] + input_psi.shape()[2])]];
+  
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
   // CLEAN-UP

@@ -22,6 +22,12 @@ const static multiviewnative::tiff_stack image_view_1(
 						      mvn::path_to<mvn::input>(0).string() 
 						      );
 
+const static multiviewnative::tiff_stack kernel1_view_2(
+    // "/scratch/steinbac/multiview_data/input_view_0.tif"
+						      mvn::path_to<mvn::kernel1>(2).string() 
+						      );
+
+
 BOOST_FIXTURE_TEST_SUITE(tiff_loaded, multiviewnative::tiff_stack)
 
 BOOST_AUTO_TEST_CASE(adaptive_path_exists) {
@@ -41,7 +47,8 @@ BOOST_AUTO_TEST_CASE(adaptive_path_exists) {
 
 
 BOOST_AUTO_TEST_CASE(path_and_files_exists_images_have_right_extents) {
-  fs::path location = "/scratch/steinbac/multiview_data/input_view_0.tif";
+
+  fs::path location = mvn::path_to<mvn::kernel1>(2);
   std::string path = location.string();
 
   if (!fs::exists(location)) {
@@ -54,33 +61,62 @@ BOOST_AUTO_TEST_CASE(path_and_files_exists_images_have_right_extents) {
   BOOST_CHECK_EQUAL(location.string().size(), stack_path_.size());
   BOOST_CHECK_EQUAL_COLLECTIONS(path.begin(), path.end(), stack_path_.begin(),
                                 stack_path_.end());
-  BOOST_CHECK_EQUAL(stack_.shape()[2], 252u);
-  BOOST_CHECK_EQUAL(stack_.shape()[1], 212u);
-  BOOST_CHECK_EQUAL(stack_.shape()[0], 220u);
+
+  std::vector<int> kernel1_shape = mvn::shape_of<mvn::kernel1>(2);
+
+  if(kernel1_shape.empty()){
+    BOOST_CHECK_EQUAL(stack_.shape()[2], 23u);
+    BOOST_CHECK_EQUAL(stack_.shape()[1], 81u);
+    BOOST_CHECK_EQUAL(stack_.shape()[0], 57u);
+  } else {
+
+    for( unsigned int i = 0;i<kernel1_shape.size();++i)
+      BOOST_CHECK_EQUAL(stack_.shape()[i], kernel1_shape[i]);
+        
+  }
 }
 
 BOOST_AUTO_TEST_CASE(copy_constructor) {
-  multiviewnative::tiff_stack local(image_view_1);
+  multiviewnative::tiff_stack local(kernel1_view_2);
 
-  BOOST_CHECK_MESSAGE(!local.empty(), "image under " << image_view_1.stack_path_
-                                                     << " was not copied-in");
-  BOOST_CHECK_EQUAL(local.stack_path_.size(), image_view_1.stack_path_.size());
+  BOOST_CHECK_MESSAGE(!local.empty(), "image under " << kernel1_view_2.stack_path_
+		      << " was not copied-in");
+  BOOST_CHECK_EQUAL(local.stack_path_.size(), kernel1_view_2.stack_path_.size());
 
-  BOOST_CHECK_EQUAL(local.stack_.shape()[2], 252u);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[1], 212u);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[0], 220u);
+  std::vector<int> kernel1_shape = mvn::shape_of<mvn::kernel1>(2);
+  if(kernel1_shape.empty()){
+    BOOST_CHECK_EQUAL(local.stack_.shape()[2], 23u);
+    BOOST_CHECK_EQUAL(local.stack_.shape()[1], 81u);
+    BOOST_CHECK_EQUAL(local.stack_.shape()[0], 57u);
+  }
+  else {
+
+    for( unsigned int i = 0;i<kernel1_shape.size();++i)
+      BOOST_CHECK_EQUAL(local.stack_.shape()[i], kernel1_shape[i]);
+        
+  }
+  
 }
 
 BOOST_AUTO_TEST_CASE(assign_constructor) {
-  multiviewnative::tiff_stack local = image_view_1;
+  multiviewnative::tiff_stack local = kernel1_view_2;
 
-  BOOST_CHECK_MESSAGE(!local.empty(), "image under " << image_view_1.stack_path_
-                                                     << " was not assinged-in");
-  BOOST_CHECK_EQUAL(local.stack_path_.size(), image_view_1.stack_path_.size());
+  BOOST_CHECK_MESSAGE(!local.empty(), "image under " << kernel1_view_2.stack_path_
+		      << " was not assinged-in");
+  BOOST_CHECK_EQUAL(local.stack_path_.size(), kernel1_view_2.stack_path_.size());
+  std::vector<int> kernel1_shape = mvn::shape_of<mvn::kernel1>(2);
+  if(kernel1_shape.empty()){
+    BOOST_CHECK_EQUAL(local.stack_.shape()[2], 23u);
+    BOOST_CHECK_EQUAL(local.stack_.shape()[1], 81u);
+    BOOST_CHECK_EQUAL(local.stack_.shape()[0], 57u);
+  }
+  else {
 
-  BOOST_CHECK_EQUAL(local.stack_.shape()[2], 252u);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[1], 212u);
-  BOOST_CHECK_EQUAL(local.stack_.shape()[0], 220u);
+    for( unsigned int i = 0;i<kernel1_shape.size();++i)
+      BOOST_CHECK_EQUAL(local.stack_.shape()[i], kernel1_shape[i]);
+        
+  }
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()
@@ -104,7 +140,7 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_FIXTURE_TEST_SUITE(write_to_disk, multiviewnative::tiff_stack)
 
-BOOST_AUTO_TEST_CASE(write_reload_image_view_1) {
+BOOST_AUTO_TEST_CASE(write_reload_kernel1_view_2) {
   fs::path loc = multiviewnative::path_to_test_images;
   loc += "input_view_1.tif";
 

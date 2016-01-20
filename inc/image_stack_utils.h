@@ -63,7 +63,19 @@ namespace multiviewnative {
 				       const storage& _storage =
 				       boost::c_storage_order()) {
 
-    adapt_extents_for_fftw_inplace(_extent, _value, _storage);
+    std::fill(_value.begin(), _value.end(), 0);
+
+    std::vector<int> storage_order(_extent.size());
+    for (size_t i = 0; i < _extent.size(); ++i)
+      storage_order[i] = _storage.ordering(i);
+
+    size_t storage_index =
+      std::min_element(storage_order.begin(), storage_order.end()) -
+      storage_order.begin();
+
+    for (size_t i = 0; i < _extent.size(); ++i)
+      _value[i] =
+        (storage_index == i) ? 2 * (_extent[i] / 2 + 1) : _extent[i];
   }
 
   template <typename StorageT, typename DimT, typename ODimT>
@@ -71,7 +83,14 @@ namespace multiviewnative {
 				     ODimT& _value,
 				     const StorageT& _storage) {
 
-    adapt_shape_for_fftw_inplace(_extent, _value, _storage);
+    std::fill(_value.begin(), _value.end(), 0);
+
+    size_t storage_index =
+      std::min_element(_storage.begin(), _storage.end()) - _storage.begin();
+
+    for (size_t i = 0; i < _extent.size(); ++i)
+      _value[i] =
+        (storage_index == i) ? 2 * (_extent[i] / 2 + 1) : _extent[i];
   }
 
   //TODO: integrate this with operator<< in image_stack_utils.cpp

@@ -83,13 +83,13 @@ struct no_padd {
   }
 
   template <typename ImageStackRefT, typename OtherStackT>
-  void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target) {
+  void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target) const {
     _target = _source;
   }
 
   template <typename ImageStackRefT, typename OtherStackT>
   void wrapped_insert_at_offsets(const ImageStackRefT& _source,
-                                 OtherStackT& _target) {
+                                 OtherStackT& _target) const {
 
     multiviewnative::wrapped_insert_at_point(_source, _target, extents_);
   }
@@ -177,7 +177,7 @@ struct zero_padd {
 
   */
   template <typename ImageStackRefT, typename OtherStackT>
-  void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target) {
+  void insert_at_offsets(const ImageStackRefT& _source, OtherStackT& _target) const {
 
     if (std::lexicographical_compare(
             _target.shape(), _target.shape() + OtherStackT::dimensionality,
@@ -229,7 +229,7 @@ struct zero_padd {
   */
   template <typename ImageStackRefT, typename OtherStackT>
   void wrapped_insert_at_offsets(const ImageStackRefT& _source,
-                                 OtherStackT& _target) {
+                                 OtherStackT& _target) const {
 
     if (std::lexicographical_compare(
             _target.shape(), _target.shape() + OtherStackT::dimensionality,
