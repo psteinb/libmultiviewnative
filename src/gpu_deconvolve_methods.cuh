@@ -345,13 +345,10 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
                                                     int device) {
   HANDLE_ERROR(cudaSetDevice(device));
 
-  std::vector<padding_type> padding(input.num_views_);
-
   std::vector<mvn::image_stack*> padded_view(input.num_views_);
   std::vector<mvn::image_stack*> padded_kernel1(input.num_views_);
   std::vector<mvn::image_stack*> padded_kernel2(input.num_views_);
   std::vector<mvn::image_stack*> padded_weights(input.num_views_);
-  std::vector<size_t> device_memory_elements_required(input.num_views_);
 
   std::vector<unsigned> image_dim(3);
   std::copy(input.data_[0].image_dims_, input.data_[0].image_dims_ + 3,
@@ -361,16 +358,40 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
+  // FIND BEST PADDING
+  //
+  std::vector<int> virtual_image_dim(3,0);
+  std::vector<int> virtual_kernel_dim(3,0);
+  for (unsigned d = 0; d < 3; ++d) {
+    for (unsigned v = 0; v < input.num_views_; ++v) {
+      virtual_image_dim[d] = std::max(virtual_image_dim[d],input.data_[v].image_dims_[d]);
+
+      virtual_kernel_dim[d] = std::max(virtual_kernel_dim[d],input.data_[v].kernel1_dims_[d]);
+      virtual_kernel_dim[d] = std::max(virtual_kernel_dim[d],input.data_[v].kernel2_dims_[d]);
+    }
+  }
+
+  padding_type global_padding(&virtual_image_dim[0],&virtual_kernel_dim[0]);
+  mvn::adapt_extents_for_cufft_inplace(global_padding.extents_, cufft_inplace_extents,
+				       boost::c_storage_order());
+
+  //how much memory is required on device
+  unsigned long max_device_memory_elements_required = std::accumulate(cufft_inplace_extents.begin(),
+								      cufft_inplace_extents.end(),
+								      1,
+								      std::multiplies<unsigned long>());
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
   // PREPARE THE DATA (INCL PADDING)
   //
   for (unsigned v = 0; v < input.num_views_; ++v) {
 
-    padding[v] = padding_type(input.data_[v].image_dims_,
-			      input.data_[v].kernel1_dims_);
+    // padding[v] = padding_type(input.data_[v].image_dims_,
+    // 			      input.data_[v].kernel1_dims_);
     std::copy(input.data_[0].kernel1_dims_, input.data_[0].kernel1_dims_ + 3,
               kernel_dim.begin());
 
-    padded_view[v] = new mvn::image_stack(padding[v].extents_);
+    padded_view[v] = new mvn::image_stack(global_padding.extents_);
     std::fill(padded_view[v]->data(),padded_view[v]->data()+padded_view[v]->num_elements(),0);
     padded_weights[v] = new mvn::image_stack(*padded_view[v]);
     padded_kernel1[v] = new mvn::image_stack(*padded_view[v]);
@@ -385,15 +406,11 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
                                               kernel_dim);
 
     //insert image adding a padding
-    padding[v].insert_at_offsets(view, *padded_view[v]);
-    padding[v].insert_at_offsets(weights, *padded_weights[v]);
-    padding[v].wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
-    padding[v].wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
-
-    //compute new shape for cufft
-    mvn::adapt_extents_for_cufft_inplace(
-        padding[v].extents_, cufft_inplace_extents,
-        padded_view[v]->storage_order());
+    global_padding.insert_at_offsets(view, *padded_view[v]);
+    global_padding.insert_at_offsets(weights, *padded_weights[v]);
+    global_padding.wrapped_insert_at_offsets(kernel1, *padded_kernel1[v]);
+    global_padding.wrapped_insert_at_offsets(kernel2, *padded_kernel2[v]);
+    
 
     //resize 3D volumes, boost.multi-array retains contents
     padded_view[v]   ->resize(cufft_inplace_extents);
@@ -401,37 +418,27 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
     padded_kernel1[v]->resize(cufft_inplace_extents);
     padded_kernel2[v]->resize(cufft_inplace_extents);
 
-    //how much memory is required on device
-    device_memory_elements_required[v] = std::accumulate(
-        cufft_inplace_extents.begin(), cufft_inplace_extents.end(), 1,
-        std::multiplies<size_t>());
+    
 
 #ifdef LMVN_TRACE
     std::cout << "[trace::"<< __FILE__ <<"] padding view " << v << "\n";
     for(int i = 0;i<3;++i){
       std::cout << i << ": image = " << input.data_[v].image_dims_[i]
 		<< "\tkernel = " << input.data_[v].kernel1_dims_[i]
-		<< "\tpadd.ext = " << padding[v].extents_[i]
+		<< "\tpadd.ext = " << global_padding.extents_[i]
 		<< "\tcufft = " << cufft_inplace_extents[i]
-		<< "\tpadd.off = " << padding[v].offsets_[i]
+		<< "\tpadd.off = " << global_padding.offsets_[i]
 		<< "\n";
     }
 #endif
 
   }
 
+  //prepare psi
   mvn::image_stack_ref input_psi(psi, image_dim);
-
-  //FIXME: this is wrong, if padding is on, it must padd to a common shape
-  mvn::image_stack padded_psi(padding[0].extents_);
-  const padding_type* input_psi_padder = &padding[0];
-  input_psi_padder->insert_at_offsets(input_psi, padded_psi);
-
+  mvn::image_stack padded_psi(global_padding.extents_);
+  global_padding.insert_at_offsets(input_psi, padded_psi);
   padded_psi.resize(cufft_inplace_extents);
-  
-  unsigned long max_device_memory_elements_required =
-      *std::max_element(device_memory_elements_required.begin(),
-                        device_memory_elements_required.end());
 
   dim3 threads(128);
   dim3 blocks(
@@ -482,8 +489,8 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
       // d_integral = d_integral %*% d_kernel1
       mvn::inplace_convolve_on_device<transform_type>(
-          d_integral.data(), d_kernel1.data(), &padding[v].extents_[0],
-          device_memory_elements_required[v]);
+          d_integral.data(), d_kernel1.data(), &global_padding.extents_[0],
+          max_device_memory_elements_required);
       HANDLE_LAST_ERROR();
 
       d_view.push_to_device(*padded_view[v]);
@@ -499,8 +506,8 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
       // integral = integral %*% kernel2      
       mvn::inplace_convolve_on_device<transform_type>(
-          d_integral.data(), d_kernel2.data(), &padding[v].extents_[0],
-          device_memory_elements_required[v]);
+          d_integral.data(), d_kernel2.data(), &global_padding.extents_[0],
+          max_device_memory_elements_required);
       HANDLE_LAST_ERROR();
       d_weights.push_to_device(*padded_weights[v]);
       HANDLE_LAST_ERROR();
@@ -522,17 +529,17 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
   d_input_psi.pull_from_device(padded_psi);
 
-  mvn::image_stack_view cufft_padding_removed = padded_psi[boost::indices[mvn::range(0,input_psi_padder->extents_[0])]
-							   [mvn::range(0,input_psi_padder->extents_[1])]
-							   [mvn::range(0,input_psi_padder->extents_[2])]
+  mvn::image_stack_view cufft_padding_removed = padded_psi[boost::indices[mvn::range(0,global_padding.extents_[0])]
+							   [mvn::range(0,global_padding.extents_[1])]
+							   [mvn::range(0,global_padding.extents_[2])]
 							   ];
   
-  input_psi = cufft_padding_removed[boost::indices[mvn::range(input_psi_padder->offsets_[0],
-							      input_psi_padder->offsets_[0] + input_psi.shape()[0])]
-				    [mvn::range(input_psi_padder->offsets_[1],
-						input_psi_padder->offsets_[1] + input_psi.shape()[1])]
-				    [mvn::range(input_psi_padder->offsets_[2],
-						input_psi_padder->offsets_[2] + input_psi.shape()[2])]];
+  input_psi = cufft_padding_removed[boost::indices[mvn::range(global_padding.offsets_[0],
+							      global_padding.offsets_[0] + input_psi.shape()[0])]
+				    [mvn::range(global_padding.offsets_[1],
+						global_padding.offsets_[1] + input_psi.shape()[1])]
+				    [mvn::range(global_padding.offsets_[2],
+						global_padding.offsets_[2] + input_psi.shape()[2])]];
   
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //

@@ -30,20 +30,7 @@ const static multiviewnative::tiff_stack kernel1_view_2(
 
 BOOST_FIXTURE_TEST_SUITE(tiff_loaded, multiviewnative::tiff_stack)
 
-BOOST_AUTO_TEST_CASE(adaptive_path_exists) {
-  
-  fs::path image_view_path = multiviewnative::path_to_test_images;
-  image_view_path /= "input_view_0.tif";
-  BOOST_CHECK_EQUAL(fs::exists(image_view_path),true);
 
-  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::input  >(0)),true);
-  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::kernel1>(0)),true);
-  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::kernel2>(0)),true);
-  BOOST_CHECK_EQUAL(fs::exists(mvn::path_to<mvn::weights>(0)),true);
-
-  std::vector<int> kernel1_shape = mvn::shape_of<mvn::kernel1>(2);
-  BOOST_CHECK_GT(kernel1_shape.size(),0);
-}
 
 
 BOOST_AUTO_TEST_CASE(path_and_files_exists_images_have_right_extents) {

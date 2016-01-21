@@ -20,7 +20,7 @@
 using namespace multiviewnative;
 
 static const PaddedReferenceData reference;
-static const all_iterations guesses;
+
 
 
 BOOST_AUTO_TEST_SUITE(bernchmark)
@@ -28,18 +28,18 @@ BOOST_AUTO_TEST_SUITE(bernchmark)
 BOOST_AUTO_TEST_CASE(deconvolve_all_gpus_lambda_6) {
   // setup
   PaddedReferenceData local_ref(reference);
-  all_iterations local_guesses(guesses);
+
 
   // padd the psi to the same shape as the input images
   std::vector<int> shape_to_padd_with;
-  local_ref.min_kernel_shape(shape_to_padd_with);
+  local_ref.max_kernel_shape(shape_to_padd_with);
 
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input, local_guesses.lambda_,
-                 local_guesses.minValue_);
+  fill_workspace(local_ref, input, all_iterations::instance().lambda(),
+                 all_iterations::instance().minValue());
   input.num_iterations_ = 10;
-  image_stack start_psi = *local_guesses.padded_psi(0, shape_to_padd_with);
+  image_stack start_psi = all_iterations::instance().padded_psi(0, shape_to_padd_with);
   std::vector<int> image_shape(start_psi.shape(), start_psi.shape() + 3);
   int num_repeats = 10;
   int device_id = selectDeviceWithHighestComputeCapability();

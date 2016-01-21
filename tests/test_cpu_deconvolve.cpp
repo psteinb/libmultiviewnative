@@ -20,15 +20,15 @@
 using namespace multiviewnative;
 
 static const PaddedReferenceData reference;
-static const first_2_iterations local_guesses_of_2;
-static const first_5_iterations local_guesses_of_5;
+// static const first_2_iterations local_guesses_of_2;
+// static const first_5_iterations local_guesses_of_5;
 
 BOOST_AUTO_TEST_SUITE(deconvolve)
 
 BOOST_AUTO_TEST_CASE(loaded_data_is_of_same_size) {
   // setup
   PaddedReferenceData local_ref(reference);
-  first_2_iterations local_guesses(local_guesses_of_2);
+  // first_2_iterations local_guesses(local_guesses_of_2);
 
   for (int i = 1; i < PaddedReferenceData::size; ++i) {
     BOOST_CHECK(local_ref.views_[i].image_dims_[0] ==
@@ -41,18 +41,19 @@ BOOST_AUTO_TEST_CASE(loaded_data_is_of_same_size) {
 
   std::vector<int> shape_to_padd_with;
   local_ref.min_kernel_shape(shape_to_padd_with);
-
+  image_stack padded_psi = first_2_iterations::instance().padded_psi(0, shape_to_padd_with);
+  
   BOOST_CHECK_EQUAL_COLLECTIONS(
       local_ref.views_[0].image_dims_.begin(),
       local_ref.views_[0].image_dims_.end(),
-      local_guesses.padded_psi(0, shape_to_padd_with)->shape(),
-      local_guesses.padded_psi(0, shape_to_padd_with)->shape() + 3);
+      padded_psi.shape(),
+      padded_psi.shape() + 3);
 }
 
 BOOST_AUTO_TEST_CASE(check_1st_five_iterations) {
   // setup
   PaddedReferenceData local_ref(reference);
-  first_5_iterations local_guesses(local_guesses_of_5);
+  // first_5_iterations local_guesses(local_guesses_of_5);
 
   // padd the psi to the same shape as the input images
   std::vector<int> shape_to_padd_with;
@@ -60,22 +61,22 @@ BOOST_AUTO_TEST_CASE(check_1st_five_iterations) {
 
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input, local_guesses.lambda_,
-                 local_guesses.minValue_);
+  fill_workspace(local_ref, input, first_5_iterations::instance().lambda(),
+                 first_5_iterations::instance().minValue());
   input.num_iterations_ = 2;
-  image_stack input_psi = *local_guesses.padded_psi(0, shape_to_padd_with);
+  image_stack input_psi = first_5_iterations::instance().padded_psi(0, shape_to_padd_with);
 
   inplace_cpu_deconvolve(input_psi.data(), input, 1);
 
   // check norms
-  image_stack* padded_psi_1 = local_guesses.padded_psi(1, shape_to_padd_with);
-  float l2norm = multiviewnative::l2norm(input_psi.data(), padded_psi_1->data(),
+  image_stack padded_psi_1 = first_5_iterations::instance().padded_psi(1, shape_to_padd_with);
+  float l2norm = multiviewnative::l2norm(input_psi.data(), padded_psi_1.data(),
                                          input_psi.num_elements());
   BOOST_CHECK_LT(l2norm, 40);
 
   const float bottom_ratio = .35;
   const float upper_ratio = 1 - bottom_ratio;
-  l2norm = multiviewnative::l2norm_within_limits(input_psi, *padded_psi_1,
+  l2norm = multiviewnative::l2norm_within_limits(input_psi, padded_psi_1,
                                                  bottom_ratio, upper_ratio);
   std::cout << "central norms: [" << bottom_ratio << "e," << upper_ratio
             << "e]**3\n"
@@ -86,14 +87,14 @@ BOOST_AUTO_TEST_CASE(check_1st_five_iterations) {
   BOOST_REQUIRE_LT(l2norm, 1e-2);
   
 
-  input_psi = *local_guesses.padded_psi(0, shape_to_padd_with);
+  input_psi = first_5_iterations::instance().padded_psi(0, shape_to_padd_with);
   input.num_iterations_ = 5;
   inplace_cpu_deconvolve(input_psi.data(), input, 1);
-  image_stack* padded_psi_5 = local_guesses.padded_psi(4, shape_to_padd_with);
-  l2norm = multiviewnative::l2norm(input_psi.data(), padded_psi_5->data(),
+  image_stack padded_psi_5 = first_5_iterations::instance().padded_psi(4, shape_to_padd_with);
+  l2norm = multiviewnative::l2norm(input_psi.data(), padded_psi_5.data(),
                                    input_psi.num_elements());
   BOOST_CHECK_LT(l2norm, 70);
-  l2norm = multiviewnative::l2norm_within_limits(input_psi, *padded_psi_5,
+  l2norm = multiviewnative::l2norm_within_limits(input_psi, padded_psi_5,
                                                  bottom_ratio, upper_ratio);
   std::cout << "central norms: [" << bottom_ratio << "e," << upper_ratio
             << "e]**3\n"
@@ -106,7 +107,7 @@ BOOST_AUTO_TEST_CASE(check_1st_five_iterations) {
 BOOST_AUTO_TEST_CASE(serial_vs_parallel_two_iterations_) {
   // setup
   PaddedReferenceData local_ref(reference);
-  first_2_iterations local_guesses(local_guesses_of_2);
+  // first_2_iterations local_guesses(local_guesses_of_2);
 
   // padd the psi to the same shape as the input images
   std::vector<int> shape_to_padd_with;
@@ -114,10 +115,10 @@ BOOST_AUTO_TEST_CASE(serial_vs_parallel_two_iterations_) {
 
   workspace input;
   input.data_ = 0;
-  fill_workspace(local_ref, input, local_guesses.lambda_,
-                 local_guesses.minValue_);
+  fill_workspace(local_ref, input, first_2_iterations::instance().lambda(),
+                 first_2_iterations::instance().minValue());
   input.num_iterations_ = 2;
-  image_stack serial_psi = *local_guesses.padded_psi(0, shape_to_padd_with);
+  image_stack serial_psi = first_2_iterations::instance().padded_psi(0, shape_to_padd_with);
   image_stack parallel_psi = serial_psi;
 
   //serial

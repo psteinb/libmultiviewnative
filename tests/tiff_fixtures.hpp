@@ -334,7 +334,7 @@ struct ViewFromDisk {
   const int* kernel2_dims() const { return &(kernel2_dims_[0]); }
 };
 
-template <int num_views = 6, bool padd_input_by_kernel = false>
+template <int num_views = 6, int padd_input_by_kernel = 0>
 struct ReferenceData_Impl {
 
   std::vector<ViewFromDisk> views_;
@@ -351,7 +351,7 @@ struct ReferenceData_Impl {
 
     if (padd_input_by_kernel) {
       std::vector<int> extents;
-      min_kernel_shape(extents);
+      max_kernel_shape(extents);
 
       for (unsigned i = 0; i < views_.size(); ++i) {
 #ifdef LMVN_TRACE
@@ -364,7 +364,7 @@ struct ReferenceData_Impl {
 	std::cout << "\n";
 	
 #endif
-        views_[i].padd_with_shape(extents);
+        views_[i].padd_with_shape(extents,padd_input_by_kernel);
 	
       }
     }
@@ -385,8 +385,10 @@ struct ReferenceData_Impl {
     std::fill(_shape.begin(), _shape.end(), 0);
 
     for (const ViewFromDisk& _v : views_) {
-      for (int i = 0; i < _shape.size(); ++i)
+      for (int i = 0; i < _shape.size(); ++i){
         _shape[i] = std::max(_shape[i], (int_type)_v.kernel1_dims()[i]);
+	_shape[i] = std::max(_shape[i], (int_type)_v.kernel2_dims()[i]);
+      }
     }
   }
 
@@ -400,8 +402,10 @@ struct ReferenceData_Impl {
               std::numeric_limits<typename container_type::value_type>::max());
 
     for (const ViewFromDisk& _v : views_) {
-      for (int i = 0; i < _shape.size(); ++i)
+      for (int i = 0; i < _shape.size(); ++i){
         _shape[i] = std::min(_shape[i], (int_type)_v.kernel1_dims()[i]);
+	_shape[i] = std::min(_shape[i], (int_type)_v.kernel2_dims()[i]);
+      }
     }
   }
 
@@ -419,15 +423,13 @@ struct ReferenceData_Impl {
   }
 };
 
-typedef ReferenceData_Impl<6, true> PaddedReferenceData;
+typedef ReferenceData_Impl<6, 1> PaddedReferenceData;
 typedef ReferenceData_Impl<6> RawReferenceData;
 
-template <unsigned max_num_psi = 2, bool padded_images = false>
-struct IterationData {
+template <unsigned max_num_psi = 2>
+class IterationData {
 
   std::vector<tiff_stack> psi_;
-  std::vector<image_stack> padded_psi_;
-  std::vector<std::array<range,image_stack::dimensionality> > padded_ranges_;
   std::vector<std::string> psi_paths_;
 
   std::string path_to_images;
@@ -436,11 +438,11 @@ struct IterationData {
   double lambda_;
   float minValue_;
   float psi0_avg_;
-
+  
   IterationData(std::string _basename = "psi_")
       : psi_(),
-        padded_psi_(max_num_psi),
-	padded_ranges_(max_num_psi),
+        // padded_psi_(max_num_psi),
+	// padded_ranges_(max_num_psi),
         psi_paths_(max_num_psi),
         path_to_images(path_to_test_images),
         iteration_basename_before_id(_basename),
@@ -457,9 +459,6 @@ struct IterationData {
 
       psi_.push_back(tiff_stack(path.str()));
 
-      // if(padded_images){
-
-      // }
     }
 
     float sum = std::accumulate(
@@ -468,23 +467,30 @@ struct IterationData {
     psi0_avg_ = sum / psi_[0].stack_.num_elements();
   }
 
+  
+
+public:
+
+  static IterationData& instance(){
+    
+    static IterationData value;
+    return value;
+
+  }
+
+  
   IterationData(const IterationData& _rhs)
       : psi_(_rhs.psi_.begin(), _rhs.psi_.end()),
-        padded_psi_(_rhs.padded_psi_.begin(), _rhs.padded_psi_.end()),
-	padded_ranges_(_rhs.padded_ranges_.begin(), _rhs.padded_ranges_.end()),
+        // padded_psi_(_rhs.padded_psi_.begin(), _rhs.padded_psi_.end()),
+	// padded_ranges_(_rhs.padded_ranges_.begin(), _rhs.padded_ranges_.end()),
         psi_paths_(_rhs.psi_paths_.begin(), _rhs.psi_paths_.end()),
         lambda_(_rhs.lambda_),
         minValue_(_rhs.minValue_),
         psi0_avg_(_rhs.psi0_avg_) {}
 
+  
   void copy_in(const IterationData& _other) {
     std::copy(_other.psi_.begin(), _other.psi_.end(), psi_.begin());
-    std::copy(_other.padded_psi_.begin(), _other.padded_psi_.end(),
-              padded_psi_.begin());
-
-    std::copy(_other.padded_ranges_.begin(), _other.padded_ranges_.end(),
-              padded_ranges_.begin());
-    
     std::copy(_other.psi_paths_.begin(), _other.psi_paths_.end(),
               psi_paths_.begin());
     lambda_ = (_other.lambda_);
@@ -498,37 +504,79 @@ struct IterationData {
     return &(psi_.at(_index).stack_);
   }
 
-  const std::array<range,image_stack::dimensionality>* offset(const int& _index) const {
-    return &(padded_ranges_.at(_index));
-  }
-
   template <typename container_type>
-  image_stack* padded_psi(const int& _index, const container_type& _shape) {
-    if (padded_psi_.at(_index).num_elements() <=
-        psi_.at(_index).stack_.num_elements()) {
+  std::array<unsigned int,image_stack::dimensionality> padded_shape(const int& _index, const container_type& _shape) const {
 
-      container_type extended(
-          psi_.at(_index).stack_.shape(),
-          psi_.at(_index).stack_.shape() + image_stack::dimensionality);
-      // std::vector<range> index_of_interest(image_stack::dimensionality);
+    std::array<unsigned int,image_stack::dimensionality> value;
+    for( auto & i : value )
+      i = 0;
 
-      for (int d = 0; d < extended.size(); ++d) {
-        extended[d] = extended[d] + 2 * (_shape[d] / 2);
-        padded_ranges_[_index][d] =
-            range(_shape[d] / 2, extended[d] - (_shape[d] / 2));
-      }
+    if(_index < 0 || _index >= psi_.size())
+      return value;
 
-      padded_psi_.at(_index).resize(extended);
-      padded_psi_.at(
-          _index)[boost::indices[padded_ranges_[_index][0]][padded_ranges_[_index][1]]
-                                [padded_ranges_[_index][2]]] =
-          psi_.at(_index).stack_;
+    std::copy(psi_.at(_index).stack_.shape(),
+	      psi_.at(_index).stack_.shape() + image_stack::dimensionality,
+	      value.begin());
+
+    for (int d = 0; d < value.size(); ++d) {
+      value[d] = value[d] + 2 * (_shape[d] / 2);
     }
 
-    return &(padded_psi_.at(_index));
+    return value;
+  }
+  
+  template <typename container_type>
+  std::array<range,image_stack::dimensionality> offset(const int& _index, const container_type& _shape) const {
+
+    std::array<range,image_stack::dimensionality> value;
+
+    if(_index < 0 || _index >= psi_.size())
+      return value;
+    
+    container_type extended(
+          psi_.at(_index).stack_.shape(),
+          psi_.at(_index).stack_.shape() + image_stack::dimensionality);
+
+
+    for (int d = 0; d < extended.size(); ++d) {
+      extended[d] = extended[d] + 2 * (_shape[d] / 2);
+      value[d] =
+	range(_shape[d] / 2, extended[d] - (_shape[d] / 2));
+    }
+
+    return value;
   }
 
-  
+  //FIXME: harmonize with ViewFromDisk::padd_with_shape
+  template <typename container_type>
+  image_stack padded_psi(const int& _index, const container_type& _shape) {
+    
+    std::array<unsigned int,image_stack::dimensionality> shape = padded_shape(_index, _shape);
+    std::array<range,image_stack::dimensionality> ranges = offset(_index, _shape);
+      
+    image_stack value(shape);
+    std::fill(value.data(),
+	      value.data()+value.num_elements(),
+	      0);
+
+    value[boost::indices[ranges[0]][ranges[1]][ranges[2]]] =  psi_.at(_index).stack_;
+    
+    return value;
+  }
+
+  double lambda() const {
+    return lambda_;
+  }
+
+  double minValue() const {
+    return minValue_;
+  }
+
+  const std::string* path(int i) const {
+
+    return &psi_paths_.at(i);
+    
+  }
 };
 
 typedef IterationData<3> first_2_iterations;

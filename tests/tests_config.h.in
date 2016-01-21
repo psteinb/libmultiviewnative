@@ -8,5 +8,11 @@ namespace multiviewnative {
 
   static const std::string path_to_test_images = LMVN_TEST_IMAGE_PATH;
 
+#ifdef LMVN_TRACE
+  static const bool do_traces = true;
+#else
+  static const bool do_traces = false;
+#endif
+  
 }
 #endif
