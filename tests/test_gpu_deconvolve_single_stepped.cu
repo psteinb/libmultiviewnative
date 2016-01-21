@@ -27,9 +27,6 @@
 #include "test_algorithms.hpp"
 #include "cuda_kernels.cuh"
 
-#define QUOTE(str) #str
-#define STR(str) QUOTE(str)
-
 using namespace multiviewnative;
 
 BOOST_AUTO_TEST_SUITE(cpu_vs_gpu)
