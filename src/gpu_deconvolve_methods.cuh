@@ -20,6 +20,7 @@
 #include "cufft_utils.cuh"
 #include "padd_utils.h"
 #include "image_stack_utils.h"
+#include "utils.hpp"
 
 namespace mvn = multiviewnative;
 
@@ -86,6 +87,8 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
 
   using namespace multiviewnative;
   
+  std::cerr << "[multiviewnative] WARNING using interleaved mode is not supported yet\n";
+    
   const unsigned n_views = input.num_views_;
 
   std::vector<image_stack> forwarded_kernels1(n_views);
@@ -227,7 +230,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
       // convolve: psi x kernel1 -> psiBlurred :: (Psi*P_v)
       inplace_asynch_convolve_on_device_and_kick<transform_type>(src_buffers[intgr_], 
 						 src_buffers[krnl_or_any_],
-						 &input_shape[0],
+								 mvn::begin(input_shape),
 						 fft_num_elements,
 						 streams,
 						 //goes to stream 1, src_buffer 1 (aka krnl_or_any_)
@@ -253,7 +256,7 @@ void inplace_gpu_deconvolve_iteration_interleaved(imageType* psi,
       // is done inside function
       inplace_asynch_convolve_on_device_and_kick<transform_type>(src_buffers[intgr_], 
 						 src_buffers[any_],
-						 &input_shape[0],
+								 mvn::begin(input_shape),
 						 fft_num_elements,
 						 streams,
 						 //goes to stream 1, src_buffer 0 (any_)
@@ -434,7 +437,11 @@ void inplace_gpu_deconvolve_iteration_all_on_device(imageType* psi,
 
   }
 
-  //prepare psi
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // PREPARE PSI (INCL PADDING)
+  //
+  // FIXME: using image_dim as dimensions is dangerous, psi should have the minimal dimensions of all input_views
   mvn::image_stack_ref input_psi(psi, image_dim);
   mvn::image_stack padded_psi(global_padding.extents_);
   global_padding.insert_at_offsets(input_psi, padded_psi);
