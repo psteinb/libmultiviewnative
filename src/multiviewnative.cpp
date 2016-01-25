@@ -84,7 +84,20 @@ namespace multiviewnative {
       typedef type::padding_policy padding_type;
       
     };    
-    
+
+    /**
+       \brief inplace convolution on workspace performing the entire computation on CPU
+
+       \param[in] input workspace that contains all input images, kernels (1+2) and
+       weights
+       \param[out] psi 3D image stack that will contain the output (it is expected
+       to contain some form of start value)
+       \param[in] nthreads number of concurrent threads to use
+
+       \return
+       \retval
+
+    */
     template <typename Tag>
     void inplace_cpu_deconvolve(imageType* psi, 
 				workspace input, 
@@ -104,6 +117,7 @@ namespace multiviewnative {
       std::vector<mvn::shape_t> kernel1_shapes(input.num_views_);
       std::vector<mvn::shape_t> kernel2_shapes(input.num_views_);
 
+     
       for (int v = 0; v < input.num_views_; ++v) {
         kernel1_shapes[v] =
             mvn::shape_t(input.data_[v].kernel1_dims_,
@@ -120,6 +134,11 @@ namespace multiviewnative {
             mvn::image_stack_ref(input.data_[v].kernel2_, kernel2_shapes[v]));
       }
 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      //
+      // PREPARE THE DATA (INCL PADDING)
+      //
+      
       // create the kernels in memory (this will double the memory consumption)
       std::vector<mvn::fftw_image_stack> forwarded_kernel1(input.num_views_);
       std::vector<mvn::fftw_image_stack> forwarded_kernel2(input.num_views_);
@@ -132,7 +151,7 @@ namespace multiviewnative {
 
         transform_t fft(image_shapes[v]);
 
-	//FIXME: if padding is on, this produces wrong result as psi is padded to image_shapes[0]
+	//FIXME: if padding is on, this produces wrong results as psi is padded to image_shapes[0]
         padding_t k1_padder(&(image_shapes[v])[0],
 			  &(kernel1_shapes[v])[0]);
         padding_t k2_padder(&(image_shapes[v])[0],
@@ -154,10 +173,19 @@ namespace multiviewnative {
         fft.forward(&forwarded_kernel2[v]);
       }
 
-      // do the convolution
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      //
+      // PREPARE PSI (INCL PADDING)
+      //
+      // FIXME: using image_dim as dimensions is dangerous, psi should have the minimal dimensions of all input_views
       mvn::image_stack_ref input_psi(psi, image_shapes[0]);
       mvn::image_stack integral = input_psi;
 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      //
+      // ITERATE
+      //
+      
       view_data view_access;
 
       for (int it = 0; it < input.num_iterations_; ++it) {
@@ -200,6 +228,10 @@ namespace multiviewnative {
         }
       }
 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      //
+      // CLEAN-UP
+      //
       // put kernel pointers back to keep memory clean
       for (int v = 0; v < input.num_views_; ++v) {
         input.data_[v].kernel1_ = kernel1_ptr[v].data();
