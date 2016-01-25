@@ -3,7 +3,7 @@ include_directories(${PROJECT_SOURCE_DIR}/inc)
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 SET(Boost_USE_MULTITHREADED ON)
-FIND_PACKAGE (Boost 1.42 QUIET COMPONENTS system filesystem unit_test_framework regex REQUIRED)
+FIND_PACKAGE (Boost 1.55 QUIET COMPONENTS system filesystem unit_test_framework regex REQUIRED)
 IF(Boost_FOUND)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS}) 

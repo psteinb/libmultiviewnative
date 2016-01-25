@@ -210,7 +210,7 @@ ENDIF(INCLUDE_CUDA)
 # add subdirectories
 ADD_SUBDIRECTORY(src)
 
-FIND_PACKAGE (Boost 1.42 COMPONENTS system filesystem unit_test_framework thread REQUIRED)
+FIND_PACKAGE (Boost 1.55 COMPONENTS system filesystem unit_test_framework thread REQUIRED)
 IF(Boost_FOUND)
 ADD_SUBDIRECTORY(tests)
 ADD_SUBDIRECTORY(bench)
