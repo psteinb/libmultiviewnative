@@ -121,6 +121,10 @@ target_link_libraries(test_plan_store ext_boost_unit_test_framework ${FFTW_LIBS_
 add_executable(test_fftw_convolve test_fftw_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_fftw_convolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
 
+add_executable(test_fftw_numerical_stability test_fftw_numerical_stability.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
+target_link_libraries(test_fftw_numerical_stability ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework ${FFTW_LIBS_TO_USE})
+
+
 add_executable(test_discrete_convolve test_discrete_convolve.cpp ${PROJECT_SOURCE_DIR}/src/image_stack_utils.cpp)
 target_link_libraries(test_discrete_convolve ext_boost_system ext_boost_filesystem ext_boost_unit_test_framework)
 
